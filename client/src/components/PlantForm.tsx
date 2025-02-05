@@ -147,6 +147,34 @@ export default function PlantForm({ plant }: PlantFormProps) {
 
         <FormField
           control={form.control}
+          name="wateringInterval"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Watering Interval (days)</FormLabel>
+              <FormControl>
+                <Input type="number" min={1} {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="fertilizingInterval"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Fertilizing Interval (days)</FormLabel>
+              <FormControl>
+                <Input type="number" min={1} {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="sunlight"
           render={({ field }) => (
             <FormItem>
@@ -163,6 +191,20 @@ export default function PlantForm({ plant }: PlantFormProps) {
                   <SelectItem value="high">High Light</SelectItem>
                 </SelectContent>
               </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notes</FormLabel>
+              <FormControl>
+                <Input placeholder="Additional notes" {...field} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}

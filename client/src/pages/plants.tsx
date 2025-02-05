@@ -2,9 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Plant } from "@shared/schema";
 import PlantCard from "@/components/PlantCard";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
 import PlantForm from "@/components/PlantForm";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function Plants() {
   const { data: plants, isLoading } = useQuery<Plant[]>({ 
@@ -22,8 +23,13 @@ export default function Plants() {
               Add Plant
             </Button>
           </DialogTrigger>
-          <DialogContent>
-            <PlantForm />
+          <DialogContent className="max-h-[90vh]">
+            <DialogHeader>
+              <DialogTitle>{plants ? 'Add New Plant' : 'Edit Plant'}</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="max-h-[70vh] pr-4">
+              <PlantForm />
+            </ScrollArea>
           </DialogContent>
         </Dialog>
       </div>

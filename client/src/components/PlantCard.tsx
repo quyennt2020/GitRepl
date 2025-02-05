@@ -2,13 +2,14 @@ import { Plant } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Droplets, Sun, Pencil, Trash2 } from "lucide-react";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import PlantForm from "./PlantForm";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface PlantCardProps {
   plant: Plant;
@@ -55,8 +56,13 @@ export default function PlantCard({ plant }: PlantCardProps) {
                   <Pencil className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
-              <DialogContent>
-                <PlantForm plant={plant} />
+              <DialogContent className="max-h-[90vh]">
+                <DialogHeader>
+                  <DialogTitle>Edit Plant</DialogTitle>
+                </DialogHeader>
+                <ScrollArea className="max-h-[70vh] pr-4">
+                  <PlantForm plant={plant} />
+                </ScrollArea>
               </DialogContent>
             </Dialog>
 
