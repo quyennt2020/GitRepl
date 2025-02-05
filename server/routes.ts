@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPlantSchema, insertCareTaskSchema } from "@shared/schema";
+import { insertPlantSchema } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
   // Plants
@@ -26,8 +26,16 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.patch("/api/plants/:id", async (req, res) => {
-    const plant = await storage.updatePlant(Number(req.params.id), req.body);
-    res.json(plant);
+    const result = insertPlantSchema.partial().safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+    try {
+      const plant = await storage.updatePlant(Number(req.params.id), result.data);
+      res.json(plant);
+    } catch (error) {
+      res.status(404).json({ message: "Plant not found" });
+    }
   });
 
   app.delete("/api/plants/:id", async (req, res) => {
