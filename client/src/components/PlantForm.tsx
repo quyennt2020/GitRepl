@@ -36,8 +36,8 @@ export default function PlantForm({ plant }: PlantFormProps) {
       image: plant.image,
       wateringInterval: plant.wateringInterval,
       fertilizingInterval: plant.fertilizingInterval,
-      sunlight: plant.sunlight,
-      notes: plant.notes
+      sunlight: plant.sunlight as "low" | "medium" | "high",
+      notes: plant.notes || ""
     } : {
       name: "",
       species: "",
@@ -64,17 +64,30 @@ export default function PlantForm({ plant }: PlantFormProps) {
       form.reset();
       setShowCamera(false);
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Form submission error:', error);
       toast({ 
         title: `Failed to ${plant ? 'update' : 'add'} plant`,
+        description: error instanceof Error ? error.message : 'Please try again',
         variant: "destructive"
       });
     }
   });
 
   function handleImageCapture(imageUrl: string) {
-    form.setValue("image", imageUrl, { shouldValidate: true });
-    setShowCamera(false);
+    try {
+      console.log('Captured image URL length:', imageUrl.length);
+      form.setValue("image", imageUrl, { shouldValidate: true });
+      console.log('Image set in form:', form.getValues("image").slice(0, 100) + '...');
+      setShowCamera(false);
+    } catch (error) {
+      console.error('Error setting image:', error);
+      toast({
+        title: "Failed to set image",
+        description: "Please try again",
+        variant: "destructive"
+      });
+    }
   }
 
   return (

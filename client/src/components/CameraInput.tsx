@@ -37,7 +37,8 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
       const context = canvas.getContext('2d');
       if (context) {
         context.drawImage(video, 0, 0);
-        const imageUrl = canvas.toDataURL('image/jpeg');
+        const imageUrl = canvas.toDataURL('image/jpeg', 0.8); // Add quality parameter
+        console.log('Captured image URL length:', imageUrl.length);
         onCapture(imageUrl);
 
         // Stop the camera stream
@@ -51,9 +52,19 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
   function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        alert('Image size should be less than 5MB');
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
-        onCapture(reader.result as string);
+        const result = reader.result as string;
+        console.log('File upload result length:', result.length);
+        onCapture(result);
+      };
+      reader.onerror = (error) => {
+        console.error('Error reading file:', error);
       };
       reader.readAsDataURL(file);
     }
