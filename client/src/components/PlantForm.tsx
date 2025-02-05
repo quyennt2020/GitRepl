@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { InsertPlant, insertPlantSchema } from "@shared/schema";
+import { InsertPlant, insertPlantSchema, type Plant } from "@shared/schema";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,23 +9,40 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
+import CameraInput from "./CameraInput";
+import { useState } from "react";
 
-const PLANT_IMAGES = [
+const DEFAULT_PLANT_IMAGES = [
   "https://images.unsplash.com/photo-1604762524889-3e2fcc145683",
   "https://images.unsplash.com/photo-1518335935020-cfd6580c1ab4",
   "https://images.unsplash.com/photo-1592150621744-aca64f48394a",
   "https://images.unsplash.com/photo-1626965654957-fef1cb80d4b7"
 ];
 
-export default function PlantForm() {
+interface PlantFormProps {
+  plant?: Plant;
+}
+
+export default function PlantForm({ plant }: PlantFormProps) {
   const { toast } = useToast();
+  const [showCamera, setShowCamera] = useState(false);
+
   const form = useForm<InsertPlant>({
     resolver: zodResolver(insertPlantSchema),
-    defaultValues: {
+    defaultValues: plant ? {
+      name: plant.name,
+      species: plant.species,
+      location: plant.location,
+      image: plant.image,
+      wateringInterval: plant.wateringInterval,
+      fertilizingInterval: plant.fertilizingInterval,
+      sunlight: plant.sunlight,
+      notes: plant.notes
+    } : {
       name: "",
       species: "",
       location: "",
-      image: PLANT_IMAGES[0],
+      image: DEFAULT_PLANT_IMAGES[0],
       wateringInterval: 7,
       fertilizingInterval: 30,
       sunlight: "medium",
@@ -35,20 +52,30 @@ export default function PlantForm() {
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (data: InsertPlant) => {
-      await apiRequest("POST", "/api/plants", data);
+      if (plant) {
+        await apiRequest("PATCH", `/api/plants/${plant.id}`, data);
+      } else {
+        await apiRequest("POST", "/api/plants", data);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plants"] });
-      toast({ title: "Plant added successfully" });
+      toast({ title: `Plant ${plant ? 'updated' : 'added'} successfully` });
       form.reset();
+      setShowCamera(false);
     },
     onError: () => {
       toast({ 
-        title: "Failed to add plant",
+        title: `Failed to ${plant ? 'update' : 'add'} plant`,
         variant: "destructive"
       });
     }
   });
+
+  function handleImageCapture(imageUrl: string) {
+    form.setValue("image", imageUrl);
+    setShowCamera(false);
+  }
 
   return (
     <Form {...form}>
@@ -97,6 +124,29 @@ export default function PlantForm() {
 
         <FormField
           control={form.control}
+          name="image"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Plant Photo</FormLabel>
+              {showCamera ? (
+                <CameraInput onCapture={handleImageCapture} />
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShowCamera(true)}
+                >
+                  Take Photo
+                </Button>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="sunlight"
           render={({ field }) => (
             <FormItem>
@@ -119,7 +169,7 @@ export default function PlantForm() {
         />
 
         <Button type="submit" className="w-full" disabled={isPending}>
-          {isPending ? "Adding..." : "Add Plant"}
+          {isPending ? `${plant ? 'Updating' : 'Adding'}...` : plant ? 'Update Plant' : 'Add Plant'}
         </Button>
       </form>
     </Form>

@@ -1,13 +1,38 @@
 import { Plant } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
-import { Droplets, Sun } from "lucide-react";
+import { Droplets, Sun, Pencil, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import PlantForm from "./PlantForm";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface PlantCardProps {
   plant: Plant;
 }
 
 export default function PlantCard({ plant }: PlantCardProps) {
+  const { toast } = useToast();
+
+  const { mutate: deletePlant } = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/plants/${plant.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/plants"] });
+      toast({ title: "Plant deleted successfully" });
+    },
+    onError: () => {
+      toast({
+        title: "Failed to delete plant",
+        variant: "destructive",
+      });
+    },
+  });
+
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
       <AspectRatio ratio={1}>
@@ -18,9 +43,46 @@ export default function PlantCard({ plant }: PlantCardProps) {
         />
       </AspectRatio>
       <CardContent className="p-3">
-        <h3 className="font-semibold truncate">{plant.name}</h3>
-        <p className="text-sm text-muted-foreground truncate">{plant.species}</p>
-        <div className="flex items-center gap-3 mt-2">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h3 className="font-semibold truncate">{plant.name}</h3>
+            <p className="text-sm text-muted-foreground truncate">{plant.species}</p>
+          </div>
+          <div className="flex gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <PlantForm plant={plant} />
+              </DialogContent>
+            </Dialog>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Plant</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete {plant.name}? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deletePlant()}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 text-xs">
             <Droplets className="h-3 w-3" />
             {plant.wateringInterval}d
