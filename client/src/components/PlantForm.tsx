@@ -11,19 +11,14 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import CameraInput from "./CameraInput";
 import { useState } from "react";
-
-const DEFAULT_PLANT_IMAGES = [
-  "https://images.unsplash.com/photo-1604762524889-3e2fcc145683",
-  "https://images.unsplash.com/photo-1518335935020-cfd6580c1ab4",
-  "https://images.unsplash.com/photo-1592150621744-aca64f48394a",
-  "https://images.unsplash.com/photo-1626965654957-fef1cb80d4b7"
-];
+import { Camera } from "lucide-react";
 
 interface PlantFormProps {
   plant?: Plant;
+  onSuccess?: () => void;
 }
 
-export default function PlantForm({ plant }: PlantFormProps) {
+export default function PlantForm({ plant, onSuccess }: PlantFormProps) {
   const { toast } = useToast();
   const [showCamera, setShowCamera] = useState(false);
 
@@ -42,7 +37,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
       name: "",
       species: "",
       location: "",
-      image: DEFAULT_PLANT_IMAGES[0],
+      image: "",
       wateringInterval: 7,
       fertilizingInterval: 30,
       sunlight: "medium",
@@ -60,9 +55,13 @@ export default function PlantForm({ plant }: PlantFormProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plants"] });
-      toast({ title: `Plant ${plant ? 'updated' : 'added'} successfully` });
+      toast({ 
+        title: plant ? "Plant updated successfully" : "Plant added successfully",
+        description: plant ? "Your plant has been updated" : "Your new plant has been added"
+      });
       form.reset();
       setShowCamera(false);
+      onSuccess?.();
     },
     onError: (error) => {
       console.error('Form submission error:', error);
@@ -76,9 +75,8 @@ export default function PlantForm({ plant }: PlantFormProps) {
 
   function handleImageCapture(imageUrl: string) {
     try {
-      console.log('Captured image URL length:', imageUrl.length);
+      console.log('Setting new image, size:', imageUrl.length);
       form.setValue("image", imageUrl, { shouldValidate: true });
-      console.log('Image set in form:', form.getValues("image").slice(0, 100) + '...');
       setShowCamera(false);
     } catch (error) {
       console.error('Error setting image:', error);
@@ -90,9 +88,50 @@ export default function PlantForm({ plant }: PlantFormProps) {
     }
   }
 
+  const imageValue = form.watch("image");
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit((data) => mutate(data))} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="image"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Plant Photo</FormLabel>
+              {showCamera ? (
+                <CameraInput onCapture={handleImageCapture} />
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-muted">
+                    {imageValue ? (
+                      <img
+                        src={imageValue}
+                        alt="Plant preview"
+                        className="object-cover w-full h-full"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        No image selected
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setShowCamera(true)}
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    {imageValue ? "Change Photo" : "Add Photo"}
+                  </Button>
+                </div>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <FormField
           control={form.control}
           name="name"
@@ -137,44 +176,17 @@ export default function PlantForm({ plant }: PlantFormProps) {
 
         <FormField
           control={form.control}
-          name="image"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Plant Photo</FormLabel>
-              {showCamera ? (
-                <CameraInput onCapture={handleImageCapture} />
-              ) : (
-                <div className="space-y-2">
-                  <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted">
-                    <img
-                      src={field.value}
-                      alt="Plant preview"
-                      className="object-cover w-full h-full"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setShowCamera(true)}
-                  >
-                    Change Photo
-                  </Button>
-                </div>
-              )}
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
           name="wateringInterval"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Watering Interval (days)</FormLabel>
               <FormControl>
-                <Input type="number" min={1} {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
+                <Input 
+                  type="number" 
+                  min={1} 
+                  {...field} 
+                  onChange={e => field.onChange(parseInt(e.target.value))} 
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -188,7 +200,12 @@ export default function PlantForm({ plant }: PlantFormProps) {
             <FormItem>
               <FormLabel>Fertilizing Interval (days)</FormLabel>
               <FormControl>
-                <Input type="number" min={1} {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
+                <Input 
+                  type="number" 
+                  min={1} 
+                  {...field} 
+                  onChange={e => field.onChange(parseInt(e.target.value))} 
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -225,7 +242,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
             <FormItem>
               <FormLabel>Notes</FormLabel>
               <FormControl>
-                <Input placeholder="Additional notes" {...field} />
+                <Input placeholder="Additional notes" {...field} value={field.value || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -233,7 +250,10 @@ export default function PlantForm({ plant }: PlantFormProps) {
         />
 
         <Button type="submit" className="w-full" disabled={isPending}>
-          {isPending ? `${plant ? 'Updating' : 'Adding'}...` : plant ? 'Update Plant' : 'Add Plant'}
+          {isPending ? 
+            (plant ? 'Updating...' : 'Adding...') : 
+            (plant ? 'Update Plant' : 'Add Plant')
+          }
         </Button>
       </form>
     </Form>
