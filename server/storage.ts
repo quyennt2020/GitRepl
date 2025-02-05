@@ -29,61 +29,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPlant(insertPlant: InsertPlant): Promise<Plant> {
-    try {
-      const [plant] = await db
-        .insert(plants)
-        .values({
-          ...insertPlant,
-          lastWatered: new Date(),
-          lastFertilized: new Date(),
-        })
-        .returning();
-      return plant;
-    } catch (error) {
-      console.error('Error creating plant:', error);
-      throw error;
-    }
+    const [plant] = await db
+      .insert(plants)
+      .values({
+        ...insertPlant,
+        lastWatered: new Date(),
+        lastFertilized: new Date(),
+      })
+      .returning();
+    return plant;
   }
 
   async updatePlant(id: number, update: Partial<Plant>): Promise<Plant> {
-    try {
-      // First check if plant exists
-      const exists = await this.getPlant(id);
-      if (!exists) {
-        throw new Error(`Plant with id ${id} not found`);
-      }
-
-      const [plant] = await db
-        .update(plants)
-        .set({
-          ...exists, // Start with existing data
-          ...update, // Override with updates
-          // Preserve timestamps if not explicitly updated
-          lastWatered: update.lastWatered || exists.lastWatered,
-          lastFertilized: update.lastFertilized || exists.lastFertilized,
-        })
-        .where(eq(plants.id, id))
-        .returning();
-
-      if (!plant) {
-        throw new Error(`Failed to update plant with id ${id}`);
-      }
-
-      return plant;
-    } catch (error) {
-      console.error('Error updating plant:', error);
-      throw error;
-    }
+    const [plant] = await db
+      .update(plants)
+      .set(update)
+      .where(eq(plants.id, id))
+      .returning();
+    if (!plant) throw new Error("Plant not found");
+    return plant;
   }
 
   async deletePlant(id: number): Promise<void> {
-    try {
-      await db.delete(plants).where(eq(plants.id, id));
-      await this.deleteCareTasks(id);
-    } catch (error) {
-      console.error('Error deleting plant:', error);
-      throw error;
-    }
+    await db.delete(plants).where(eq(plants.id, id));
+    await this.deleteCareTasks(id);
   }
 
   async getCareTasks(): Promise<CareTask[]> {

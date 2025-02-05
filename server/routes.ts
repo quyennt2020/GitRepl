@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPlantSchema } from "@shared/schema";
+import { insertPlantSchema, insertCareTaskSchema } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
   // Plants
@@ -26,20 +26,8 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.patch("/api/plants/:id", async (req, res) => {
-    const result = insertPlantSchema.partial().safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({ message: result.error.message });
-    }
-    try {
-      const plant = await storage.updatePlant(Number(req.params.id), result.data);
-      res.json(plant);
-    } catch (error) {
-      if (error instanceof Error) {
-        res.status(404).json({ message: error.message });
-      } else {
-        res.status(500).json({ message: "Internal server error" });
-      }
-    }
+    const plant = await storage.updatePlant(Number(req.params.id), req.body);
+    res.json(plant);
   });
 
   app.delete("/api/plants/:id", async (req, res) => {
@@ -54,7 +42,11 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.post("/api/tasks", async (req, res) => {
-    const task = await storage.createCareTask(req.body);
+    const result = insertCareTaskSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+    const task = await storage.createCareTask(result.data);
     res.status(201).json(task);
   });
 
