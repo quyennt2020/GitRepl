@@ -1,4 +1,6 @@
-import { Plant, InsertPlant, CareTask, InsertCareTask } from "@shared/schema";
+import { Plant, InsertPlant, CareTask, InsertCareTask, plants, careTasks } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Plants
@@ -7,7 +9,7 @@ export interface IStorage {
   createPlant(plant: InsertPlant): Promise<Plant>;
   updatePlant(id: number, plant: Partial<Plant>): Promise<Plant>;
   deletePlant(id: number): Promise<void>;
-  
+
   // Care Tasks
   getCareTasks(): Promise<CareTask[]>;
   getCareTask(id: number): Promise<CareTask | undefined>;
@@ -16,84 +18,73 @@ export interface IStorage {
   deleteCareTasks(plantId: number): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private plants: Map<number, Plant>;
-  private careTasks: Map<number, CareTask>;
-  private plantId: number;
-  private taskId: number;
-
-  constructor() {
-    this.plants = new Map();
-    this.careTasks = new Map();
-    this.plantId = 1;
-    this.taskId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getPlants(): Promise<Plant[]> {
-    return Array.from(this.plants.values());
+    return await db.select().from(plants);
   }
 
   async getPlant(id: number): Promise<Plant | undefined> {
-    return this.plants.get(id);
+    const [plant] = await db.select().from(plants).where(eq(plants.id, id));
+    return plant;
   }
 
   async createPlant(insertPlant: InsertPlant): Promise<Plant> {
-    const id = this.plantId++;
-    const plant: Plant = {
-      ...insertPlant,
-      id,
-      lastWatered: new Date(),
-      lastFertilized: new Date(),
-    };
-    this.plants.set(id, plant);
+    const [plant] = await db
+      .insert(plants)
+      .values({
+        ...insertPlant,
+        lastWatered: new Date(),
+        lastFertilized: new Date(),
+      })
+      .returning();
     return plant;
   }
 
   async updatePlant(id: number, update: Partial<Plant>): Promise<Plant> {
-    const plant = await this.getPlant(id);
+    const [plant] = await db
+      .update(plants)
+      .set(update)
+      .where(eq(plants.id, id))
+      .returning();
     if (!plant) throw new Error("Plant not found");
-    
-    const updated = { ...plant, ...update };
-    this.plants.set(id, updated);
-    return updated;
+    return plant;
   }
 
   async deletePlant(id: number): Promise<void> {
-    this.plants.delete(id);
+    await db.delete(plants).where(eq(plants.id, id));
     await this.deleteCareTasks(id);
   }
 
   async getCareTasks(): Promise<CareTask[]> {
-    return Array.from(this.careTasks.values());
+    return await db.select().from(careTasks);
   }
 
   async getCareTask(id: number): Promise<CareTask | undefined> {
-    return this.careTasks.get(id);
+    const [task] = await db.select().from(careTasks).where(eq(careTasks.id, id));
+    return task;
   }
 
   async createCareTask(insertTask: InsertCareTask): Promise<CareTask> {
-    const id = this.taskId++;
-    const task: CareTask = { ...insertTask, id };
-    this.careTasks.set(id, task);
+    const [task] = await db
+      .insert(careTasks)
+      .values(insertTask)
+      .returning();
     return task;
   }
 
   async updateCareTask(id: number, update: Partial<CareTask>): Promise<CareTask> {
-    const task = await this.getCareTask(id);
+    const [task] = await db
+      .update(careTasks)
+      .set(update)
+      .where(eq(careTasks.id, id))
+      .returning();
     if (!task) throw new Error("Task not found");
-    
-    const updated = { ...task, ...update };
-    this.careTasks.set(id, updated);
-    return updated;
+    return task;
   }
 
   async deleteCareTasks(plantId: number): Promise<void> {
-    for (const [id, task] of this.careTasks) {
-      if (task.plantId === plantId) {
-        this.careTasks.delete(id);
-      }
-    }
+    await db.delete(careTasks).where(eq(careTasks.plantId, plantId));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
