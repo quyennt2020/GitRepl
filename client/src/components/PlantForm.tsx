@@ -100,17 +100,7 @@ export default function PlantForm({ plant, onSuccess }: PlantFormProps) {
             <FormItem>
               <FormLabel>Plant Photo</FormLabel>
               {showCamera ? (
-                <div className="space-y-4">
-                  <CameraInput onCapture={handleImageCapture} />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setShowCamera(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
+                <CameraInput onCapture={handleImageCapture} />
               ) : (
                 <div className="space-y-4">
                   <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-muted">
@@ -126,40 +116,15 @@ export default function PlantForm({ plant, onSuccess }: PlantFormProps) {
                       </div>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowCamera(true)}
-                    >
-                      <Camera className="w-4 h-4 mr-2" />
-                      Take Photo
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => document.getElementById('file-upload')?.click()}
-                    >
-                      <Image className="w-4 h-4 mr-2" />
-                      Gallery
-                    </Button>
-                    <input
-                      id="file-upload"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            handleImageCapture(reader.result as string);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setShowCamera(true)}
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    {imageValue ? "Change Photo" : "Add Photo"}
+                  </Button>
                 </div>
               )}
               <FormMessage />
