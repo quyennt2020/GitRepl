@@ -10,14 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import CameraInput from "./CameraInput";
-import { useState } from "react";
-
-const DEFAULT_PLANT_IMAGES = [
-  "https://images.unsplash.com/photo-1604762524889-3e2fcc145683",
-  "https://images.unsplash.com/photo-1518335935020-cfd6580c1ab4",
-  "https://images.unsplash.com/photo-1592150621744-aca64f48394a",
-  "https://images.unsplash.com/photo-1626965654957-fef1cb80d4b7"
-];
+import { useState, useRef } from "react";
+import { Camera, Upload } from "lucide-react";
 
 interface PlantFormProps {
   plant?: Plant;
@@ -26,6 +20,7 @@ interface PlantFormProps {
 export default function PlantForm({ plant }: PlantFormProps) {
   const { toast } = useToast();
   const [showCamera, setShowCamera] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<InsertPlant>({
     resolver: zodResolver(insertPlantSchema),
@@ -42,7 +37,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
       name: "",
       species: "",
       location: "",
-      image: DEFAULT_PLANT_IMAGES[0],
+      image: "",
       wateringInterval: 7,
       fertilizingInterval: 30,
       sunlight: "medium",
@@ -75,6 +70,18 @@ export default function PlantForm({ plant }: PlantFormProps) {
   function handleImageCapture(imageUrl: string) {
     form.setValue("image", imageUrl);
     setShowCamera(false);
+  }
+
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imageUrl = e.target?.result as string;
+        form.setValue("image", imageUrl);
+      };
+      reader.readAsDataURL(file);
+    }
   }
 
   return (
@@ -128,18 +135,48 @@ export default function PlantForm({ plant }: PlantFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Plant Photo</FormLabel>
-              {showCamera ? (
-                <CameraInput onCapture={handleImageCapture} />
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setShowCamera(true)}
-                >
-                  Take Photo
-                </Button>
-              )}
+              <div className="space-y-2">
+                {showCamera ? (
+                  <CameraInput onCapture={handleImageCapture} />
+                ) : (
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setShowCamera(true)}
+                    >
+                      <Camera className="w-4 h-4 mr-2" />
+                      Take Photo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Photo
+                    </Button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                    />
+                  </div>
+                )}
+                {field.value && (
+                  <div className="relative w-full aspect-square rounded-lg overflow-hidden">
+                    <img 
+                      src={field.value} 
+                      alt="Selected plant"
+                      className="object-cover w-full h-full"
+                    />
+                  </div>
+                )}
+              </div>
               <FormMessage />
             </FormItem>
           )}
