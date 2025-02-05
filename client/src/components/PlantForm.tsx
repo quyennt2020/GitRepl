@@ -31,8 +31,8 @@ export default function PlantForm({ plant }: PlantFormProps) {
       image: plant.image,
       wateringInterval: plant.wateringInterval,
       fertilizingInterval: plant.fertilizingInterval,
-      sunlight: plant.sunlight,
-      notes: plant.notes
+      sunlight: plant.sunlight as "low" | "medium" | "high",
+      notes: plant.notes ?? ""
     } : {
       name: "",
       species: "",
@@ -47,27 +47,38 @@ export default function PlantForm({ plant }: PlantFormProps) {
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (data: InsertPlant) => {
+      console.log('Submitting form data:', data); // Debug log
       if (plant) {
-        await apiRequest("PATCH", `/api/plants/${plant.id}`, data);
+        const response = await apiRequest("PATCH", `/api/plants/${plant.id}`, data);
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(error);
+        }
+        return response;
       } else {
-        await apiRequest("POST", "/api/plants", data);
+        return await apiRequest("POST", "/api/plants", data);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plants"] });
       toast({ title: `Plant ${plant ? 'updated' : 'added'} successfully` });
-      form.reset();
-      setShowCamera(false);
+      if (!plant) {
+        form.reset(); // Only reset on create, not update
+        setShowCamera(false);
+      }
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Plant mutation error:', error);
       toast({ 
         title: `Failed to ${plant ? 'update' : 'add'} plant`,
+        description: error.message,
         variant: "destructive"
       });
     }
   });
 
   function handleImageCapture(imageUrl: string) {
+    console.log('Setting image from camera:', imageUrl.substring(0, 50) + '...'); // Debug log
     form.setValue("image", imageUrl);
     setShowCamera(false);
   }
@@ -78,15 +89,21 @@ export default function PlantForm({ plant }: PlantFormProps) {
       const reader = new FileReader();
       reader.onload = (e) => {
         const imageUrl = e.target?.result as string;
+        console.log('Setting image from file:', imageUrl.substring(0, 50) + '...'); // Debug log
         form.setValue("image", imageUrl);
       };
       reader.readAsDataURL(file);
     }
   }
 
+  async function onSubmit(data: InsertPlant) {
+    console.log('Form submission data:', { ...data, image: data.image.substring(0, 50) + '...' }); // Debug log
+    mutate(data);
+  }
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => mutate(data))} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
@@ -177,6 +194,34 @@ export default function PlantForm({ plant }: PlantFormProps) {
                   </div>
                 )}
               </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="wateringInterval"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Watering Interval (days)</FormLabel>
+              <FormControl>
+                <Input type="number" min={1} {...field} onChange={e => field.onChange(Number(e.target.value))} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="fertilizingInterval"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Fertilizing Interval (days)</FormLabel>
+              <FormControl>
+                <Input type="number" min={1} {...field} onChange={e => field.onChange(Number(e.target.value))} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
