@@ -73,7 +73,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
   });
 
   function handleImageCapture(imageUrl: string) {
-    form.setValue("image", imageUrl);
+    form.setValue("image", imageUrl, { shouldValidate: true });
     setShowCamera(false);
   }
 
@@ -131,14 +131,23 @@ export default function PlantForm({ plant }: PlantFormProps) {
               {showCamera ? (
                 <CameraInput onCapture={handleImageCapture} />
               ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setShowCamera(true)}
-                >
-                  Take Photo
-                </Button>
+                <div className="space-y-2">
+                  <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted">
+                    <img
+                      src={field.value}
+                      alt="Plant preview"
+                      className="object-cover w-full h-full"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setShowCamera(true)}
+                  >
+                    Change Photo
+                  </Button>
+                </div>
               )}
               <FormMessage />
             </FormItem>

@@ -10,6 +10,7 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
   const [isCapturing, setIsCapturing] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function startCamera() {
     try {
@@ -29,21 +30,32 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      
+
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      
+
       const context = canvas.getContext('2d');
       if (context) {
         context.drawImage(video, 0, 0);
         const imageUrl = canvas.toDataURL('image/jpeg');
         onCapture(imageUrl);
-        
+
         // Stop the camera stream
         const stream = video.srcObject as MediaStream;
         stream?.getTracks().forEach(track => track.stop());
         setIsCapturing(false);
       }
+    }
+  }
+
+  function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onCapture(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   }
 
@@ -65,13 +77,31 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
           </Button>
         </>
       ) : (
-        <Button 
-          onClick={startCamera}
-          className="w-full"
-        >
-          <Camera className="w-4 h-4 mr-2" />
-          Open Camera
-        </Button>
+        <div className="space-y-2">
+          <Button 
+            onClick={startCamera}
+            className="w-full"
+          >
+            <Camera className="w-4 h-4 mr-2" />
+            Open Camera
+          </Button>
+          <div className="relative">
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Upload from Gallery
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+          </div>
+        </div>
       )}
       <canvas ref={canvasRef} className="hidden" />
     </div>
