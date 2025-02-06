@@ -52,7 +52,6 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
 
         // Convert to JPEG with 0.8 quality
         const imageUrl = canvas.toDataURL('image/jpeg', 0.8);
-        console.log('Captured photo, data URL length:', imageUrl.length);
 
         // Stop the camera stream
         const stream = video.srcObject as MediaStream;
@@ -77,8 +76,6 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
     if (!file) return;
 
     try {
-      console.log('Selected file:', file.name, 'type:', file.type, 'size:', file.size);
-
       // Validate file type
       if (!file.type.startsWith('image/')) {
         toast({
@@ -103,13 +100,12 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
 
       reader.onload = () => {
         if (typeof reader.result === 'string') {
-          console.log('File read successfully, data URL length:', reader.result.length);
+          // Pass the image data to parent
           onCapture(reader.result);
         }
       };
 
       reader.onerror = () => {
-        console.error('Error reading file:', reader.error);
         toast({
           title: "Upload Error",
           description: "Failed to read image file. Please try again.",
