@@ -46,7 +46,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
     mutationFn: async (values: InsertPlant) => {
       const payload = {
         ...values,
-        image: previewImage // Always use the current preview image
+        image: previewImage
       };
 
       if (plant) {
@@ -60,15 +60,13 @@ export default function PlantForm({ plant }: PlantFormProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plants"] });
       toast({ 
-        title: `Plant ${plant ? 'updated' : 'added'} successfully`,
-        description: "Your changes have been saved."
+        title: `Plant ${plant ? 'updated' : 'added'} successfully`
       });
 
       if (!plant) {
         form.reset();
         setPreviewImage(DEFAULT_PLANT_IMAGES[0]);
       }
-
       setShowCamera(false);
     },
     onError: (error) => {
@@ -91,10 +89,14 @@ export default function PlantForm({ plant }: PlantFormProps) {
       return;
     }
 
-    // Update both the preview and form state
+    // Update preview image state
     setPreviewImage(imageUrl);
+
+    // Update form state
     form.setValue("image", imageUrl);
-    setShowCamera(false); // Hide camera after successful capture
+
+    // Hide camera
+    setShowCamera(false);
   }
 
   const onSubmit = async (values: InsertPlant) => {
@@ -127,22 +129,20 @@ export default function PlantForm({ plant }: PlantFormProps) {
               ) : (
                 <div className="space-y-2">
                   <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted">
-                    {previewImage && (
-                      <img
-                        key={previewImage} // Force re-render when image changes
-                        src={previewImage}
-                        alt="Plant preview"
-                        className="object-cover w-full h-full"
-                        onError={() => {
-                          setPreviewImage(DEFAULT_PLANT_IMAGES[0]);
-                          toast({
-                            title: "Image Error",
-                            description: "Failed to load image, using default instead",
-                            variant: "destructive"
-                          });
-                        }}
-                      />
-                    )}
+                    <img
+                      key={previewImage} // Force re-render when image changes
+                      src={previewImage}
+                      alt="Plant preview"
+                      className="object-cover w-full h-full"
+                      onError={() => {
+                        setPreviewImage(DEFAULT_PLANT_IMAGES[0]);
+                        toast({
+                          title: "Image Error",
+                          description: "Failed to load image, using default instead",
+                          variant: "destructive"
+                        });
+                      }}
+                    />
                   </div>
                   <Button
                     type="button"
@@ -211,8 +211,8 @@ export default function PlantForm({ plant }: PlantFormProps) {
                 <Input 
                   type="number" 
                   min={1} 
-                  {...field} 
-                  onChange={e => field.onChange(parseInt(e.target.value))} 
+                  {...field}
+                  onChange={e => field.onChange(parseInt(e.target.value))}
                 />
               </FormControl>
               <FormMessage />
@@ -230,8 +230,8 @@ export default function PlantForm({ plant }: PlantFormProps) {
                 <Input 
                   type="number" 
                   min={1} 
-                  {...field} 
-                  onChange={e => field.onChange(parseInt(e.target.value))} 
+                  {...field}
+                  onChange={e => field.onChange(parseInt(e.target.value))}
                 />
               </FormControl>
               <FormMessage />

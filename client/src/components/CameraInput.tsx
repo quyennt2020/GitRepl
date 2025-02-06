@@ -44,7 +44,6 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
           let width = img.width;
           let height = img.height;
 
-          // Calculate new dimensions
           if (width > maxWidth) {
             height = (height * maxWidth) / width;
             width = maxWidth;
@@ -60,16 +59,8 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
           }
 
           ctx.drawImage(img, 0, 0, width, height);
-          // Use lower quality (0.4) for more compression
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.4);
-
-          // Verify the size isn't too large (roughly 7MB)
-          if (dataUrl.length > 7000000) {
-            // If still too large, compress further
-            resolve(canvas.toDataURL('image/jpeg', 0.2));
-          } else {
-            resolve(dataUrl);
-          }
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+          resolve(dataUrl);
         };
         img.onerror = () => reject(new Error('Failed to load image'));
         img.src = e.target?.result as string;
@@ -80,36 +71,41 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
   }
 
   function capturePhoto() {
+    if (!videoRef.current || !canvasRef.current) return;
+
     try {
-      if (videoRef.current && canvasRef.current) {
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
 
-        // Set canvas size to match video but limit dimensions
-        const maxWidth = 800;
-        let width = video.videoWidth;
-        let height = video.videoHeight;
+      // Set canvas size to match video
+      const maxWidth = 800;
+      let width = video.videoWidth;
+      let height = video.videoHeight;
 
-        if (width > maxWidth) {
-          height = (height * maxWidth) / width;
-          width = maxWidth;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const context = canvas.getContext('2d');
-        if (!context) throw new Error("Could not get canvas context");
-
-        context.drawImage(video, 0, 0, width, height);
-        const imageUrl = canvas.toDataURL('image/jpeg', 0.4);
-
-        const stream = video.srcObject as MediaStream;
-        stream?.getTracks().forEach(track => track.stop());
-        setIsCapturing(false);
-
-        onCapture(imageUrl);
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width;
+        width = maxWidth;
       }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error("Could not get canvas context");
+
+      // Capture the frame
+      context.drawImage(video, 0, 0, width, height);
+
+      // Convert to data URL with better quality
+      const imageUrl = canvas.toDataURL('image/jpeg', 0.6);
+
+      // Stop camera stream
+      const stream = video.srcObject as MediaStream;
+      stream?.getTracks().forEach(track => track.stop());
+      setIsCapturing(false);
+
+      // Send image back to parent
+      onCapture(imageUrl);
     } catch (error) {
       console.error("Error capturing photo:", error);
       toast({
@@ -136,7 +132,6 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
 
       const compressedImage = await compressImage(file);
       onCapture(compressedImage);
-
     } catch (error) {
       console.error("File upload error:", error);
       toast({
