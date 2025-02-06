@@ -37,7 +37,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
       image: plant?.image ?? DEFAULT_PLANT_IMAGES[0],
       wateringInterval: plant?.wateringInterval ?? 7,
       fertilizingInterval: plant?.fertilizingInterval ?? 30,
-      sunlight: plant?.sunlight ?? "medium",
+      sunlight: (plant?.sunlight as "low" | "medium" | "high") ?? "medium",
       notes: plant?.notes ?? ""
     }
   });
@@ -60,10 +60,13 @@ export default function PlantForm({ plant }: PlantFormProps) {
         title: `Plant ${plant ? 'updated' : 'added'} successfully`,
         description: "Your changes have been saved."
       });
+
+      // Only reset form and preview for new plants
       if (!plant) {
         form.reset();
         setPreviewImage(DEFAULT_PLANT_IMAGES[0]);
       }
+
       setShowCamera(false);
     },
     onError: (error) => {
