@@ -9,7 +9,7 @@ interface ImageInputProps {
   onImageSelect: (imageUrl: string) => void;
 }
 
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
 
 export default function ImageInput({ defaultImage, onImageSelect }: ImageInputProps) {
   const [showCamera, setShowCamera] = useState(false);
@@ -25,7 +25,7 @@ export default function ImageInput({ defaultImage, onImageSelect }: ImageInputPr
         let height = img.height;
 
         // Calculate new dimensions while maintaining aspect ratio
-        const maxDimension = 1200;
+        const maxDimension = 800; // Reduced from 1200
         if (width > height && width > maxDimension) {
           height = (height * maxDimension) / width;
           width = maxDimension;
@@ -44,7 +44,22 @@ export default function ImageInput({ defaultImage, onImageSelect }: ImageInputPr
         }
 
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
+
+        // Try different compression levels until we get a small enough size
+        let quality = 0.7;
+        let dataUrl = canvas.toDataURL('image/jpeg', quality);
+
+        while (dataUrl.length > MAX_IMAGE_SIZE && quality > 0.1) {
+          quality -= 0.1;
+          dataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+
+        if (dataUrl.length > MAX_IMAGE_SIZE) {
+          reject(new Error('Unable to compress image enough'));
+          return;
+        }
+
+        resolve(dataUrl);
       };
 
       img.onerror = () => reject(new Error('Failed to load image'));
@@ -55,10 +70,10 @@ export default function ImageInput({ defaultImage, onImageSelect }: ImageInputPr
   async function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > MAX_IMAGE_SIZE) {
+      if (file.size > MAX_IMAGE_SIZE * 2) { // Allow slightly larger files since we'll compress them
         toast({
           title: "Image too large",
-          description: "Please select an image smaller than 5MB",
+          description: "Please select an image smaller than 2MB, or try taking a photo with the camera instead",
           variant: "destructive",
         });
         return;
@@ -70,7 +85,7 @@ export default function ImageInput({ defaultImage, onImageSelect }: ImageInputPr
       } catch (error) {
         toast({
           title: "Error processing image",
-          description: "Failed to process the selected image",
+          description: "Please try a smaller image or use the camera option",
           variant: "destructive",
         });
       }

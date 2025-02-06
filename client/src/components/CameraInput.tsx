@@ -14,7 +14,11 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
   async function startCamera() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 800 }, // Match with ImageInput maxDimension
+          height: { ideal: 800 }
+        } 
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -31,7 +35,7 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
       const canvas = canvasRef.current;
 
       // Set canvas size to match video dimensions, but limit max size
-      const maxDimension = 1200;
+      const maxDimension = 800; // Match with ImageInput
       let width = video.videoWidth;
       let height = video.videoHeight;
 
@@ -49,7 +53,7 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
       const context = canvas.getContext('2d');
       if (context) {
         context.drawImage(video, 0, 0, width, height);
-        const imageUrl = canvas.toDataURL('image/jpeg', 0.8);
+        const imageUrl = canvas.toDataURL('image/jpeg', 0.7); // Match quality with ImageInput
         onCapture(imageUrl);
 
         // Stop the camera stream
