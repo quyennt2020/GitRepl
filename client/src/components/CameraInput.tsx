@@ -29,16 +29,29 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
+
+      // Set canvas size to match video dimensions, but limit max size
+      const maxDimension = 1200;
+      let width = video.videoWidth;
+      let height = video.videoHeight;
+
+      if (width > height && width > maxDimension) {
+        height = (height * maxDimension) / width;
+        width = maxDimension;
+      } else if (height > maxDimension) {
+        width = (width * maxDimension) / height;
+        height = maxDimension;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
       const context = canvas.getContext('2d');
       if (context) {
-        context.drawImage(video, 0, 0);
-        const imageUrl = canvas.toDataURL('image/jpeg');
+        context.drawImage(video, 0, 0, width, height);
+        const imageUrl = canvas.toDataURL('image/jpeg', 0.8);
         onCapture(imageUrl);
-        
+
         // Stop the camera stream
         const stream = video.srcObject as MediaStream;
         stream?.getTracks().forEach(track => track.stop());
