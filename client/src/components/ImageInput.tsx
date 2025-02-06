@@ -9,7 +9,7 @@ interface ImageInputProps {
   onImageSelect: (imageUrl: string) => void;
 }
 
-const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function ImageInput({ defaultImage, onImageSelect }: ImageInputProps) {
   const [showCamera, setShowCamera] = useState(false);
@@ -25,7 +25,7 @@ export default function ImageInput({ defaultImage, onImageSelect }: ImageInputPr
         let height = img.height;
 
         // Calculate new dimensions while maintaining aspect ratio
-        const maxDimension = 800; // Reduced from 1200
+        const maxDimension = 1280; // Increased for better quality
         if (width > height && width > maxDimension) {
           height = (height * maxDimension) / width;
           width = maxDimension;
@@ -46,10 +46,10 @@ export default function ImageInput({ defaultImage, onImageSelect }: ImageInputPr
         ctx.drawImage(img, 0, 0, width, height);
 
         // Try different compression levels until we get a small enough size
-        let quality = 0.7;
+        let quality = 0.9;
         let dataUrl = canvas.toDataURL('image/jpeg', quality);
 
-        while (dataUrl.length > MAX_IMAGE_SIZE && quality > 0.1) {
+        while (dataUrl.length > MAX_IMAGE_SIZE && quality > 0.3) {
           quality -= 0.1;
           dataUrl = canvas.toDataURL('image/jpeg', quality);
         }
@@ -70,10 +70,10 @@ export default function ImageInput({ defaultImage, onImageSelect }: ImageInputPr
   async function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > MAX_IMAGE_SIZE * 2) { // Allow slightly larger files since we'll compress them
+      if (file.size > MAX_IMAGE_SIZE * 2) {
         toast({
           title: "Image too large",
-          description: "Please select an image smaller than 2MB, or try taking a photo with the camera instead",
+          description: "Please select an image smaller than 5MB",
           variant: "destructive",
         });
         return;
@@ -92,11 +92,6 @@ export default function ImageInput({ defaultImage, onImageSelect }: ImageInputPr
     }
   }
 
-  function handleCameraCapture(imageUrl: string) {
-    onImageSelect(imageUrl);
-    setShowCamera(false);
-  }
-
   return (
     <div className="space-y-4">
       {defaultImage && (
@@ -108,7 +103,13 @@ export default function ImageInput({ defaultImage, onImageSelect }: ImageInputPr
       )}
 
       {showCamera ? (
-        <CameraInput onCapture={handleCameraCapture} />
+        <CameraInput 
+          onCapture={(imageUrl) => {
+            onImageSelect(imageUrl);
+            setShowCamera(false);
+          }}
+          onCancel={() => setShowCamera(false)}
+        />
       ) : (
         <div className="grid grid-cols-2 gap-2">
           <Button
