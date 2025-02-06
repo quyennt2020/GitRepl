@@ -34,31 +34,78 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
     }
   }
 
+  async function compressImage(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Calculate new dimensions while maintaining aspect ratio
+          const maxDim = 1200;
+          if (width > height && width > maxDim) {
+            height = (height * maxDim) / width;
+            width = maxDim;
+          } else if (height > maxDim) {
+            width = (width * maxDim) / height;
+            height = maxDim;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7)); // Compress with 70% quality
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  }
+
   function capturePhoto() {
     try {
       if (videoRef.current && canvasRef.current) {
         const video = videoRef.current;
         const canvas = canvasRef.current;
 
-        // Set canvas size to match video
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        // Set canvas size to match video but limit dimensions
+        const maxDim = 1200;
+        let width = video.videoWidth;
+        let height = video.videoHeight;
+
+        if (width > height && width > maxDim) {
+          height = (height * maxDim) / width;
+          width = maxDim;
+        } else if (height > maxDim) {
+          width = (width * maxDim) / height;
+          height = maxDim;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
 
         const context = canvas.getContext('2d');
         if (!context) throw new Error("Could not get canvas context");
 
-        // Draw the video frame to canvas
-        context.drawImage(video, 0, 0);
+        context.drawImage(video, 0, 0, width, height);
+        const imageUrl = canvas.toDataURL('image/jpeg', 0.7);
 
-        // Convert to JPEG with 0.8 quality
-        const imageUrl = canvas.toDataURL('image/jpeg', 0.8);
-
-        // Stop the camera stream
         const stream = video.srcObject as MediaStream;
         stream?.getTracks().forEach(track => track.stop());
         setIsCapturing(false);
 
-        // Pass the image data to parent
         onCapture(imageUrl);
       }
     } catch (error) {
@@ -71,12 +118,11 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
     }
   }
 
-  function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         toast({
           title: "Invalid File",
@@ -86,34 +132,10 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
         return;
       }
 
-      // Validate file size (5MB max)
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: "File Too Large",
-          description: "Image must be smaller than 5MB.",
-          variant: "destructive"
-        });
-        return;
-      }
+      // Compress image before upload
+      const compressedImage = await compressImage(file);
+      onCapture(compressedImage);
 
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          // Pass the image data to parent
-          onCapture(reader.result);
-        }
-      };
-
-      reader.onerror = () => {
-        toast({
-          title: "Upload Error",
-          description: "Failed to read image file. Please try again.",
-          variant: "destructive"
-        });
-      };
-
-      reader.readAsDataURL(file);
     } catch (error) {
       console.error("File upload error:", error);
       toast({
