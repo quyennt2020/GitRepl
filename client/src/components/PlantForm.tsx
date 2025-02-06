@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import CameraInput from "./CameraInput";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface PlantFormProps {
   plant?: Plant;
@@ -42,28 +42,11 @@ export default function PlantForm({ plant }: PlantFormProps) {
     }
   });
 
-  // Synchronize preview with form image value
-  useEffect(() => {
-    const subscription = form.watch((value) => {
-      if (value.image && value.image !== previewImage) {
-        console.log('Form image value changed:', value.image.substring(0, 50));
-        setPreviewImage(value.image);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [form, previewImage]);
-
   const { mutate, isPending } = useMutation({
     mutationFn: async (data: InsertPlant) => {
       if (!data.image) {
         throw new Error("Image is required");
       }
-
-      console.log('Submitting plant data:', {
-        ...data,
-        imageLength: data.image.length,
-        imagePreview: data.image.substring(0, 50)
-      });
 
       if (plant) {
         await apiRequest("PATCH", `/api/plants/${plant.id}`, data);
@@ -86,7 +69,6 @@ export default function PlantForm({ plant }: PlantFormProps) {
       setShowCamera(false);
     },
     onError: (error) => {
-      console.error('Mutation error:', error);
       toast({
         title: `Failed to ${plant ? 'update' : 'add'} plant`,
         description: error instanceof Error ? error.message : "Please try again",
@@ -96,31 +78,22 @@ export default function PlantForm({ plant }: PlantFormProps) {
   });
 
   function handleImageCapture(imageUrl: string) {
-    try {
-      console.log('Handling image capture, length:', imageUrl.length);
-
-      if (!imageUrl.startsWith('data:image/')) {
-        throw new Error('Invalid image format');
-      }
-
-      // Set both preview and form value
-      setPreviewImage(imageUrl);
-      form.setValue("image", imageUrl, { 
-        shouldValidate: true,
-        shouldDirty: true,
-        shouldTouch: true
-      });
-
-      setShowCamera(false);
-
-    } catch (error) {
-      console.error('Image capture error:', error);
+    if (!imageUrl.startsWith('data:image/')) {
       toast({
-        title: "Failed to set image",
-        description: error instanceof Error ? error.message : "Please try again",
+        title: "Invalid Image",
+        description: "Please provide a valid image",
         variant: "destructive"
       });
+      return;
     }
+
+    setPreviewImage(imageUrl);
+    form.setValue("image", imageUrl, { 
+      shouldValidate: true,
+      shouldDirty: true,
+      shouldTouch: true 
+    });
+    setShowCamera(false);
   }
 
   const onSubmit = async (data: InsertPlant) => {
@@ -130,7 +103,6 @@ export default function PlantForm({ plant }: PlantFormProps) {
       }
       await mutate(data);
     } catch (error) {
-      console.error('Form submission error:', error);
       toast({
         title: "Submission Error",
         description: error instanceof Error ? error.message : "Please try again",
@@ -223,7 +195,12 @@ export default function PlantForm({ plant }: PlantFormProps) {
             <FormItem>
               <FormLabel>Watering Interval (days)</FormLabel>
               <FormControl>
-                <Input type="number" min={1} {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
+                <Input 
+                  type="number" 
+                  min={1} 
+                  {...field} 
+                  onChange={e => field.onChange(parseInt(e.target.value))} 
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -237,7 +214,12 @@ export default function PlantForm({ plant }: PlantFormProps) {
             <FormItem>
               <FormLabel>Fertilizing Interval (days)</FormLabel>
               <FormControl>
-                <Input type="number" min={1} {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
+                <Input 
+                  type="number" 
+                  min={1} 
+                  {...field} 
+                  onChange={e => field.onChange(parseInt(e.target.value))} 
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -45,7 +45,7 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
           let height = img.height;
 
           // Calculate new dimensions while maintaining aspect ratio
-          const maxDim = 1200;
+          const maxDim = 800; // Reduced from 1200 to ensure smaller file size
           if (width > height && width > maxDim) {
             height = (height * maxDim) / width;
             width = maxDim;
@@ -64,7 +64,8 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
           }
 
           ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.7)); // Compress with 70% quality
+          // Increased compression by reducing quality to 0.5
+          resolve(canvas.toDataURL('image/jpeg', 0.5));
         };
         img.onerror = () => reject(new Error('Failed to load image'));
         img.src = e.target?.result as string;
@@ -81,7 +82,7 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
         const canvas = canvasRef.current;
 
         // Set canvas size to match video but limit dimensions
-        const maxDim = 1200;
+        const maxDim = 800; // Reduced from 1200 to ensure smaller file size
         let width = video.videoWidth;
         let height = video.videoHeight;
 
@@ -100,7 +101,7 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
         if (!context) throw new Error("Could not get canvas context");
 
         context.drawImage(video, 0, 0, width, height);
-        const imageUrl = canvas.toDataURL('image/jpeg', 0.7);
+        const imageUrl = canvas.toDataURL('image/jpeg', 0.5);
 
         const stream = video.srcObject as MediaStream;
         stream?.getTracks().forEach(track => track.stop());
@@ -132,7 +133,6 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
         return;
       }
 
-      // Compress image before upload
       const compressedImage = await compressImage(file);
       onCapture(compressedImage);
 
