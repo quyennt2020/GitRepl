@@ -52,6 +52,11 @@ export default function PlantForm({ plant }: PlantFormProps) {
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (data: InsertPlant) => {
+      console.log('Submitting form data:', {
+        ...data,
+        image: data.image.substring(0, 100) + '...' // Log truncated image data
+      });
+
       if (plant) {
         await apiRequest("PATCH", `/api/plants/${plant.id}`, data);
       } else {
@@ -77,14 +82,21 @@ export default function PlantForm({ plant }: PlantFormProps) {
   function handleImageCapture(imageUrl: string) {
     try {
       console.log('Captured image URL length:', imageUrl.length);
+      console.log('Image type:', imageUrl.substring(0, 50)); // Log the start of the data URL
+
+      // Basic validation
+      if (!imageUrl.startsWith('data:image/')) {
+        throw new Error('Invalid image format');
+      }
+
       form.setValue("image", imageUrl, { shouldValidate: true });
-      console.log('Image set in form:', form.getValues("image").slice(0, 100) + '...');
+      console.log('Image set in form:', form.getValues("image").substring(0, 100) + '...');
       setShowCamera(false);
     } catch (error) {
       console.error('Error setting image:', error);
       toast({
         title: "Failed to set image",
-        description: "Please try again",
+        description: error instanceof Error ? error.message : "Please try again",
         variant: "destructive"
       });
     }
@@ -92,7 +104,13 @@ export default function PlantForm({ plant }: PlantFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => mutate(data))} className="space-y-4">
+      <form onSubmit={form.handleSubmit((data) => {
+        console.log('Form submitted with data:', {
+          ...data,
+          image: data.image.substring(0, 100) + '...'
+        });
+        mutate(data);
+      })} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
