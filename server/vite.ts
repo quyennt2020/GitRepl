@@ -29,7 +29,7 @@ export async function setupVite(app: Express, server: Server) {
     allowedHosts: true,
   };
 
-  const vite = await new createViteServer({
+  const vite = await createViteServer({
     ...viteConfig,
     configFile: false,
     customLogger: {
