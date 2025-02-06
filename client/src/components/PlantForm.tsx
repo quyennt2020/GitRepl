@@ -91,13 +91,17 @@ export default function PlantForm({ plant }: PlantFormProps) {
       return;
     }
 
+    // Update both the preview and form state
     setPreviewImage(imageUrl);
     form.setValue("image", imageUrl);
-    setShowCamera(false);
+    setShowCamera(false); // Hide camera after successful capture
   }
 
   const onSubmit = async (values: InsertPlant) => {
     try {
+      if (!previewImage) {
+        throw new Error("Please select an image");
+      }
       await mutate(values);
     } catch (error) {
       console.error('Form submission error:', error);
@@ -123,11 +127,22 @@ export default function PlantForm({ plant }: PlantFormProps) {
               ) : (
                 <div className="space-y-2">
                   <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted">
-                    <img
-                      src={previewImage}
-                      alt="Plant preview"
-                      className="object-cover w-full h-full"
-                    />
+                    {previewImage && (
+                      <img
+                        key={previewImage} // Force re-render when image changes
+                        src={previewImage}
+                        alt="Plant preview"
+                        className="object-cover w-full h-full"
+                        onError={() => {
+                          setPreviewImage(DEFAULT_PLANT_IMAGES[0]);
+                          toast({
+                            title: "Image Error",
+                            description: "Failed to load image, using default instead",
+                            variant: "destructive"
+                          });
+                        }}
+                      />
+                    )}
                   </div>
                   <Button
                     type="button"
