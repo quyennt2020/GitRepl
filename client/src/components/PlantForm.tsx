@@ -12,10 +12,6 @@ import { queryClient } from "@/lib/queryClient";
 import CameraInput from "./CameraInput";
 import { useState } from "react";
 
-interface PlantFormProps {
-  plant?: Plant;
-}
-
 const DEFAULT_PLANT_IMAGES = [
   "https://images.unsplash.com/photo-1604762524889-3e2fcc145683",
   "https://images.unsplash.com/photo-1518335935020-cfd6580c1ab4",
@@ -23,142 +19,67 @@ const DEFAULT_PLANT_IMAGES = [
   "https://images.unsplash.com/photo-1626965654957-fef1cb80d4b7"
 ];
 
+interface PlantFormProps {
+  plant?: Plant;
+}
+
 export default function PlantForm({ plant }: PlantFormProps) {
   const { toast } = useToast();
   const [showCamera, setShowCamera] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string>(plant?.image || DEFAULT_PLANT_IMAGES[0]);
 
   const form = useForm<InsertPlant>({
     resolver: zodResolver(insertPlantSchema),
-    defaultValues: {
-      name: plant?.name ?? "",
-      species: plant?.species ?? "",
-      location: plant?.location ?? "",
-      image: plant?.image ?? DEFAULT_PLANT_IMAGES[0],
-      wateringInterval: plant?.wateringInterval ?? 7,
-      fertilizingInterval: plant?.fertilizingInterval ?? 30,
-      sunlight: (plant?.sunlight as "low" | "medium" | "high") ?? "medium",
-      notes: plant?.notes ?? ""
+    defaultValues: plant ? {
+      name: plant.name,
+      species: plant.species,
+      location: plant.location,
+      image: plant.image,
+      wateringInterval: plant.wateringInterval,
+      fertilizingInterval: plant.fertilizingInterval,
+      sunlight: plant.sunlight,
+      notes: plant.notes
+    } : {
+      name: "",
+      species: "",
+      location: "",
+      image: DEFAULT_PLANT_IMAGES[0],
+      wateringInterval: 7,
+      fertilizingInterval: 30,
+      sunlight: "medium",
+      notes: ""
     }
   });
 
   const { mutate, isPending } = useMutation({
-    mutationFn: async (values: InsertPlant) => {
-      const payload = {
-        ...values,
-        image: previewImage
-      };
-
+    mutationFn: async (data: InsertPlant) => {
       if (plant) {
-        const response = await apiRequest("PATCH", `/api/plants/${plant.id}`, payload);
-        return response;
+        await apiRequest("PATCH", `/api/plants/${plant.id}`, data);
       } else {
-        const response = await apiRequest("POST", "/api/plants", payload);
-        return response;
+        await apiRequest("POST", "/api/plants", data);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plants"] });
-      toast({ 
-        title: `Plant ${plant ? 'updated' : 'added'} successfully`
-      });
-
-      if (!plant) {
-        form.reset();
-        setPreviewImage(DEFAULT_PLANT_IMAGES[0]);
-      }
+      toast({ title: `Plant ${plant ? 'updated' : 'added'} successfully` });
+      form.reset();
       setShowCamera(false);
     },
-    onError: (error) => {
-      console.error('Plant mutation error:', error);
-      toast({
+    onError: () => {
+      toast({ 
         title: `Failed to ${plant ? 'update' : 'add'} plant`,
-        description: error instanceof Error ? error.message : "Please try again",
         variant: "destructive"
       });
     }
   });
 
   function handleImageCapture(imageUrl: string) {
-    if (!imageUrl.startsWith('data:image/')) {
-      toast({
-        title: "Invalid Image",
-        description: "Please provide a valid image",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Update preview image state
-    setPreviewImage(imageUrl);
-
-    // Update form state
     form.setValue("image", imageUrl);
-
-    // Hide camera
     setShowCamera(false);
   }
 
-  const onSubmit = async (values: InsertPlant) => {
-    try {
-      if (!previewImage) {
-        throw new Error("Please select an image");
-      }
-      await mutate(values);
-    } catch (error) {
-      console.error('Form submission error:', error);
-      toast({
-        title: "Submission Error",
-        description: error instanceof Error ? error.message : "Please try again",
-        variant: "destructive"
-      });
-    }
-  };
-
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="image"
-          render={() => (
-            <FormItem>
-              <FormLabel>Plant Photo</FormLabel>
-              {showCamera ? (
-                <CameraInput onCapture={handleImageCapture} />
-              ) : (
-                <div className="space-y-2">
-                  <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted">
-                    <img
-                      key={previewImage} // Force re-render when image changes
-                      src={previewImage}
-                      alt="Plant preview"
-                      className="object-cover w-full h-full"
-                      onError={() => {
-                        setPreviewImage(DEFAULT_PLANT_IMAGES[0]);
-                        toast({
-                          title: "Image Error",
-                          description: "Failed to load image, using default instead",
-                          variant: "destructive"
-                        });
-                      }}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setShowCamera(true)}
-                  >
-                    Change Photo
-                  </Button>
-                </div>
-              )}
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
+      <form onSubmit={form.handleSubmit((data) => mutate(data))} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
@@ -203,17 +124,35 @@ export default function PlantForm({ plant }: PlantFormProps) {
 
         <FormField
           control={form.control}
+          name="image"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Plant Photo</FormLabel>
+              {showCamera ? (
+                <CameraInput onCapture={handleImageCapture} />
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShowCamera(true)}
+                >
+                  Take Photo
+                </Button>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="wateringInterval"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Watering Interval (days)</FormLabel>
               <FormControl>
-                <Input 
-                  type="number" 
-                  min={1} 
-                  {...field}
-                  onChange={e => field.onChange(parseInt(e.target.value))}
-                />
+                <Input type="number" min={1} {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -227,12 +166,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
             <FormItem>
               <FormLabel>Fertilizing Interval (days)</FormLabel>
               <FormControl>
-                <Input 
-                  type="number" 
-                  min={1} 
-                  {...field}
-                  onChange={e => field.onChange(parseInt(e.target.value))}
-                />
+                <Input type="number" min={1} {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
               </FormControl>
               <FormMessage />
             </FormItem>
