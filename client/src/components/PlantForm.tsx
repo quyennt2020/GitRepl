@@ -42,21 +42,28 @@ export default function PlantForm({ plant }: PlantFormProps) {
     }
   });
 
-  // Keep preview in sync with form image value
+  // Synchronize preview with form image value
   useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
-      if (name === 'image' && value) {
+    const subscription = form.watch((value) => {
+      if (value.image && value.image !== previewImage) {
+        console.log('Form image value changed:', value.image.substring(0, 50));
         setPreviewImage(value.image);
       }
     });
     return () => subscription.unsubscribe();
-  }, [form.watch]);
+  }, [form, previewImage]);
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (data: InsertPlant) => {
       if (!data.image) {
         throw new Error("Image is required");
       }
+
+      console.log('Submitting plant data:', {
+        ...data,
+        imageLength: data.image.length,
+        imagePreview: data.image.substring(0, 50)
+      });
 
       if (plant) {
         await apiRequest("PATCH", `/api/plants/${plant.id}`, data);
@@ -71,7 +78,6 @@ export default function PlantForm({ plant }: PlantFormProps) {
         description: "Your changes have been saved."
       });
 
-      // Only reset form and preview for new plants
       if (!plant) {
         form.reset();
         setPreviewImage(DEFAULT_PLANT_IMAGES[0]);
@@ -80,6 +86,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
       setShowCamera(false);
     },
     onError: (error) => {
+      console.error('Mutation error:', error);
       toast({
         title: `Failed to ${plant ? 'update' : 'add'} plant`,
         description: error instanceof Error ? error.message : "Please try again",
@@ -90,16 +97,24 @@ export default function PlantForm({ plant }: PlantFormProps) {
 
   function handleImageCapture(imageUrl: string) {
     try {
+      console.log('Handling image capture, length:', imageUrl.length);
+
       if (!imageUrl.startsWith('data:image/')) {
         throw new Error('Invalid image format');
       }
 
-      // Update both preview and form state
+      // Set both preview and form value
       setPreviewImage(imageUrl);
-      form.setValue("image", imageUrl, { shouldValidate: true });
+      form.setValue("image", imageUrl, { 
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true
+      });
+
       setShowCamera(false);
 
     } catch (error) {
+      console.error('Image capture error:', error);
       toast({
         title: "Failed to set image",
         description: error instanceof Error ? error.message : "Please try again",
@@ -115,6 +130,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
       }
       await mutate(data);
     } catch (error) {
+      console.error('Form submission error:', error);
       toast({
         title: "Submission Error",
         description: error instanceof Error ? error.message : "Please try again",
