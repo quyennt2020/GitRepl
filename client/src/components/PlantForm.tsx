@@ -43,14 +43,17 @@ export default function PlantForm({ plant }: PlantFormProps) {
   });
 
   const { mutate, isPending } = useMutation({
-    mutationFn: async (values: InsertPlant & { image: string }) => {
+    mutationFn: async (values: InsertPlant) => {
+      const payload = {
+        ...values,
+        image: previewImage // Always use the current preview image
+      };
+
       if (plant) {
-        // Editing existing plant
-        const response = await apiRequest("PATCH", `/api/plants/${plant.id}`, values);
+        const response = await apiRequest("PATCH", `/api/plants/${plant.id}`, payload);
         return response;
       } else {
-        // Creating new plant
-        const response = await apiRequest("POST", "/api/plants", values);
+        const response = await apiRequest("POST", "/api/plants", payload);
         return response;
       }
     },
@@ -95,12 +98,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
 
   const onSubmit = async (values: InsertPlant) => {
     try {
-      const submissionData = {
-        ...values,
-        image: previewImage // Ensure we're using the current preview image
-      };
-
-      await mutate(submissionData);
+      await mutate(values);
     } catch (error) {
       console.error('Form submission error:', error);
       toast({
