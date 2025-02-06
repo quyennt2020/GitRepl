@@ -43,20 +43,15 @@ export default function PlantForm({ plant }: PlantFormProps) {
   });
 
   const { mutate, isPending } = useMutation({
-    mutationFn: async (data: InsertPlant) => {
-      if (!data.image) {
-        throw new Error("Image is required");
-      }
-
-      // For editing existing plant
+    mutationFn: async (values: InsertPlant & { image: string }) => {
       if (plant) {
-        const updatedData = {
-          ...data,
-          image: previewImage // Use the current preview image
-        };
-        await apiRequest("PATCH", `/api/plants/${plant.id}`, updatedData);
+        // Editing existing plant
+        const response = await apiRequest("PATCH", `/api/plants/${plant.id}`, values);
+        return response;
       } else {
-        await apiRequest("POST", "/api/plants", data);
+        // Creating new plant
+        const response = await apiRequest("POST", "/api/plants", values);
+        return response;
       }
     },
     onSuccess: () => {
@@ -74,6 +69,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
       setShowCamera(false);
     },
     onError: (error) => {
+      console.error('Plant mutation error:', error);
       toast({
         title: `Failed to ${plant ? 'update' : 'add'} plant`,
         description: error instanceof Error ? error.message : "Please try again",
@@ -92,25 +88,21 @@ export default function PlantForm({ plant }: PlantFormProps) {
       return;
     }
 
-    // Update both preview and form state
     setPreviewImage(imageUrl);
     form.setValue("image", imageUrl);
+    setShowCamera(false);
   }
 
-  const onSubmit = async (data: InsertPlant) => {
+  const onSubmit = async (values: InsertPlant) => {
     try {
-      if (!previewImage) {
-        throw new Error("Please select an image");
-      }
-
-      // Ensure we're using the current preview image
       const submissionData = {
-        ...data,
-        image: previewImage
+        ...values,
+        image: previewImage // Ensure we're using the current preview image
       };
 
       await mutate(submissionData);
     } catch (error) {
+      console.error('Form submission error:', error);
       toast({
         title: "Submission Error",
         description: error instanceof Error ? error.message : "Please try again",
@@ -260,11 +252,11 @@ export default function PlantForm({ plant }: PlantFormProps) {
         <FormField
           control={form.control}
           name="notes"
-          render={({ field: { value, ...field } }) => (
+          render={({ field }) => (
             <FormItem>
               <FormLabel>Notes</FormLabel>
               <FormControl>
-                <Input placeholder="Additional notes" value={value ?? ''} {...field} />
+                <Input placeholder="Additional notes" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
