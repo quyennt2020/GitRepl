@@ -34,7 +34,7 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
     }
   }
 
-  async function compressImage(file: File): Promise<string> {
+  async function compressImage(file: File, maxWidth = 800): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -44,14 +44,10 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
           let width = img.width;
           let height = img.height;
 
-          // Calculate new dimensions while maintaining aspect ratio
-          const maxDim = 800; // Reduced from 1200 to ensure smaller file size
-          if (width > height && width > maxDim) {
-            height = (height * maxDim) / width;
-            width = maxDim;
-          } else if (height > maxDim) {
-            width = (width * maxDim) / height;
-            height = maxDim;
+          // Calculate new dimensions
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
           }
 
           canvas.width = width;
@@ -64,8 +60,16 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
           }
 
           ctx.drawImage(img, 0, 0, width, height);
-          // Increased compression by reducing quality to 0.5
-          resolve(canvas.toDataURL('image/jpeg', 0.5));
+          // Use lower quality (0.4) for more compression
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.4);
+
+          // Verify the size isn't too large (roughly 7MB)
+          if (dataUrl.length > 7000000) {
+            // If still too large, compress further
+            resolve(canvas.toDataURL('image/jpeg', 0.2));
+          } else {
+            resolve(dataUrl);
+          }
         };
         img.onerror = () => reject(new Error('Failed to load image'));
         img.src = e.target?.result as string;
@@ -82,16 +86,13 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
         const canvas = canvasRef.current;
 
         // Set canvas size to match video but limit dimensions
-        const maxDim = 800; // Reduced from 1200 to ensure smaller file size
+        const maxWidth = 800;
         let width = video.videoWidth;
         let height = video.videoHeight;
 
-        if (width > height && width > maxDim) {
-          height = (height * maxDim) / width;
-          width = maxDim;
-        } else if (height > maxDim) {
-          width = (width * maxDim) / height;
-          height = maxDim;
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
         }
 
         canvas.width = width;
@@ -101,7 +102,7 @@ export default function CameraInput({ onCapture }: CameraInputProps) {
         if (!context) throw new Error("Could not get canvas context");
 
         context.drawImage(video, 0, 0, width, height);
-        const imageUrl = canvas.toDataURL('image/jpeg', 0.5);
+        const imageUrl = canvas.toDataURL('image/jpeg', 0.4);
 
         const stream = video.srcObject as MediaStream;
         stream?.getTracks().forEach(track => track.stop());
