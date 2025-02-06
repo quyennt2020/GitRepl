@@ -38,7 +38,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
       wateringInterval: plant.wateringInterval,
       fertilizingInterval: plant.fertilizingInterval,
       sunlight: plant.sunlight as "low" | "medium" | "high",
-      notes: plant.notes ?? "" // Use nullish coalescing to handle null
+      notes: plant.notes ?? ""
     } : {
       name: "",
       species: "",
@@ -53,9 +53,14 @@ export default function PlantForm({ plant }: PlantFormProps) {
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (data: InsertPlant) => {
-      console.log('Submitting form data:', {
+      // Validate image data before submission
+      if (!data.image) {
+        throw new Error("Image is required");
+      }
+
+      console.log('Submitting plant data:', {
         ...data,
-        image: data.image.substring(0, 100) + '...' // Log truncated image data
+        image: data.image.substring(0, 50) + '...'
       });
 
       if (plant) {
@@ -66,9 +71,13 @@ export default function PlantForm({ plant }: PlantFormProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plants"] });
-      toast({ title: `Plant ${plant ? 'updated' : 'added'} successfully` });
+      toast({ 
+        title: `Plant ${plant ? 'updated' : 'added'} successfully`,
+        description: "Your changes have been saved."
+      });
       form.reset();
       setShowCamera(false);
+      setPreviewImage(DEFAULT_PLANT_IMAGES[0]);
     },
     onError: (error) => {
       console.error('Form submission error:', error);
@@ -82,20 +91,24 @@ export default function PlantForm({ plant }: PlantFormProps) {
 
   function handleImageCapture(imageUrl: string) {
     try {
-      console.log('Captured image URL length:', imageUrl.length);
-      console.log('Image type:', imageUrl.substring(0, 50)); // Log the start of the data URL
+      console.log('Received image data, length:', imageUrl.length);
+      console.log('Image type:', imageUrl.substring(0, 50));
 
-      // Basic validation
+      // Validate image data
       if (!imageUrl.startsWith('data:image/')) {
         throw new Error('Invalid image format');
       }
 
+      // Update preview first
       setPreviewImage(imageUrl);
+
+      // Then update form value
       form.setValue("image", imageUrl, { shouldValidate: true });
-      console.log('Image set in form:', form.getValues("image").substring(0, 100) + '...');
+
+      console.log('Image set successfully in form and preview');
       setShowCamera(false);
     } catch (error) {
-      console.error('Error setting image:', error);
+      console.error('Error handling image:', error);
       toast({
         title: "Failed to set image",
         description: error instanceof Error ? error.message : "Please try again",
@@ -104,15 +117,31 @@ export default function PlantForm({ plant }: PlantFormProps) {
     }
   }
 
+  const onSubmit = async (data: InsertPlant) => {
+    try {
+      if (!data.image) {
+        throw new Error("Please select an image");
+      }
+
+      console.log('Submitting form with data:', {
+        ...data,
+        image: data.image.substring(0, 50) + '...'
+      });
+
+      await mutate(data);
+    } catch (error) {
+      console.error('Form submission error:', error);
+      toast({
+        title: "Submission Error",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => {
-        console.log('Form submitted with data:', {
-          ...data,
-          image: data.image.substring(0, 100) + '...'
-        });
-        mutate(data);
-      })} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
