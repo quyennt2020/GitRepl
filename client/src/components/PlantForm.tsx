@@ -48,8 +48,13 @@ export default function PlantForm({ plant }: PlantFormProps) {
         throw new Error("Image is required");
       }
 
+      // For editing existing plant
       if (plant) {
-        await apiRequest("PATCH", `/api/plants/${plant.id}`, data);
+        const updatedData = {
+          ...data,
+          image: previewImage // Use the current preview image
+        };
+        await apiRequest("PATCH", `/api/plants/${plant.id}`, updatedData);
       } else {
         await apiRequest("POST", "/api/plants", data);
       }
@@ -87,21 +92,24 @@ export default function PlantForm({ plant }: PlantFormProps) {
       return;
     }
 
+    // Update both preview and form state
     setPreviewImage(imageUrl);
-    form.setValue("image", imageUrl, { 
-      shouldValidate: true,
-      shouldDirty: true,
-      shouldTouch: true 
-    });
-    setShowCamera(false);
+    form.setValue("image", imageUrl);
   }
 
   const onSubmit = async (data: InsertPlant) => {
     try {
-      if (!data.image) {
+      if (!previewImage) {
         throw new Error("Please select an image");
       }
-      await mutate(data);
+
+      // Ensure we're using the current preview image
+      const submissionData = {
+        ...data,
+        image: previewImage
+      };
+
+      await mutate(submissionData);
     } catch (error) {
       toast({
         title: "Submission Error",
@@ -117,7 +125,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
         <FormField
           control={form.control}
           name="image"
-          render={({ field }) => (
+          render={() => (
             <FormItem>
               <FormLabel>Plant Photo</FormLabel>
               {showCamera ? (
