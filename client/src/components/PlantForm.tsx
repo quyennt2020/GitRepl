@@ -26,6 +26,7 @@ interface PlantFormProps {
 export default function PlantForm({ plant }: PlantFormProps) {
   const { toast } = useToast();
   const [showCamera, setShowCamera] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string>(plant?.image || DEFAULT_PLANT_IMAGES[0]);
 
   const form = useForm<InsertPlant>({
     resolver: zodResolver(insertPlantSchema),
@@ -37,7 +38,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
       wateringInterval: plant.wateringInterval,
       fertilizingInterval: plant.fertilizingInterval,
       sunlight: plant.sunlight as "low" | "medium" | "high",
-      notes: plant.notes || ""
+      notes: plant.notes ?? "" // Use nullish coalescing to handle null
     } : {
       name: "",
       species: "",
@@ -89,6 +90,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
         throw new Error('Invalid image format');
       }
 
+      setPreviewImage(imageUrl);
       form.setValue("image", imageUrl, { shouldValidate: true });
       console.log('Image set in form:', form.getValues("image").substring(0, 100) + '...');
       setShowCamera(false);
@@ -165,7 +167,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
                 <div className="space-y-2">
                   <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted">
                     <img
-                      src={field.value}
+                      src={previewImage}
                       alt="Plant preview"
                       className="object-cover w-full h-full"
                     />
@@ -239,11 +241,11 @@ export default function PlantForm({ plant }: PlantFormProps) {
         <FormField
           control={form.control}
           name="notes"
-          render={({ field }) => (
+          render={({ field: { value, ...field }}) => (
             <FormItem>
               <FormLabel>Notes</FormLabel>
               <FormControl>
-                <Input placeholder="Additional notes" {...field} />
+                <Input placeholder="Additional notes" value={value ?? ''} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
