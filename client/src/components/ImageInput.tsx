@@ -1,7 +1,6 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, Image as ImageIcon } from "lucide-react";
-import CameraInput from "./CameraInput";
+import { Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ImageInputProps {
@@ -12,7 +11,6 @@ interface ImageInputProps {
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function ImageInput({ defaultImage, onImageSelect }: ImageInputProps) {
-  const [showCamera, setShowCamera] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -25,7 +23,7 @@ export default function ImageInput({ defaultImage, onImageSelect }: ImageInputPr
         let height = img.height;
 
         // Calculate new dimensions while maintaining aspect ratio
-        const maxDimension = 1280; // Increased for better quality
+        const maxDimension = 1280;
         if (width > height && width > maxDimension) {
           height = (height * maxDimension) / width;
           width = maxDimension;
@@ -85,7 +83,7 @@ export default function ImageInput({ defaultImage, onImageSelect }: ImageInputPr
       } catch (error) {
         toast({
           title: "Error processing image",
-          description: "Please try a smaller image or use the camera option",
+          description: "Please try a smaller image",
           variant: "destructive",
         });
       }
@@ -102,35 +100,15 @@ export default function ImageInput({ defaultImage, onImageSelect }: ImageInputPr
         />
       )}
 
-      {showCamera ? (
-        <CameraInput 
-          onCapture={(imageUrl) => {
-            onImageSelect(imageUrl);
-            setShowCamera(false);
-          }}
-          onCancel={() => setShowCamera(false)}
-        />
-      ) : (
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setShowCamera(true)}
-          >
-            <Camera className="w-4 h-4 mr-2" />
-            Camera
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <ImageIcon className="w-4 h-4 mr-2" />
-            Gallery
-          </Button>
-        </div>
-      )}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => fileInputRef.current?.click()}
+        className="w-full"
+      >
+        <ImageIcon className="w-4 h-4 mr-2" />
+        Choose from Gallery
+      </Button>
 
       <input
         ref={fileInputRef}
