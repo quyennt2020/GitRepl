@@ -9,15 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import CameraInput from "./CameraInput";
-import { useState } from "react";
-
-const DEFAULT_PLANT_IMAGES = [
-  "https://images.unsplash.com/photo-1604762524889-3e2fcc145683",
-  "https://images.unsplash.com/photo-1518335935020-cfd6580c1ab4",
-  "https://images.unsplash.com/photo-1592150621744-aca64f48394a",
-  "https://images.unsplash.com/photo-1626965654957-fef1cb80d4b7"
-];
+import ImageInput from "./ImageInput";
 
 interface PlantFormProps {
   plant?: Plant;
@@ -25,7 +17,6 @@ interface PlantFormProps {
 
 export default function PlantForm({ plant }: PlantFormProps) {
   const { toast } = useToast();
-  const [showCamera, setShowCamera] = useState(false);
 
   const form = useForm<InsertPlant>({
     resolver: zodResolver(insertPlantSchema),
@@ -42,7 +33,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
       name: "",
       species: "",
       location: "",
-      image: DEFAULT_PLANT_IMAGES[0],
+      image: "",
       wateringInterval: 7,
       fertilizingInterval: 30,
       sunlight: "medium",
@@ -62,7 +53,6 @@ export default function PlantForm({ plant }: PlantFormProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/plants"] });
       toast({ title: `Plant ${plant ? 'updated' : 'added'} successfully` });
       form.reset();
-      setShowCamera(false);
     },
     onError: () => {
       toast({ 
@@ -71,11 +61,6 @@ export default function PlantForm({ plant }: PlantFormProps) {
       });
     }
   });
-
-  function handleImageCapture(imageUrl: string) {
-    form.setValue("image", imageUrl);
-    setShowCamera(false);
-  }
 
   return (
     <Form {...form}>
@@ -128,18 +113,12 @@ export default function PlantForm({ plant }: PlantFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Plant Photo</FormLabel>
-              {showCamera ? (
-                <CameraInput onCapture={handleImageCapture} />
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setShowCamera(true)}
-                >
-                  Take Photo
-                </Button>
-              )}
+              <FormControl>
+                <ImageInput
+                  defaultImage={field.value}
+                  onImageSelect={(imageUrl) => field.onChange(imageUrl)}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
