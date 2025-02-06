@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import CameraInput from "./CameraInput";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface PlantFormProps {
   plant?: Plant;
@@ -41,6 +41,16 @@ export default function PlantForm({ plant }: PlantFormProps) {
       notes: plant?.notes ?? ""
     }
   });
+
+  // Keep preview in sync with form image value
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === 'image' && value) {
+        setPreviewImage(value.image);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form.watch]);
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (data: InsertPlant) => {
