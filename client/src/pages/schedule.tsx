@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Plant } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
-import { format, addDays, isAfter, isSameDay, addWeeks } from "date-fns";
+import { format, addDays, differenceInDays } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Droplets } from "lucide-react";
 
@@ -12,15 +12,18 @@ export default function Schedule() {
 
   const next7Days = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
 
-  const getNextWateringDate = (plant: Plant) => {
-    const lastWatered = plant.lastWatered ? new Date(plant.lastWatered) : new Date();
-    return addDays(lastWatered, plant.wateringInterval);
-  };
-
   const getPlantsDueForDate = (date: Date, plants: Plant[] = []) => {
     return plants.filter(plant => {
-      const nextWateringDate = getNextWateringDate(plant);
-      return isSameDay(date, nextWateringDate) || isAfter(date, nextWateringDate);
+      if (!plant.lastWatered) return false;
+
+      const lastWatered = new Date(plant.lastWatered);
+      const daysSinceLastWater = differenceInDays(date, lastWatered);
+      const daysUntilNextWatering = plant.wateringInterval - (daysSinceLastWater % plant.wateringInterval);
+
+      // Plant needs water on this date if:
+      // 1. It's exactly when the interval is up OR
+      // 2. It's overdue and hasn't been watered yet
+      return daysUntilNextWatering === 0 || (daysSinceLastWater >= plant.wateringInterval);
     });
   };
 
@@ -43,27 +46,31 @@ export default function Schedule() {
                   {hasPlants ? (
                     <div className="space-y-2">
                       {plantsForDate.map(plant => {
-                        const nextWatering = getNextWateringDate(plant);
-                        const isOverdue = isAfter(date, nextWatering);
+                        const lastWatered = new Date(plant.lastWatered!);
+                        const daysSinceLastWater = differenceInDays(date, lastWatered);
+                        const isOverdue = daysSinceLastWater > plant.wateringInterval;
+                        const nextScheduledDate = addDays(lastWatered, plant.wateringInterval);
 
                         return (
                           <div 
                             key={plant.id} 
-                            className={`flex items-center gap-2 p-2 border rounded-lg ${
+                            className={`flex items-center gap-4 p-2 border rounded-lg ${
                               isOverdue ? 'border-red-500' : 'border-blue-500'
                             }`}
                           >
                             <Droplets className={`h-4 w-4 ${isOverdue ? 'text-red-500' : 'text-blue-500'}`} />
-                            <div>
+                            <div className="flex-1">
                               <p className="font-medium">{plant.name}</p>
                               <p className="text-sm text-muted-foreground">
                                 {isOverdue 
-                                  ? 'Overdue for watering'
-                                  : 'Due for watering'
+                                  ? `${daysSinceLastWater - plant.wateringInterval} days overdue`
+                                  : `Due today`
                                 }
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                Next watering: {format(nextWatering, "MMM d")}
+                                Last watered: {format(lastWatered, "MMM d")}
+                                {" • "}
+                                {plant.wateringInterval} day interval
                               </p>
                             </div>
                           </div>
