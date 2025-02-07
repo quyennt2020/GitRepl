@@ -20,17 +20,22 @@ interface TaskFormProps {
   plantId: number;
 }
 
+const extendedTaskSchema = insertCareTaskSchema.extend({
+  templateId: insertCareTaskSchema.shape.templateId.min(1, "Please select a task type"),
+});
+
 export default function TaskForm({ plantId }: TaskFormProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<InsertCareTask>({
-    resolver: zodResolver(insertCareTaskSchema),
+    resolver: zodResolver(extendedTaskSchema),
     defaultValues: {
       plantId,
       completed: false,
       checklistProgress: {},
       notes: "",
+      templateId: undefined, // This will be set when user selects a template
     },
   });
 
@@ -38,7 +43,7 @@ export default function TaskForm({ plantId }: TaskFormProps) {
     queryKey: ["/api/task-templates"],
   });
 
-  const { mutate: createTask } = useMutation({
+  const { mutate: createTask, isPending } = useMutation({
     mutationFn: async (data: InsertCareTask) => {
       await apiRequest("POST", "/api/tasks", data);
     },
@@ -79,7 +84,7 @@ export default function TaskForm({ plantId }: TaskFormProps) {
                   <FormLabel>Task Type</FormLabel>
                   <Select
                     onValueChange={(value) => field.onChange(parseInt(value))}
-                    defaultValue={field.value?.toString()}
+                    value={field.value?.toString()}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -127,7 +132,7 @@ export default function TaskForm({ plantId }: TaskFormProps) {
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
-                        selected={field.value as Date}
+                        selected={field.value}
                         onSelect={field.onChange}
                         disabled={(date) => date < new Date()}
                         initialFocus
@@ -157,7 +162,7 @@ export default function TaskForm({ plantId }: TaskFormProps) {
               )}
             />
 
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full" disabled={isPending}>
               Create Task
             </Button>
           </form>
