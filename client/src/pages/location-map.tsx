@@ -396,31 +396,13 @@ export default function LocationMap() {
           </Button>
         </div>
       ) : (
-        <div className="fixed bottom-20 right-4 flex flex-col gap-2">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="shadow-lg gap-2" size="icon">
-                <Plus className="h-5 w-5" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-h-[90vh]">
-              <DialogHeader>
-                <DialogTitle>Add New Plant</DialogTitle>
-              </DialogHeader>
-              <ScrollArea className="max-h-[70vh] pr-4">
-                <PlantForm />
-              </ScrollArea>
-            </DialogContent>
-          </Dialog>
-
-          <Button 
-            className="shadow-lg gap-2"
-            onClick={() => setIsEditing(true)}
-          >
-            <PenLine className="h-4 w-4" />
-            Edit Layout
-          </Button>
-        </div>
+        <Button 
+          className="fixed bottom-20 right-4 shadow-lg gap-2"
+          onClick={() => setIsEditing(true)}
+        >
+          <PenLine className="h-4 w-4" />
+          Edit Layout
+        </Button>
       )}
     </div>
   );
