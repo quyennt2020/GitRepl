@@ -16,6 +16,15 @@ export const plants = pgTable("plants", {
   notes: text("notes"),
 });
 
+export const healthRecords = pgTable("health_records", {
+  id: serial("id").primaryKey(),
+  plantId: integer("plant_id").notNull(),
+  date: timestamp("date").notNull().defaultNow(),
+  healthScore: integer("health_score").notNull(), // 1-5 scale
+  issues: text("issues").array(), // Array of issues like ["yellow_leaves", "drooping"]
+  notes: text("notes"),
+});
+
 export const insertPlantSchema = createInsertSchema(plants)
   .omit({ id: true, lastWatered: true, lastFertilized: true })
   .extend({
@@ -26,8 +35,20 @@ export const insertPlantSchema = createInsertSchema(plants)
     sunlight: z.enum(["low", "medium", "high"]),
   });
 
+export const insertHealthRecordSchema = createInsertSchema(healthRecords)
+  .omit({ id: true })
+  .extend({
+    healthScore: z.number().min(1).max(5),
+    issues: z.array(z.string()),
+  });
+
 export type Plant = typeof plants.$inferSelect;
 export type InsertPlant = z.infer<typeof insertPlantSchema>;
+export type CareTask = typeof careTasks.$inferSelect;
+export type InsertCareTask = z.infer<typeof insertCareTaskSchema>;
+
+export type HealthRecord = typeof healthRecords.$inferSelect;
+export type InsertHealthRecord = z.infer<typeof insertHealthRecordSchema>;
 
 export const careTasks = pgTable("care_tasks", {
   id: serial("id").primaryKey(),
@@ -42,6 +63,3 @@ export const insertCareTaskSchema = createInsertSchema(careTasks)
   .extend({
     type: z.enum(["water", "fertilize"]),
   });
-
-export type CareTask = typeof careTasks.$inferSelect;
-export type InsertCareTask = z.infer<typeof insertCareTaskSchema>;

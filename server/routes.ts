@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPlantSchema, insertCareTaskSchema } from "@shared/schema";
+import { insertPlantSchema, insertCareTaskSchema, insertHealthRecordSchema } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
   // Plants
@@ -53,6 +53,24 @@ export function registerRoutes(app: Express): Server {
   app.patch("/api/tasks/:id", async (req, res) => {
     const task = await storage.updateCareTask(Number(req.params.id), req.body);
     res.json(task);
+  });
+
+  // New health record routes
+  app.get("/api/plants/:id/health", async (req, res) => {
+    const records = await storage.getHealthRecords(Number(req.params.id));
+    res.json(records);
+  });
+
+  app.post("/api/plants/:id/health", async (req, res) => {
+    const result = insertHealthRecordSchema.safeParse({
+      ...req.body,
+      plantId: Number(req.params.id),
+    });
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+    const record = await storage.createHealthRecord(result.data);
+    res.status(201).json(record);
   });
 
   const httpServer = createServer(app);

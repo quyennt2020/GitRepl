@@ -1,6 +1,6 @@
-import { Plant, InsertPlant, CareTask, InsertCareTask, plants, careTasks } from "@shared/schema";
+import { Plant, InsertPlant, CareTask, InsertCareTask, HealthRecord, InsertHealthRecord, plants, careTasks, healthRecords } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Plants
@@ -16,6 +16,10 @@ export interface IStorage {
   createCareTask(task: InsertCareTask): Promise<CareTask>;
   updateCareTask(id: number, task: Partial<CareTask>): Promise<CareTask>;
   deleteCareTasks(plantId: number): Promise<void>;
+
+  // Health Records
+  getHealthRecords(plantId: number): Promise<HealthRecord[]>;
+  createHealthRecord(record: InsertHealthRecord): Promise<HealthRecord>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -84,6 +88,22 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCareTasks(plantId: number): Promise<void> {
     await db.delete(careTasks).where(eq(careTasks.plantId, plantId));
+  }
+
+  async getHealthRecords(plantId: number): Promise<HealthRecord[]> {
+    return await db
+      .select()
+      .from(healthRecords)
+      .where(eq(healthRecords.plantId, plantId))
+      .orderBy(desc(healthRecords.date));
+  }
+
+  async createHealthRecord(record: InsertHealthRecord): Promise<HealthRecord> {
+    const [healthRecord] = await db
+      .insert(healthRecords)
+      .values(record)
+      .returning();
+    return healthRecord;
   }
 }
 
