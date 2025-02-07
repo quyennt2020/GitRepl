@@ -79,7 +79,6 @@ export default function Schedule() {
                             </p>
                           </div>
                           <Button 
-                            className="w-full" 
                             onClick={() => markWatered(plant.id)}
                           >
                             <Check className="h-4 w-4 mr-2" />
