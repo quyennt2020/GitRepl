@@ -20,9 +20,8 @@ export default function TaskList({ plantId }: TaskListProps) {
   const [editingTask, setEditingTask] = useState<CareTask | null>(null);
   const { toast } = useToast();
 
-  const { data: tasks, isLoading: tasksLoading } = useQuery<CareTask[]>({
+  const { data: tasks } = useQuery<CareTask[]>({
     queryKey: ["/api/tasks", plantId],
-    queryFn: () => apiRequest("GET", `/api/tasks?plantId=${plantId}`),
   });
 
   const { data: templates } = useQuery<TaskTemplate[]>({
@@ -31,14 +30,7 @@ export default function TaskList({ plantId }: TaskListProps) {
 
   const { mutate: deleteTask } = useMutation({
     mutationFn: async (taskId: number) => {
-      const response = await fetch(`/api/tasks/${taskId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "Failed to delete task" }));
-        throw new Error(errorData.message);
-      }
+      await apiRequest("DELETE", `/api/tasks/${taskId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks", plantId] });
@@ -64,20 +56,6 @@ export default function TaskList({ plantId }: TaskListProps) {
     },
   });
 
-  if (tasksLoading) {
-    return <div className="animate-pulse space-y-4">
-      {[1, 2, 3].map(i => (
-        <Card key={i} className="p-4">
-          <div className="h-6 bg-muted rounded w-1/3" />
-          <div className="mt-2 space-y-2">
-            <div className="h-4 bg-muted rounded w-full" />
-            <div className="h-4 bg-muted rounded w-2/3" />
-          </div>
-        </Card>
-      ))}
-    </div>;
-  }
-
   if (!tasks?.length) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -96,9 +74,8 @@ export default function TaskList({ plantId }: TaskListProps) {
   return (
     <>
       <Accordion type="single" collapsible className="space-y-4">
-        {tasks?.map(task => {
+        {tasks.map(task => {
           const template = templates?.find(t => t.id === task.templateId);
-          const progress = task.checklistProgress as Record<string, boolean> || {};
           const isOverdue = new Date(task.dueDate) < new Date();
 
           return (
@@ -150,9 +127,7 @@ export default function TaskList({ plantId }: TaskListProps) {
                             <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
                               Cancel
                             </AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={(e) => handleDeleteClick(e, task.id)}
-                            >
+                            <AlertDialogAction onClick={(e) => handleDeleteClick(e, task.id)}>
                               Delete
                             </AlertDialogAction>
                           </AlertDialogFooter>
