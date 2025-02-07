@@ -1,12 +1,13 @@
 import { Link, useLocation } from "wouter";
-import { Home, Sprout, Calendar, Book, Map } from "lucide-react";
+import { Home, Sprout, Calendar, Book, Map, Settings } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/plants", icon: Sprout, label: "Plants" },
   { href: "/location-map", icon: Map, label: "Locations" },
   { href: "/schedule", icon: Calendar, label: "Schedule" },
-  { href: "/guides", icon: Book, label: "Guides" }
+  { href: "/guides", icon: Book, label: "Guides" },
+  { href: "/task-templates", icon: Settings, label: "Settings" }
 ];
 
 export default function BottomNav() {
