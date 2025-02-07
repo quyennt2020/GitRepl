@@ -214,7 +214,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCareTask(id: number): Promise<void> {
-    await db.delete(careTasks).where(eq(careTasks.id, id));
+    try {
+      const result = await db.delete(careTasks)
+        .where(eq(careTasks.id, id))
+        .returning({ deletedId: careTasks.id });
+
+      if (!result.length) {
+        throw new Error(`Task with id ${id} not found`);
+      }
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      throw new Error(`Failed to delete task: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   // Existing health records methods
