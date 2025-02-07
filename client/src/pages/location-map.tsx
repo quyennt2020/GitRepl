@@ -2,7 +2,16 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plant } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Share2, Grid, MoreHorizontal, PenLine, Check } from "lucide-react";
+import { 
+  ChevronLeft, 
+  Share2, 
+  Grid, 
+  MoreHorizontal, 
+  PenLine, 
+  Check,
+  Sun as SunIcon,
+  Droplets as DropletsIcon
+} from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +30,20 @@ function snapToGrid(value: number): number {
   const gridPosition = Math.round(value / gridInterval) * gridInterval;
   return Math.max(0, Math.min(100, gridPosition));
 }
+
+const PlantDetails = ({ plant }: { plant: Plant }) => (
+  <div className="mt-1 flex flex-wrap gap-2">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-sm">
+      <SunIcon className="h-4 w-4" />
+      {plant.sunlight}
+    </span>
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-sm">
+      <DropletsIcon className="h-4 w-4" />
+      Water every {plant.wateringInterval} days
+    </span>
+  </div>
+);
+
 
 export default function LocationMap() {
   const [isEditing, setIsEditing] = useState(false);
@@ -367,7 +390,7 @@ export default function LocationMap() {
               <ResizableHandle withHandle />
 
               {/* Selected Plant Details */}
-              {selectedPlant ? (
+              {selectedPlant && (
                 <ResizablePanel defaultSize={15}>
                   <div className="h-full bg-background p-3 border-t">
                     <div className="flex items-start gap-3">
@@ -379,16 +402,7 @@ export default function LocationMap() {
                       <div className="flex-1">
                         <h3 className="font-semibold">{selectedPlant.name}</h3>
                         <p className="text-sm text-muted-foreground">{selectedPlant.species}</p>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-sm">
-                            <Sun className="h-4 w-4" />
-                            {selectedPlant.sunlight}
-                          </span>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-sm">
-                            <Droplets className="h-4 w-4" />
-                            Water every {selectedPlant.wateringInterval} days
-                          </span>
-                        </div>
+                        <PlantDetails plant={selectedPlant} />
                         <Link href={`/plants/${selectedPlant.id}`}>
                           <a className="mt-1 text-sm text-primary hover:underline">View Details</a>
                         </Link>
@@ -396,7 +410,8 @@ export default function LocationMap() {
                     </div>
                   </div>
                 </ResizablePanel>
-              ) : (
+              )}
+              {!selectedPlant && (
                 <ResizablePanel defaultSize={15}>
                   <div className="h-full bg-background p-3 border-t flex items-center justify-center text-muted-foreground">
                     Select a plant to view details
