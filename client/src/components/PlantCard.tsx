@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import HealthRecordForm from "./HealthRecordForm";
 import HealthTrend from "./HealthTrend";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import WateringAnimation from "./WateringAnimation";
 
 interface PlantCardProps {
   plant: Plant;
@@ -118,14 +119,16 @@ export default function PlantCard({ plant }: PlantCardProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 text-xs">
-            <Droplets className="h-3 w-3" />
-            {plant.wateringInterval}d
-          </div>
-          <div className="flex items-center gap-1 text-xs">
-            <Sun className="h-3 w-3" />
-            {plant.sunlight}
+        <div className="grid grid-cols-2 gap-4">
+          <WateringAnimation
+            lastWatered={plant.lastWatered}
+            wateringInterval={plant.wateringInterval}
+          />
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 text-xs">
+              <Sun className="h-3 w-3" />
+              {plant.sunlight}
+            </div>
           </div>
         </div>
       </CardContent>
