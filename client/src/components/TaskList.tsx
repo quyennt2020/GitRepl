@@ -1,14 +1,17 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { CareTask, TaskTemplate } from "@shared/schema";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clipboard, AlertCircle, Edit2 } from "lucide-react";
+import { Clipboard, AlertCircle, Edit2, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import EditTaskDialog from "./EditTaskDialog";
 import { apiRequest } from '@/lib/api';
+import { queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface TaskListProps {
   plantId: number;
@@ -16,6 +19,7 @@ interface TaskListProps {
 
 export default function TaskList({ plantId }: TaskListProps) {
   const [editingTask, setEditingTask] = useState<CareTask | null>(null);
+  const { toast } = useToast();
 
   const { data: tasks, isLoading: tasksLoading } = useQuery<CareTask[]>({
     queryKey: ["/api/tasks", plantId],
@@ -24,6 +28,23 @@ export default function TaskList({ plantId }: TaskListProps) {
 
   const { data: templates } = useQuery<TaskTemplate[]>({
     queryKey: ["/api/task-templates"],
+  });
+
+  const { mutate: deleteTask } = useMutation({
+    mutationFn: async (taskId: number) => {
+      await apiRequest("DELETE", `/api/tasks/${taskId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", plantId] });
+      toast({ title: "Task deleted successfully" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to delete task",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    },
   });
 
   if (tasksLoading) {
@@ -74,16 +95,51 @@ export default function TaskList({ plantId }: TaskListProps) {
                         Due {formatDistanceToNow(new Date(task.dueDate), { addSuffix: true })}
                       </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingTask(task);
-                      }}
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingTask(task);
+                        }}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Task</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete this task? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
+                              Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteTask(task.id);
+                              }}
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </div>
                 </AccordionTrigger>
 

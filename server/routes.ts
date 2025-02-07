@@ -131,6 +131,16 @@ export function registerRoutes(app: Express): Server {
     res.json(task);
   });
 
+  // Add delete task endpoint
+  app.delete("/api/tasks/:id", async (req, res) => {
+    try {
+      await storage.deleteCareTask(Number(req.params.id));
+      res.status(204).end();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete task" });
+    }
+  });
+
   // Health records routes
   app.get("/api/plants/:id/health", async (req, res) => {
     const records = await storage.getHealthRecords(Number(req.params.id));

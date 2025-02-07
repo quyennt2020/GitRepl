@@ -18,6 +18,7 @@ export interface IStorage {
   createCareTask(task: InsertCareTask): Promise<CareTask>;
   updateCareTask(id: number, task: Partial<CareTask>): Promise<CareTask>;
   deleteCareTasks(plantId: number): Promise<void>;
+  deleteCareTask(id: number): Promise<void>;
 
   // Task Templates
   getTaskTemplates(): Promise<TaskTemplate[]>;
@@ -210,6 +211,10 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCareTasks(plantId: number): Promise<void> {
     await db.delete(careTasks).where(eq(careTasks.plantId, plantId));
+  }
+
+  async deleteCareTask(id: number): Promise<void> {
+    await db.delete(careTasks).where(eq(careTasks.id, id));
   }
 
   // Existing health records methods
