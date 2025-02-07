@@ -20,22 +20,18 @@ interface TaskFormProps {
   plantId: number;
 }
 
-const extendedTaskSchema = insertCareTaskSchema.extend({
-  templateId: insertCareTaskSchema.shape.templateId.min(1, "Please select a task type"),
-});
-
 export default function TaskForm({ plantId }: TaskFormProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<InsertCareTask>({
-    resolver: zodResolver(extendedTaskSchema),
+    resolver: zodResolver(insertCareTaskSchema),
     defaultValues: {
       plantId,
       completed: false,
       checklistProgress: {},
       notes: "",
-      templateId: undefined, // This will be set when user selects a template
+      templateId: null, // Initialize as null instead of undefined
     },
   });
 
@@ -45,6 +41,10 @@ export default function TaskForm({ plantId }: TaskFormProps) {
 
   const { mutate: createTask, isPending } = useMutation({
     mutationFn: async (data: InsertCareTask) => {
+      // Ensure templateId is a valid number before submission
+      if (!data.templateId || isNaN(data.templateId)) {
+        throw new Error("Please select a task type");
+      }
       await apiRequest("POST", "/api/tasks", data);
     },
     onSuccess: () => {
@@ -53,9 +53,9 @@ export default function TaskForm({ plantId }: TaskFormProps) {
       setOpen(false);
       form.reset();
     },
-    onError: () => {
+    onError: (error) => {
       toast({
-        title: "Failed to create task",
+        title: error instanceof Error ? error.message : "Failed to create task",
         variant: "destructive",
       });
     },
@@ -83,8 +83,8 @@ export default function TaskForm({ plantId }: TaskFormProps) {
                 <FormItem>
                   <FormLabel>Task Type</FormLabel>
                   <Select
-                    onValueChange={(value) => field.onChange(parseInt(value))}
-                    value={field.value?.toString()}
+                    onValueChange={(value) => field.onChange(Number(value))}
+                    value={field.value?.toString() || ""}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -155,6 +155,7 @@ export default function TaskForm({ plantId }: TaskFormProps) {
                       placeholder="Add any additional notes or instructions..."
                       className="resize-none"
                       {...field}
+                      value={field.value || ""} // Ensure value is never null/undefined
                     />
                   </FormControl>
                   <FormMessage />
