@@ -38,6 +38,9 @@ export default function PlantCard({ plant }: PlantCardProps) {
     },
   });
 
+  // If lastWatered is null, use the current date
+  const lastWateredDate = plant.lastWatered ? new Date(plant.lastWatered) : new Date();
+
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
       <AspectRatio ratio={1}>
@@ -121,7 +124,7 @@ export default function PlantCard({ plant }: PlantCardProps) {
 
         <div className="grid grid-cols-2 gap-4">
           <WateringAnimation
-            lastWatered={plant.lastWatered}
+            lastWatered={lastWateredDate}
             wateringInterval={plant.wateringInterval}
           />
           <div className="flex items-center gap-3">
