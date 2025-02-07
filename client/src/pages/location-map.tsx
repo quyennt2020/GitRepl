@@ -208,8 +208,8 @@ export default function LocationMap() {
       {/* Main Content */}
       <div className="flex-1 flex">
         {/* Plant List Panel */}
-        <div className="w-72 border-r bg-background">
-          <div className="p-4 border-b">
+        <div className="w-60 border-r bg-background">
+          <div className="p-2 border-b">
             <h2 className="font-semibold">Plant Locations</h2>
           </div>
           <ScrollArea className="h-[calc(100vh-12rem)]">
@@ -221,7 +221,7 @@ export default function LocationMap() {
                 return (
                   <div 
                     key={plant.id}
-                    className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${
+                    className={`flex items-center gap-2 p-2 cursor-pointer transition-colors ${
                       isHighlighted ? 'bg-accent' : 'hover:bg-accent/50'
                     }`}
                     onClick={() => setHighlightedPlant(plant.id === highlightedPlant ? null : plant.id)}
@@ -230,11 +230,11 @@ export default function LocationMap() {
                     <img
                       src={plant.image}
                       alt={plant.name}
-                      className="w-10 h-10 rounded-md object-cover"
+                      className="w-8 h-8 rounded-md object-cover"
                     />
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium truncate">{plant.name}</h3>
-                      <p className="text-sm text-muted-foreground truncate">{plant.species}</p>
+                      <h3 className="font-medium text-sm truncate">{plant.name}</h3>
+                      <p className="text-xs text-muted-foreground truncate">{plant.species}</p>
                     </div>
                   </div>
                 );
@@ -246,9 +246,9 @@ export default function LocationMap() {
         {/* Map and Details Area */}
         <div className="flex-1 flex flex-col">
           {/* Map Area */}
-          <div className="flex-1 p-4 overflow-auto">
+          <div className="flex-1 p-2 overflow-auto">
             <div 
-              className="relative w-full aspect-square max-w-3xl mx-auto bg-white rounded-lg shadow-sm"
+              className="relative w-full aspect-square max-w-4xl mx-auto bg-white rounded-lg shadow-sm"
               style={{
                 backgroundImage: 'radial-gradient(circle, #E5E7EB 0.5px, transparent 0.5px)',
                 backgroundSize: '20px 20px',
@@ -319,17 +319,17 @@ export default function LocationMap() {
 
           {/* Selected Plant Details */}
           {selectedPlant && (
-            <div className="border-t bg-background p-4">
-              <div className="max-w-3xl mx-auto">
-                <div className="flex items-start gap-4">
+            <div className="border-t bg-background p-3">
+              <div className="max-w-4xl mx-auto">
+                <div className="flex items-start gap-3">
                   <img
                     src={selectedPlant.image}
                     alt={selectedPlant.name}
-                    className="w-20 h-20 rounded-lg object-cover"
+                    className="w-16 h-16 rounded-lg object-cover"
                   />
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold">{selectedPlant.name}</h3>
-                    <p className="text-muted-foreground">{selectedPlant.species}</p>
+                    <p className="text-sm text-muted-foreground">{selectedPlant.species}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-secondary text-sm">
                         <Sun className="h-4 w-4" />
