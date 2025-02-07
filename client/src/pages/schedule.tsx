@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Plant } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
-import CareTask from "@/components/CareTask";
-import { format, addDays, differenceInDays } from "date-fns";
+import { format, addDays, isAfter, isSameDay, addWeeks } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Droplets } from "lucide-react";
 
@@ -13,11 +12,15 @@ export default function Schedule() {
 
   const next7Days = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
 
+  const getNextWateringDate = (plant: Plant) => {
+    const lastWatered = plant.lastWatered ? new Date(plant.lastWatered) : new Date();
+    return addDays(lastWatered, plant.wateringInterval);
+  };
+
   const getPlantsDueForDate = (date: Date, plants: Plant[] = []) => {
     return plants.filter(plant => {
-      const lastWateredDate = plant.lastWatered ? new Date(plant.lastWatered) : new Date();
-      const daysSinceWatered = differenceInDays(date, lastWateredDate);
-      return daysSinceWatered >= plant.wateringInterval;
+      const nextWateringDate = getNextWateringDate(plant);
+      return isSameDay(date, nextWateringDate) || isAfter(date, nextWateringDate);
     });
   };
 
@@ -39,15 +42,33 @@ export default function Schedule() {
                 <ScrollArea className="h-full max-h-[300px]">
                   {hasPlants ? (
                     <div className="space-y-2">
-                      {plantsForDate.map(plant => (
-                        <div key={plant.id} className="flex items-center gap-2 p-2 border rounded-lg">
-                          <Droplets className="h-4 w-4 text-blue-500" />
-                          <div>
-                            <p className="font-medium">{plant.name}</p>
-                            <p className="text-sm text-muted-foreground">Water plant</p>
+                      {plantsForDate.map(plant => {
+                        const nextWatering = getNextWateringDate(plant);
+                        const isOverdue = isAfter(date, nextWatering);
+
+                        return (
+                          <div 
+                            key={plant.id} 
+                            className={`flex items-center gap-2 p-2 border rounded-lg ${
+                              isOverdue ? 'border-red-500' : 'border-blue-500'
+                            }`}
+                          >
+                            <Droplets className={`h-4 w-4 ${isOverdue ? 'text-red-500' : 'text-blue-500'}`} />
+                            <div>
+                              <p className="font-medium">{plant.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {isOverdue 
+                                  ? 'Overdue for watering'
+                                  : 'Due for watering'
+                                }
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Next watering: {format(nextWatering, "MMM d")}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-center text-muted-foreground py-4">
