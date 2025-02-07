@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plant } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Share2, Grid, MoreHorizontal, PenLine, Check } from "lucide-react";
+import { ChevronLeft, Share2, Grid, MoreHorizontal, PenLine, Check, Droplets } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { differenceInDays } from "date-fns";
 
 type Position = { x: number; y: number };
 
@@ -127,6 +128,29 @@ export default function LocationMap() {
     setIsEditing(false);
   };
 
+  const getPlantStatus = (plant: Plant) => {
+    const lastWateredDate = plant.lastWatered ? new Date(plant.lastWatered) : new Date();
+    const daysSinceWatered = differenceInDays(new Date(), lastWateredDate);
+    const needsWater = daysSinceWatered >= plant.wateringInterval;
+
+    if (needsWater) {
+      return {
+        color: 'bg-red-400',
+        tooltip: `${plant.name} (${plant.species}) - Needs water!`
+      };
+    } else if (daysSinceWatered >= plant.wateringInterval - 1) {
+      return {
+        color: 'bg-yellow-400',
+        tooltip: `${plant.name} (${plant.species}) - Water tomorrow`
+      };
+    } else {
+      return {
+        color: 'bg-green-400',
+        tooltip: `${plant.name} (${plant.species}) - ${plant.wateringInterval - daysSinceWatered} days until next watering`
+      };
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col h-screen bg-[#F8FAFB]">
@@ -159,6 +183,24 @@ export default function LocationMap() {
         </div>
       </div>
 
+      {/* Legend */}
+      {!isEditing && (
+        <div className="px-4 py-2 flex gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-sm bg-green-400" />
+            <span>Watered</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-sm bg-yellow-400" />
+            <span>Water Soon</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-sm bg-red-400" />
+            <span>Needs Water</span>
+          </div>
+        </div>
+      )}
+
       {/* Grid Layout */}
       <div className="flex-1 p-4 overflow-auto">
         <div 
@@ -187,13 +229,15 @@ export default function LocationMap() {
               (tempPositions[plant.id] || defaultPosition) : 
               (savedPositions[plant.id] || defaultPosition);
 
+            const status = getPlantStatus(plant);
+
             return isEditing ? (
               <div
                 key={plant.id}
                 draggable
                 onDragStart={(e) => handleDragStart(e, plant.id)}
                 onDragEnd={handleDragEnd}
-                className="absolute w-4 h-4 bg-blue-400 cursor-move transition-all hover:brightness-110"
+                className={`absolute w-4 h-4 cursor-move transition-all hover:brightness-110 ${status.color}`}
                 style={{
                   left: `${position.x}%`,
                   top: `${position.y}%`,
@@ -204,14 +248,21 @@ export default function LocationMap() {
             ) : (
               <Link key={plant.id} href={`/plants/${plant.id}`}>
                 <a 
-                  className="absolute w-4 h-4 bg-blue-400 cursor-pointer hover:brightness-110 transition-all"
+                  className={`absolute w-4 h-4 cursor-pointer hover:brightness-110 transition-all group ${status.color}`}
                   style={{
                     left: `${position.x}%`,
                     top: `${position.y}%`,
                     transform: 'translate(-50%, -50%)'
                   }}
-                  title={plant.name}
-                />
+                  title={status.tooltip}
+                >
+                  <div className="absolute invisible group-hover:visible -top-8 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground px-2 py-1 rounded shadow-lg whitespace-nowrap text-sm">
+                    {plant.name}
+                    <div className="text-xs text-muted-foreground">
+                      {plant.species}
+                    </div>
+                  </div>
+                </a>
               </Link>
             );
           })}
