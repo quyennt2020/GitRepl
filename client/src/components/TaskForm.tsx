@@ -31,7 +31,8 @@ export default function TaskForm({ plantId }: TaskFormProps) {
       completed: false,
       checklistProgress: {},
       notes: "",
-      templateId: null, // Initialize as null instead of undefined
+      templateId: undefined,
+      dueDate: undefined,
     },
   });
 
@@ -41,10 +42,6 @@ export default function TaskForm({ plantId }: TaskFormProps) {
 
   const { mutate: createTask, isPending } = useMutation({
     mutationFn: async (data: InsertCareTask) => {
-      // Ensure templateId is a valid number before submission
-      if (!data.templateId || isNaN(data.templateId)) {
-        throw new Error("Please select a task type");
-      }
       await apiRequest("POST", "/api/tasks", data);
     },
     onSuccess: () => {
@@ -53,9 +50,9 @@ export default function TaskForm({ plantId }: TaskFormProps) {
       setOpen(false);
       form.reset();
     },
-    onError: (error) => {
+    onError: () => {
       toast({
-        title: error instanceof Error ? error.message : "Failed to create task",
+        title: "Failed to create task",
         variant: "destructive",
       });
     },
@@ -155,7 +152,6 @@ export default function TaskForm({ plantId }: TaskFormProps) {
                       placeholder="Add any additional notes or instructions..."
                       className="resize-none"
                       {...field}
-                      value={field.value || ""} // Ensure value is never null/undefined
                     />
                   </FormControl>
                   <FormMessage />

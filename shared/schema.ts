@@ -77,6 +77,10 @@ export const insertCareTaskSchema = createInsertSchema(careTasks)
   .omit({ id: true, completedAt: true })
   .extend({
     checklistProgress: z.record(z.boolean()).optional(),
+    templateId: z.number({
+      required_error: "Please select a task type",
+      invalid_type_error: "Task type must be a number"
+    }).positive("Please select a valid task type"),
   });
 
 export const insertPlantSchema = createInsertSchema(plants)
