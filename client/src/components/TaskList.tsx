@@ -39,6 +39,8 @@ export default function TaskList({ plantId }: TaskListProps) {
       toast({ title: "Task deleted successfully" });
     },
     onError: (error) => {
+      // Regardless of the specific error, refresh the task list
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", plantId] });
       toast({
         title: "Failed to delete task",
         description: error instanceof Error ? error.message : "An error occurred",
