@@ -21,6 +21,8 @@ export function registerRoutes(app: Express): Server {
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
     }
+
+    // Create plant without automatically creating tasks
     const plant = await storage.createPlant(result.data);
     res.status(201).json(plant);
   });
