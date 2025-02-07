@@ -79,12 +79,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCareTask(id: number, update: Partial<CareTask>): Promise<CareTask> {
+    const existingTask = await this.getCareTask(id);
+    if (!existingTask) {
+      throw new Error(`Care task with id ${id} not found`);
+    }
+
     const [task] = await db
       .update(careTasks)
       .set(update)
       .where(eq(careTasks.id, id))
       .returning();
-    if (!task) throw new Error("Task not found");
     return task;
   }
 
