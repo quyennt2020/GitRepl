@@ -1,16 +1,38 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plant } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { format, addDays, differenceInDays } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Droplets } from "lucide-react";
+import { Droplets, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Schedule() {
+  const { toast } = useToast();
   const { data: plants } = useQuery<Plant[]>({ 
     queryKey: ["/api/plants"]
   });
 
   const next7Days = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
+
+  const { mutate: markWatered } = useMutation({
+    mutationFn: async (plantId: number) => {
+      await apiRequest("PATCH", `/api/plants/${plantId}`, {
+        lastWatered: new Date().toISOString(),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/plants"] });
+      toast({ title: "Plant marked as watered" });
+    },
+    onError: () => {
+      toast({
+        title: "Failed to update watering status",
+        variant: "destructive",
+      });
+    },
+  });
 
   const getPlantsDueForDate = (date: Date, plants: Plant[] = []) => {
     return plants.filter(plant => {
@@ -56,6 +78,13 @@ export default function Schedule() {
                               {plant.wateringInterval} day watering interval
                             </p>
                           </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => markWatered(plant.id)}
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
                         </div>
                       ))}
                     </div>
