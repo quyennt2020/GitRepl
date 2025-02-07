@@ -40,7 +40,6 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // Existing methods remain unchanged
   async getPlants(): Promise<Plant[]> {
     return await db.select().from(plants);
   }
@@ -79,11 +78,19 @@ export class DatabaseStorage implements IStorage {
 
   // Task Template methods
   async getTaskTemplates(): Promise<TaskTemplate[]> {
-    return await db.select().from(taskTemplates);
+    return await db
+      .select()
+      .from(taskTemplates)
+      .orderBy(taskTemplates.name);
   }
 
   async getTaskTemplate(id: number): Promise<TaskTemplate | undefined> {
-    const [template] = await db.select().from(taskTemplates).where(eq(taskTemplates.id, id));
+    if (!id || isNaN(id)) return undefined;
+
+    const [template] = await db
+      .select()
+      .from(taskTemplates)
+      .where(eq(taskTemplates.id, id));
     return template;
   }
 

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { insertPlantSchema, insertCareTaskSchema, insertHealthRecordSchema, insertTaskTemplateSchema, insertChecklistItemSchema } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
-  // Plants routes remain unchanged
+  // Plants routes
   app.get("/api/plants", async (_req, res) => {
     const plants = await storage.getPlants();
     res.json(plants);
@@ -37,14 +37,29 @@ export function registerRoutes(app: Express): Server {
 
   // Task Templates routes
   app.get("/api/task-templates", async (_req, res) => {
-    const templates = await storage.getTaskTemplates();
-    res.json(templates);
+    try {
+      const templates = await storage.getTaskTemplates();
+      res.json(templates);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch task templates" });
+    }
   });
 
   app.get("/api/task-templates/:id", async (req, res) => {
-    const template = await storage.getTaskTemplate(Number(req.params.id));
-    if (!template) return res.status(404).json({ message: "Task template not found" });
-    res.json(template);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid task template ID" });
+    }
+
+    try {
+      const template = await storage.getTaskTemplate(id);
+      if (!template) {
+        return res.status(404).json({ message: "Task template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch task template" });
+    }
   });
 
   app.post("/api/task-templates", async (req, res) => {
@@ -111,7 +126,7 @@ export function registerRoutes(app: Express): Server {
     res.json(task);
   });
 
-  // Health records routes remain unchanged
+  // Health records routes
   app.get("/api/plants/:id/health", async (req, res) => {
     const records = await storage.getHealthRecords(Number(req.params.id));
     res.json(records);
