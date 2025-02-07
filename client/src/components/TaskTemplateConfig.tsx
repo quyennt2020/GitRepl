@@ -10,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, MoveVertical } from "lucide-react";
+import { Plus, Info } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import * as z from "zod";
 
 export default function TaskTemplateConfig() {
@@ -59,7 +60,7 @@ export default function TaskTemplateConfig() {
       <div className="grid gap-4">
         {uniqueTemplates?.map((template) => (
           <Card key={template.id} className="p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-start justify-between">
               <div>
                 <h3 className="font-medium">{template.name}</h3>
                 <p className="text-sm text-muted-foreground">{template.description}</p>
@@ -70,16 +71,26 @@ export default function TaskTemplateConfig() {
                   </Badge>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Apply to all plants</span>
-                  <Switch
-                    checked={template.applyToAll}
-                    onCheckedChange={(checked) => {
-                      updateTemplate({ id: template.id, applyToAll: checked });
-                    }}
-                  />
-                </div>
+              <div className="flex items-center gap-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">Apply to all plants</span>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>When enabled, this task template will be automatically available for all plants in your collection.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <Switch
+                  checked={template.applyToAll}
+                  onCheckedChange={(checked) => {
+                    updateTemplate({ id: template.id, applyToAll: checked });
+                  }}
+                />
               </div>
             </div>
           </Card>
