@@ -4,6 +4,7 @@ import { Plant } from "@shared/schema";
 import PlantCard from "@/components/PlantCard";
 import CareTask from "@/components/CareTask";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import QRScanner from "@/components/QRScanner";
 
 export default function Home() {
   const { data: plants, isLoading: plantsLoading } = useQuery<Plant[]>({ 
@@ -13,7 +14,9 @@ export default function Home() {
   return (
     <div className="container py-6 space-y-6">
       <h1 className="text-3xl font-bold text-foreground">My Garden</h1>
-      
+
+      <QRScanner />
+
       <Card>
         <CardContent className="p-4">
           <h2 className="text-xl font-semibold mb-4">Today's Tasks</h2>
