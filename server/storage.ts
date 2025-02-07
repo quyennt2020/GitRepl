@@ -165,12 +165,8 @@ export class DatabaseStorage implements IStorage {
     .leftJoin(taskTemplates, eq(careTasks.templateId, taskTemplates.id));
 
     if (plantId) {
-      return await query.where(
-        or(
-          eq(careTasks.plantId, plantId),
-          eq(taskTemplates.applyToAll, true)
-        )
-      );
+      // Only return tasks explicitly assigned to this plant
+      return await query.where(eq(careTasks.plantId, plantId));
     }
 
     return await query;
