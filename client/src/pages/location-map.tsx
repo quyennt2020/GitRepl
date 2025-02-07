@@ -8,6 +8,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { differenceInDays } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "@/components/ui/resizable";
 
 type Position = { x: number; y: number };
 
@@ -207,149 +208,168 @@ export default function LocationMap() {
 
       {/* Main Content */}
       <div className="flex-1 flex">
-        {/* Plant List Panel */}
-        <div className="w-52 border-r bg-background">
-          <div className="p-2 border-b">
-            <h2 className="font-semibold">Plant Locations</h2>
-          </div>
-          <ScrollArea className="h-[calc(100vh-12rem)]">
-            <div className="divide-y">
-              {plants?.map(plant => {
-                const status = getPlantStatus(plant);
-                const isHighlighted = highlightedPlant === plant.id;
-
-                return (
-                  <div 
-                    key={plant.id}
-                    className={`flex items-center gap-1.5 p-1.5 cursor-pointer transition-colors ${
-                      isHighlighted ? 'bg-accent' : 'hover:bg-accent/50'
-                    }`}
-                    onClick={() => setHighlightedPlant(plant.id === highlightedPlant ? null : plant.id)}
-                  >
-                    <div className={`w-2 h-2 rounded-full ${status.color}`} />
-                    <img
-                      src={plant.image}
-                      alt={plant.name}
-                      className="w-7 h-7 rounded-md object-cover"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-sm truncate">{plant.name}</h3>
-                      <p className="text-xs text-muted-foreground truncate">{plant.species}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </ScrollArea>
-        </div>
-
-        {/* Map and Details Area */}
-        <div className="flex-1 flex flex-col">
-          {/* Map Area */}
-          <div className="flex-1 p-1 overflow-hidden">
-            <div 
-              className="relative w-full h-full bg-white rounded-lg shadow-sm"
-              style={{
-                backgroundImage: 'radial-gradient(circle, #E5E7EB 0.5px, transparent 0.5px)',
-                backgroundSize: '20px 20px',
-                backgroundPosition: '10px 10px',
-                minHeight: '500px'
-              }}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-            >
-              {/* Room Layout */}
-              <div className="absolute inset-8 border border-gray-400">
-                <div className="absolute right-0 bottom-0 w-1/3 h-1/3 border-l border-t border-gray-400 bg-white" />
+        {/* Resizable Layout */}
+        <ResizablePanelGroup direction="horizontal">
+          {/* Plant List Panel */}
+          <ResizablePanel defaultSize={15} minSize={10}>
+            <div className="h-full border-r bg-background">
+              <div className="p-2 border-b">
+                <h2 className="font-semibold">Plant Locations</h2>
               </div>
+              <ScrollArea className="h-[calc(100vh-12rem)]">
+                <div className="divide-y">
+                  {plants?.map(plant => {
+                    const status = getPlantStatus(plant);
+                    const isHighlighted = highlightedPlant === plant.id;
 
-              {/* Plant Indicators */}
-              {plants?.map((plant, index) => {
-                const defaultPosition = {
-                  x: 25 + ((index % 2) * 50),
-                  y: 25 + (Math.floor(index / 2) * 30)
-                };
-                const position = isEditing ? 
-                  (tempPositions[plant.id] || defaultPosition) : 
-                  (savedPositions[plant.id] || defaultPosition);
+                    return (
+                      <div 
+                        key={plant.id}
+                        className={`flex items-center gap-1.5 p-1.5 cursor-pointer transition-colors ${
+                          isHighlighted ? 'bg-accent' : 'hover:bg-accent/50'
+                        }`}
+                        onClick={() => setHighlightedPlant(plant.id === highlightedPlant ? null : plant.id)}
+                      >
+                        <div className={`w-2 h-2 rounded-full ${status.color}`} />
+                        <img
+                          src={plant.image}
+                          alt={plant.name}
+                          className="w-7 h-7 rounded-md object-cover"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-sm truncate">{plant.name}</h3>
+                          <p className="text-xs text-muted-foreground truncate">{plant.species}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+          </ResizablePanel>
 
-                const status = getPlantStatus(plant);
-                const isHighlighted = highlightedPlant === plant.id;
+          <ResizableHandle withHandle />
 
-                return isEditing ? (
-                  <div
-                    key={plant.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, plant.id)}
-                    onDragEnd={handleDragEnd}
-                    className={`absolute w-4 h-4 cursor-move transition-transform hover:scale-125 ${status.color} ${
-                      isHighlighted ? 'ring-2 ring-primary ring-offset-2' : ''
-                    }`}
+          {/* Map and Details Area */}
+          <ResizablePanel defaultSize={85}>
+            <ResizablePanelGroup direction="vertical">
+              {/* Map Area */}
+              <ResizablePanel defaultSize={85}>
+                <div className="h-full p-1 overflow-hidden">
+                  <div 
+                    className="relative w-full h-full bg-white rounded-lg shadow-sm"
                     style={{
-                      left: `${position.x}%`,
-                      top: `${position.y}%`,
-                      transform: 'translate(-50%, -50%)'
+                      backgroundImage: 'radial-gradient(circle, #E5E7EB 0.5px, transparent 0.5px)',
+                      backgroundSize: '20px 20px',
+                      backgroundPosition: '10px 10px',
+                      minHeight: '500px'
                     }}
-                    title={`Drag to move ${plant.name}`}
-                  />
-                ) : (
-                  <div
-                    key={plant.id}
-                    className={`absolute w-4 h-4 cursor-pointer transition-transform hover:scale-125 group ${status.color} ${
-                      isHighlighted ? 'ring-2 ring-primary ring-offset-2' : ''
-                    }`}
-                    style={{
-                      left: `${position.x}%`,
-                      top: `${position.y}%`,
-                      transform: 'translate(-50%, -50%)'
-                    }}
-                    title={status.tooltip}
-                    onClick={() => setHighlightedPlant(plant.id === highlightedPlant ? null : plant.id)}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
                   >
-                    <div className="absolute invisible group-hover:visible -top-8 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground px-2 py-1 rounded shadow-lg whitespace-nowrap text-sm">
-                      {plant.name}
-                      <div className="text-xs text-muted-foreground">
-                        {plant.species}
+                    {/* Room Layout */}
+                    <div className="absolute inset-8 border border-gray-400">
+                      <div className="absolute right-0 bottom-0 w-1/3 h-1/3 border-l border-t border-gray-400 bg-white" />
+                    </div>
+
+                    {/* Plant Indicators */}
+                    {plants?.map((plant, index) => {
+                      const defaultPosition = {
+                        x: 25 + ((index % 2) * 50),
+                        y: 25 + (Math.floor(index / 2) * 30)
+                      };
+                      const position = isEditing ? 
+                        (tempPositions[plant.id] || defaultPosition) : 
+                        (savedPositions[plant.id] || defaultPosition);
+
+                      const status = getPlantStatus(plant);
+                      const isHighlighted = highlightedPlant === plant.id;
+
+                      return isEditing ? (
+                        <div
+                          key={plant.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, plant.id)}
+                          onDragEnd={handleDragEnd}
+                          className={`absolute w-4 h-4 cursor-move transition-transform hover:scale-125 ${status.color} ${
+                            isHighlighted ? 'ring-2 ring-primary ring-offset-2' : ''
+                          }`}
+                          style={{
+                            left: `${position.x}%`,
+                            top: `${position.y}%`,
+                            transform: 'translate(-50%, -50%)'
+                          }}
+                          title={`Drag to move ${plant.name}`}
+                        />
+                      ) : (
+                        <div
+                          key={plant.id}
+                          className={`absolute w-4 h-4 cursor-pointer transition-transform hover:scale-125 group ${status.color} ${
+                            isHighlighted ? 'ring-2 ring-primary ring-offset-2' : ''
+                          }`}
+                          style={{
+                            left: `${position.x}%`,
+                            top: `${position.y}%`,
+                            transform: 'translate(-50%, -50%)'
+                          }}
+                          title={status.tooltip}
+                          onClick={() => setHighlightedPlant(plant.id === highlightedPlant ? null : plant.id)}
+                        >
+                          <div className="absolute invisible group-hover:visible -top-8 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground px-2 py-1 rounded shadow-lg whitespace-nowrap text-sm">
+                            {plant.name}
+                            <div className="text-xs text-muted-foreground">
+                              {plant.species}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </ResizablePanel>
+
+              <ResizableHandle withHandle />
+
+              {/* Selected Plant Details */}
+              {selectedPlant ? (
+                <ResizablePanel defaultSize={15}>
+                  <div className="h-full bg-background p-3 border-t">
+                    <div className="flex items-start gap-3">
+                      <img
+                        src={selectedPlant.image}
+                        alt={selectedPlant.name}
+                        className="w-12 h-12 rounded-lg object-cover"
+                      />
+                      <div className="flex-1">
+                        <h3 className="font-semibold">{selectedPlant.name}</h3>
+                        <p className="text-sm text-muted-foreground">{selectedPlant.species}</p>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-sm">
+                            <Sun className="h-4 w-4" />
+                            {selectedPlant.sunlight}
+                          </span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-sm">
+                            <Droplets className="h-4 w-4" />
+                            Water every {selectedPlant.wateringInterval} days
+                          </span>
+                        </div>
+                        <Link href={`/plants/${selectedPlant.id}`}>
+                          <a className="mt-1 text-sm text-primary hover:underline">View Details</a>
+                        </Link>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Selected Plant Details */}
-          {selectedPlant && (
-            <div className="border-t bg-background p-2">
-              <div className="max-w-full">
-                <div className="flex items-start gap-3">
-                  <img
-                    src={selectedPlant.image}
-                    alt={selectedPlant.name}
-                    className="w-12 h-12 rounded-lg object-cover"
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-semibold">{selectedPlant.name}</h3>
-                    <p className="text-sm text-muted-foreground">{selectedPlant.species}</p>
-                    <div className="mt-1 flex flex-wrap gap-2">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-sm">
-                        <Sun className="h-4 w-4" />
-                        {selectedPlant.sunlight}
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-sm">
-                        <Droplets className="h-4 w-4" />
-                        Water every {selectedPlant.wateringInterval} days
-                      </span>
-                    </div>
-                    <Link href={`/plants/${selectedPlant.id}`}>
-                      <a className="mt-1 text-sm text-primary hover:underline">View Details</a>
-                    </Link>
+                </ResizablePanel>
+              ) : (
+                <ResizablePanel defaultSize={15}>
+                  <div className="h-full bg-background p-3 border-t flex items-center justify-center text-muted-foreground">
+                    Select a plant to view details
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+                </ResizablePanel>
+              )}
+            </ResizablePanelGroup>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
 
       {/* Bottom Toolbar */}
