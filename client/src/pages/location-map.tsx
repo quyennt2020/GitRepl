@@ -2,13 +2,15 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plant } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Share2, Grid, MoreHorizontal, PenLine, Check, Droplets, Sun } from "lucide-react";
+import { ChevronLeft, Share2, Grid, MoreHorizontal, PenLine, Check, Droplets, Sun, Plus } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { differenceInDays } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "@/components/ui/resizable";
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import PlantForm from "@/components/PlantForm"; // Assuming this component exists
 
 type Position = { x: number; y: number };
 
@@ -375,35 +377,51 @@ export default function LocationMap() {
         </ResizablePanelGroup>
       </div>
 
-      {/* Bottom Toolbar */}
-      <div className="p-4 border-t bg-white">
-        {isEditing ? (
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              className="flex-1"
-              onClick={handleCancel}
-            >
-              Cancel
-            </Button>
-            <Button 
-              className="flex-1 gap-2"
-              onClick={handleSave}
-            >
-              <Check className="h-4 w-4" />
-              Save Layout
-            </Button>
-          </div>
-        ) : (
+      {/* Floating Action Buttons */}
+      {isEditing ? (
+        <div className="fixed bottom-20 right-4 flex flex-col gap-2">
           <Button 
-            className="w-full gap-2"
+            variant="outline" 
+            className="shadow-lg"
+            onClick={handleCancel}
+          >
+            Cancel
+          </Button>
+          <Button 
+            className="shadow-lg gap-2"
+            onClick={handleSave}
+          >
+            <Check className="h-4 w-4" />
+            Save Layout
+          </Button>
+        </div>
+      ) : (
+        <div className="fixed bottom-20 right-4 flex flex-col gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="shadow-lg gap-2" size="icon">
+                <Plus className="h-5 w-5" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh]">
+              <DialogHeader>
+                <DialogTitle>Add New Plant</DialogTitle>
+              </DialogHeader>
+              <ScrollArea className="max-h-[70vh] pr-4">
+                <PlantForm />
+              </ScrollArea>
+            </DialogContent>
+          </Dialog>
+
+          <Button 
+            className="shadow-lg gap-2"
             onClick={() => setIsEditing(true)}
           >
             <PenLine className="h-4 w-4" />
             Edit Layout
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
