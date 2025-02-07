@@ -41,7 +41,7 @@ export default function HealthTrend({ plantId }: HealthTrendProps) {
 
   // Count issue occurrences
   const issueCount = healthRecords.reduce((acc, record) => {
-    record.issues.forEach(issue => {
+    (record.issues || []).forEach(issue => {
       acc[issue] = (acc[issue] || 0) + 1;
     });
     return acc;

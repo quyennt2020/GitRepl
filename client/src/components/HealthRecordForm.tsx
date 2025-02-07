@@ -94,24 +94,26 @@ export default function HealthRecordForm({ plantId, onSuccess }: HealthRecordFor
                     key={issue.value}
                     control={form.control}
                     name="issues"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center space-x-2">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value?.includes(issue.value)}
-                            onCheckedChange={(checked) => {
-                              const issues = field.value || [];
-                              if (checked) {
-                                field.onChange([...issues, issue.value]);
-                              } else {
-                                field.onChange(issues.filter((value) => value !== issue.value));
-                              }
-                            }}
-                          />
-                        </FormControl>
-                        <FormLabel className="!mt-0">{issue.label}</FormLabel>
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const issues = field.value || [];
+                      return (
+                        <FormItem key={issue.value} className="flex items-center space-x-2">
+                          <FormControl>
+                            <Checkbox
+                              checked={issues.includes(issue.value)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  field.onChange([...issues, issue.value]);
+                                } else {
+                                  field.onChange(issues.filter((value) => value !== issue.value));
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <FormLabel className="!mt-0">{issue.label}</FormLabel>
+                        </FormItem>
+                      );
+                    }}
                   />
                 ))}
               </div>
@@ -127,7 +129,11 @@ export default function HealthRecordForm({ plantId, onSuccess }: HealthRecordFor
             <FormItem>
               <FormLabel>Notes</FormLabel>
               <FormControl>
-                <Input placeholder="Additional observations" {...field} />
+                <Input 
+                  placeholder="Additional observations"
+                  {...field}
+                  value={field.value || ''}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
