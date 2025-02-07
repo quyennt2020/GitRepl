@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
-import { InsertHealthRecord, insertHealthRecordSchema } from "@shared/schema";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { InsertHealthRecord, insertHealthRecordSchema, type HealthRecord } from "@shared/schema";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,15 +20,26 @@ const COMMON_ISSUES = [
 
 interface HealthRecordFormProps {
   plantId: number;
+  recordId?: number;
   onSuccess?: () => void;
 }
 
-export default function HealthRecordForm({ plantId, onSuccess }: HealthRecordFormProps) {
+export default function HealthRecordForm({ plantId, recordId, onSuccess }: HealthRecordFormProps) {
   const { toast } = useToast();
+
+  const { data: existingRecord } = useQuery<HealthRecord>({
+    queryKey: [`/api/health-records/${recordId}`],
+    enabled: !!recordId,
+  });
 
   const form = useForm<InsertHealthRecord>({
     resolver: zodResolver(insertHealthRecordSchema),
-    defaultValues: {
+    defaultValues: existingRecord ? {
+      plantId: existingRecord.plantId,
+      healthScore: existingRecord.healthScore,
+      issues: existingRecord.issues || [],
+      notes: existingRecord.notes || "",
+    } : {
       plantId,
       healthScore: 5,
       issues: [],
@@ -38,17 +49,24 @@ export default function HealthRecordForm({ plantId, onSuccess }: HealthRecordFor
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (data: InsertHealthRecord) => {
-      await apiRequest("POST", `/api/plants/${plantId}/health`, data);
+      if (recordId) {
+        await apiRequest("PATCH", `/api/health-records/${recordId}`, data);
+      } else {
+        await apiRequest("POST", `/api/plants/${plantId}/health`, data);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/plants/${plantId}/health`] });
-      toast({ title: "Health record added successfully" });
+      if (recordId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/health-records/${recordId}`] });
+      }
+      toast({ title: `Health record ${recordId ? 'updated' : 'added'} successfully` });
       form.reset();
       onSuccess?.();
     },
     onError: () => {
       toast({
-        title: "Failed to add health record",
+        title: `Failed to ${recordId ? 'update' : 'add'} health record`,
         variant: "destructive",
       });
     },
@@ -141,7 +159,7 @@ export default function HealthRecordForm({ plantId, onSuccess }: HealthRecordFor
         />
 
         <Button type="submit" className="w-full" disabled={isPending}>
-          {isPending ? "Adding..." : "Add Health Record"}
+          {isPending ? `${recordId ? 'Updating' : 'Adding'}...` : recordId ? 'Update Record' : 'Add Record'}
         </Button>
       </form>
     </Form>

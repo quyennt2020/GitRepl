@@ -73,6 +73,21 @@ export function registerRoutes(app: Express): Server {
     res.status(201).json(record);
   });
 
+  app.get("/api/health-records/:id", async (req, res) => {
+    const record = await storage.getHealthRecord(Number(req.params.id));
+    if (!record) return res.status(404).json({ message: "Health record not found" });
+    res.json(record);
+  });
+
+  app.patch("/api/health-records/:id", async (req, res) => {
+    const result = insertHealthRecordSchema.partial().safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.message });
+    }
+    const record = await storage.updateHealthRecord(Number(req.params.id), result.data);
+    res.json(record);
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

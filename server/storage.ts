@@ -19,7 +19,9 @@ export interface IStorage {
 
   // Health Records
   getHealthRecords(plantId: number): Promise<HealthRecord[]>;
+  getHealthRecord(id: number): Promise<HealthRecord | undefined>;
   createHealthRecord(record: InsertHealthRecord): Promise<HealthRecord>;
+  updateHealthRecord(id: number, record: Partial<HealthRecord>): Promise<HealthRecord>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -98,12 +100,26 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(healthRecords.date));
   }
 
+  async getHealthRecord(id: number): Promise<HealthRecord | undefined> {
+    const [record] = await db.select().from(healthRecords).where(eq(healthRecords.id, id));
+    return record;
+  }
+
   async createHealthRecord(record: InsertHealthRecord): Promise<HealthRecord> {
     const [healthRecord] = await db
       .insert(healthRecords)
       .values(record)
       .returning();
     return healthRecord;
+  }
+  async updateHealthRecord(id: number, update: Partial<HealthRecord>): Promise<HealthRecord> {
+    const [record] = await db
+      .update(healthRecords)
+      .set(update)
+      .where(eq(healthRecords.id, id))
+      .returning();
+    if (!record) throw new Error("Health record not found");
+    return record;
   }
 }
 
