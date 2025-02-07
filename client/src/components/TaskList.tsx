@@ -32,17 +32,21 @@ export default function TaskList({ plantId }: TaskListProps) {
 
   const { mutate: deleteTask } = useMutation({
     mutationFn: async (taskId: number) => {
-      await apiRequest("DELETE", `/api/tasks/${taskId}`);
+      try {
+        await apiRequest("DELETE", `/api/tasks/${taskId}`);
+      } catch (error) {
+        // Let the error propagate to onError handler
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks", plantId] });
       toast({ title: "Task deleted successfully" });
     },
     onError: (error) => {
-      // Always refresh the task list to ensure UI is in sync
+      // Always refresh the task list to ensure UI is in sync with server state
       queryClient.invalidateQueries({ queryKey: ["/api/tasks", plantId] });
 
-      // Only show error toast for unexpected errors
       if (error instanceof Error) {
         const isExpectedError = 
           error.message.includes('not found') || 
