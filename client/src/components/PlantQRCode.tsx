@@ -3,37 +3,21 @@ import { Plant } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { QrCode } from "lucide-react";
-import { differenceInDays } from "date-fns";
 
 interface PlantQRCodeProps {
   plant: Plant;
 }
 
 export default function PlantQRCode({ plant }: PlantQRCodeProps) {
-  const lastWateredDate = plant.lastWatered ? new Date(plant.lastWatered) : new Date();
-  const daysSinceWatered = differenceInDays(new Date(), lastWateredDate);
-  const needsWatering = daysSinceWatered >= plant.wateringInterval;
-
-  // Create a plant care info object with essential details
-  const plantCareInfo = {
+  // Create a minimal plant identifier with just static information
+  const plantIdentifier = {
     id: plant.id,
     name: plant.name,
-    species: plant.species,
-    location: plant.location,
-    wateringSchedule: {
-      interval: plant.wateringInterval,
-      lastWatered: lastWateredDate.toISOString(),
-      needsWatering,
-      daysUntilNextWatering: Math.max(plant.wateringInterval - daysSinceWatered, 0)
-    },
-    fertilizingSchedule: {
-      interval: plant.fertilizingInterval,
-      lastFertilized: plant.lastFertilized ? new Date(plant.lastFertilized).toISOString() : null
-    }
   };
 
-  // Convert plant info to a JSON string for the QR code
-  const qrValue = JSON.stringify(plantCareInfo);
+  // Generate a URL that can be used to directly access the plant's details
+  const baseUrl = window.location.origin;
+  const plantUrl = `${baseUrl}/plants/${plant.id}`;
 
   return (
     <Dialog>
@@ -44,24 +28,19 @@ export default function PlantQRCode({ plant }: PlantQRCodeProps) {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Plant Care QR Code - {plant.name}</DialogTitle>
+          <DialogTitle>Plant Identification QR Code</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col items-center gap-4 p-4">
           <QRCodeSVG
-            value={qrValue}
+            value={plantUrl}
             size={200}
             level="H"
             includeMargin
             className="bg-white p-2 rounded-lg"
           />
           <div className="text-sm space-y-2">
-            <p className="font-medium">Scan to check:</p>
-            <ul className="list-disc list-inside text-muted-foreground">
-              <li>Watering schedule</li>
-              <li>Last watered date</li>
-              <li>Care instructions</li>
-              <li>Plant location</li>
-            </ul>
+            <p className="font-medium text-center">{plant.name}</p>
+            <p className="text-muted-foreground text-center">Print and attach this QR code to your plant for easy identification and care tracking.</p>
           </div>
         </div>
       </DialogContent>
