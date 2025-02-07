@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { CareTask, TaskTemplate, ChecklistItem } from "@shared/schema";
+import { CareTask, TaskTemplate } from "@shared/schema";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
@@ -21,11 +21,6 @@ export default function TaskList({ plantId }: TaskListProps) {
   const { data: templates } = useQuery<TaskTemplate[]>({
     queryKey: ["/api/task-templates"],
   });
-
-  // Remove the invalid checklist query
-  // const { data: checklistItems } = useQuery<ChecklistItem[]>({
-  //   queryKey: ["/api/task-templates/checklist"],
-  // });
 
   if (tasksLoading) {
     return <div className="animate-pulse space-y-4">
@@ -55,10 +50,7 @@ export default function TaskList({ plantId }: TaskListProps) {
     <Accordion type="single" collapsible className="space-y-4">
       {tasks.map(task => {
         const template = templates?.find(t => t.id === task.templateId);
-        // Assuming checklist items are now directly within the task object.
-        const items = task.checklistItems || [];  
         const progress = task.checklistProgress as Record<string, boolean> || {};
-        const completedItems = items.filter(item => progress[item.id]);
         const isOverdue = new Date(task.dueDate) < new Date();
 
         return (
@@ -77,9 +69,6 @@ export default function TaskList({ plantId }: TaskListProps) {
                       Due {formatDistanceToNow(new Date(task.dueDate), { addSuffix: true })}
                     </p>
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    {completedItems.length}/{items.length} completed
-                  </div>
                 </div>
               </AccordionTrigger>
 
@@ -91,30 +80,6 @@ export default function TaskList({ plantId }: TaskListProps) {
                       This task is overdue
                     </div>
                   )}
-
-                  <div className="space-y-2">
-                    {items.map(item => (
-                      <div key={item.id} className="flex items-start gap-2">
-                        <Checkbox
-                          id={`item-${item.id}`}
-                          checked={progress[item.id]}
-                          className="mt-1"
-                          disabled={task.completed}
-                        />
-                        <div className="flex-1">
-                          <label
-                            htmlFor={`item-${item.id}`}
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                          >
-                            {item.text}
-                          </label>
-                          {!item.required && (
-                            <p className="text-xs text-muted-foreground">Optional</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
 
                   {task.notes && (
                     <div className="text-sm text-muted-foreground">
