@@ -204,144 +204,144 @@ export default function LocationMap() {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup direction="horizontal">
-          {/* Map Panel */}
-          <ResizablePanel defaultSize={75}>
-            <div className="h-full p-4 overflow-auto">
-              <div 
-                className="relative w-full aspect-square max-w-lg mx-auto bg-white rounded-lg shadow-sm"
-                style={{
-                  backgroundImage: 'radial-gradient(circle, #E5E7EB 0.5px, transparent 0.5px)',
-                  backgroundSize: '20px 20px',
-                  backgroundPosition: '10px 10px'
-                }}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-              >
-                {/* Room Layout */}
-                <div className="absolute inset-8 border border-gray-400">
-                  {/* L-shaped room cutout */}
-                  <div className="absolute right-0 bottom-0 w-1/3 h-1/3 border-l border-t border-gray-400 bg-white" />
-                </div>
+      <div className="flex-1 flex">
+        {/* Plant List Panel */}
+        <div className="w-1/3 border-r bg-background overflow-hidden flex flex-col">
+          <div className="p-4 border-b">
+            <h2 className="font-semibold">Plant Locations</h2>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {plants?.map(plant => {
+              const position = isEditing ? 
+                tempPositions[plant.id] : 
+                savedPositions[plant.id];
+              const status = getPlantStatus(plant);
+              const lastWateredDate = plant.lastWatered ? new Date(plant.lastWatered) : new Date();
+              const daysSinceWatered = differenceInDays(new Date(), lastWateredDate);
+              const isHighlighted = highlightedPlant === plant.id;
 
-                {/* Plant Indicators */}
-                {plants?.map((plant, index) => {
-                  const defaultPosition = {
-                    x: 25 + ((index % 2) * 50),
-                    y: 25 + (Math.floor(index / 2) * 30)
-                  };
-                  const position = isEditing ? 
-                    (tempPositions[plant.id] || defaultPosition) : 
-                    (savedPositions[plant.id] || defaultPosition);
-
-                  const status = getPlantStatus(plant);
-                  const isHighlighted = highlightedPlant === plant.id;
-
-                  return isEditing ? (
-                    <div
-                      key={plant.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, plant.id)}
-                      onDragEnd={handleDragEnd}
-                      className={`absolute w-4 h-4 cursor-move transition-all hover:brightness-110 ${status.color} ${
-                        isHighlighted ? 'ring-2 ring-primary ring-offset-2' : ''
-                      }`}
-                      style={{
-                        left: `${position.x}%`,
-                        top: `${position.y}%`,
-                        transform: 'translate(-50%, -50%)'
-                      }}
-                      title={`Drag to move ${plant.name}`}
+              return (
+                <div 
+                  key={plant.id}
+                  className={`p-4 border-b cursor-pointer transition-colors ${
+                    isHighlighted ? 'bg-accent' : 'hover:bg-accent/50'
+                  }`}
+                  onClick={() => setHighlightedPlant(plant.id === highlightedPlant ? null : plant.id)}
+                >
+                  <div className="flex items-start gap-3">
+                    <img
+                      src={plant.image}
+                      alt={plant.name}
+                      className="w-16 h-16 rounded-lg object-cover"
                     />
-                  ) : (
-                    <Link key={plant.id} href={`/plants/${plant.id}`}>
-                      <a 
-                        className={`absolute w-4 h-4 cursor-pointer hover:brightness-110 transition-all group ${status.color} ${
-                          isHighlighted ? 'ring-2 ring-primary ring-offset-2' : ''
-                        }`}
-                        style={{
-                          left: `${position.x}%`,
-                          top: `${position.y}%`,
-                          transform: 'translate(-50%, -50%)'
-                        }}
-                        title={status.tooltip}
-                        onClick={() => setHighlightedPlant(plant.id)}
-                      >
-                        <div className="absolute invisible group-hover:visible -top-8 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground px-2 py-1 rounded shadow-lg whitespace-nowrap text-sm">
-                          {plant.name}
-                          <div className="text-xs text-muted-foreground">
-                            {plant.species}
-                          </div>
-                        </div>
-                      </a>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          {/* Plant List Panel */}
-          <ResizablePanel defaultSize={25}>
-            <div className="h-full border-l">
-              <div className="p-4">
-                <h2 className="font-semibold mb-4">Plant Locations</h2>
-                <div className="space-y-4">
-                  {plants?.map(plant => {
-                    const position = isEditing ? 
-                      tempPositions[plant.id] : 
-                      savedPositions[plant.id];
-                    const status = getPlantStatus(plant);
-                    const lastWateredDate = plant.lastWatered ? new Date(plant.lastWatered) : new Date();
-                    const daysSinceWatered = differenceInDays(new Date(), lastWateredDate);
-
-                    return (
-                      <div 
-                        key={plant.id}
-                        className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                          highlightedPlant === plant.id ? 'border-primary bg-accent' : 'hover:bg-accent'
-                        }`}
-                        onClick={() => setHighlightedPlant(plant.id === highlightedPlant ? null : plant.id)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <img
-                            src={plant.image}
-                            alt={plant.name}
-                            className="w-12 h-12 rounded-md object-cover"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-medium">{plant.name}</h3>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {plant.species}
-                            </p>
-                            <div className="mt-1 flex items-center gap-2 text-sm">
-                              <span className="flex items-center gap-1">
-                                <Sun className="h-4 w-4" />
-                                {plant.sunlight}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Droplets className={`h-4 w-4 ${status.color === 'bg-red-400' ? 'text-red-500' : ''}`} />
-                                {daysSinceWatered >= plant.wateringInterval ? 'Needs water!' : `${plant.wateringInterval - daysSinceWatered}d`}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        {position && (
-                          <div className="mt-2 text-xs text-muted-foreground">
-                            Position: {Math.round(position.x)}%, {Math.round(position.y)}%
-                          </div>
-                        )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium">{plant.name}</h3>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {plant.species}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2 text-sm">
+                        <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-secondary">
+                          <Sun className="h-4 w-4" />
+                          {plant.sunlight}
+                        </span>
+                        <span className={`flex items-center gap-1 px-2 py-1 rounded-md ${
+                          status.color === 'bg-red-400' ? 'bg-red-100 text-red-600' : 
+                          status.color === 'bg-yellow-400' ? 'bg-yellow-100 text-yellow-600' : 
+                          'bg-green-100 text-green-600'
+                        }`}>
+                          <Droplets className="h-4 w-4" />
+                          {daysSinceWatered >= plant.wateringInterval ? 'Needs water!' : `${plant.wateringInterval - daysSinceWatered}d`}
+                        </span>
                       </div>
-                    );
-                  })}
+                      {position && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          Position: {Math.round(position.x)}%, {Math.round(position.y)}%
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Map Area */}
+        <div className="flex-1 p-4 overflow-auto">
+          <div 
+            className="relative w-full aspect-square max-w-3xl mx-auto bg-white rounded-lg shadow-sm"
+            style={{
+              backgroundImage: 'radial-gradient(circle, #E5E7EB 0.5px, transparent 0.5px)',
+              backgroundSize: '20px 20px',
+              backgroundPosition: '10px 10px'
+            }}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            {/* Room Layout */}
+            <div className="absolute inset-8 border border-gray-400">
+              {/* L-shaped room cutout */}
+              <div className="absolute right-0 bottom-0 w-1/3 h-1/3 border-l border-t border-gray-400 bg-white" />
             </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+
+            {/* Plant Indicators */}
+            {plants?.map((plant, index) => {
+              const defaultPosition = {
+                x: 25 + ((index % 2) * 50),
+                y: 25 + (Math.floor(index / 2) * 30)
+              };
+              const position = isEditing ? 
+                (tempPositions[plant.id] || defaultPosition) : 
+                (savedPositions[plant.id] || defaultPosition);
+
+              const status = getPlantStatus(plant);
+              const isHighlighted = highlightedPlant === plant.id;
+
+              return isEditing ? (
+                <div
+                  key={plant.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, plant.id)}
+                  onDragEnd={handleDragEnd}
+                  className={`absolute w-4 h-4 cursor-move transition-transform hover:scale-125 ${status.color} ${
+                    isHighlighted ? 'ring-2 ring-primary ring-offset-2' : ''
+                  }`}
+                  style={{
+                    left: `${position.x}%`,
+                    top: `${position.y}%`,
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                  title={`Drag to move ${plant.name}`}
+                />
+              ) : (
+                <Link key={plant.id} href={`/plants/${plant.id}`}>
+                  <a 
+                    className={`absolute w-4 h-4 cursor-pointer transition-transform hover:scale-125 group ${status.color} ${
+                      isHighlighted ? 'ring-2 ring-primary ring-offset-2' : ''
+                    }`}
+                    style={{
+                      left: `${position.x}%`,
+                      top: `${position.y}%`,
+                      transform: 'translate(-50%, -50%)'
+                    }}
+                    title={status.tooltip}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setHighlightedPlant(plant.id === highlightedPlant ? null : plant.id);
+                    }}
+                  >
+                    <div className="absolute invisible group-hover:visible -top-8 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground px-2 py-1 rounded shadow-lg whitespace-nowrap text-sm">
+                      {plant.name}
+                      <div className="text-xs text-muted-foreground">
+                        {plant.species}
+                      </div>
+                    </div>
+                  </a>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Bottom Toolbar */}
