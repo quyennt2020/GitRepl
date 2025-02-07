@@ -1,7 +1,7 @@
 import { Plant } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
-import { Droplets, Sun, Pencil, Trash2, LineChart } from "lucide-react";
+import { Droplets, Sun, Pencil, Trash2, LineChart, ClipboardList } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import HealthTrend from "./HealthTrend";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import WateringAnimation from "./WateringAnimation";
 import PlantQRCode from "./PlantQRCode";
+import { Link } from "wouter";
 
 interface PlantCardProps {
   plant: Plant;
@@ -59,6 +60,11 @@ export default function PlantCard({ plant }: PlantCardProps) {
           </div>
           <div className="flex gap-2">
             <PlantQRCode plant={plant} />
+            <Link href={`/plants/${plant.id}/tasks`}>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <ClipboardList className="h-4 w-4" />
+              </Button>
+            </Link>
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
