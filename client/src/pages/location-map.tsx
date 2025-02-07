@@ -11,7 +11,8 @@ type Position = { x: number; y: number };
 
 export default function LocationMap() {
   const [isEditing, setIsEditing] = useState(false);
-  const [positions, setPositions] = useState<Record<number, Position>>({});
+  const [savedPositions, setSavedPositions] = useState<Record<number, Position>>({});
+  const [tempPositions, setTempPositions] = useState<Record<number, Position>>({});
   const { toast } = useToast();
 
   const { data: plants, isLoading } = useQuery<Plant[]>({ 
@@ -21,33 +22,41 @@ export default function LocationMap() {
   // Load saved positions from plants data
   useEffect(() => {
     if (plants) {
-      const savedPositions: Record<number, Position> = {};
+      const positions: Record<number, Position> = {};
       plants.forEach((plant) => {
         if (plant.position) {
           try {
-            savedPositions[plant.id] = JSON.parse(plant.position as string);
+            positions[plant.id] = JSON.parse(plant.position as string);
           } catch (e) {
             console.error("Failed to parse position for plant:", plant.id);
           }
         }
       });
-      setPositions(savedPositions);
+      setSavedPositions(positions);
+      setTempPositions(positions); // Initialize temp positions with saved ones
     }
   }, [plants]);
 
-  const { mutate: updatePlantPosition } = useMutation({
-    mutationFn: async ({ plantId, position }: { plantId: number; position: Position }) => {
-      await apiRequest("PATCH", `/api/plants/${plantId}`, {
-        position: JSON.stringify(position)
-      });
+  const { mutate: updatePlantPositions } = useMutation({
+    mutationFn: async (positions: Record<number, Position>) => {
+      // Update all changed positions in parallel
+      await Promise.all(
+        Object.entries(positions).map(([plantId, position]) =>
+          apiRequest("PATCH", `/api/plants/${parseInt(plantId)}`, {
+            position: JSON.stringify(position)
+          })
+        )
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plants"] });
-      toast({ title: "Plant position updated" });
+      toast({ title: "Plant positions updated" });
+      setSavedPositions(tempPositions); // Update saved positions after successful save
+      setIsEditing(false);
     },
     onError: () => {
       toast({
-        title: "Failed to update plant position",
+        title: "Failed to update plant positions",
         variant: "destructive",
       });
     },
@@ -56,13 +65,11 @@ export default function LocationMap() {
   const handleDragStart = (e: React.DragEvent, plantId: number) => {
     if (!isEditing) return;
     e.dataTransfer.setData("text/plain", plantId.toString());
-    // Add visual feedback
     const elem = e.target as HTMLElement;
     elem.style.opacity = '0.5';
   };
 
   const handleDragEnd = (e: React.DragEvent) => {
-    // Reset visual feedback
     const elem = e.target as HTMLElement;
     elem.style.opacity = '1';
   };
@@ -89,12 +96,35 @@ export default function LocationMap() {
     const boundedY = Math.max(0, Math.min(100, y));
 
     const newPosition = { x: boundedX, y: boundedY };
-    setPositions(prev => ({
+    setTempPositions(prev => ({
       ...prev,
       [plantId]: newPosition
     }));
+  };
 
-    updatePlantPosition({ plantId, position: newPosition });
+  const handleSave = () => {
+    // Only update positions that have changed
+    const changedPositions = Object.entries(tempPositions).reduce<Record<number, Position>>(
+      (acc, [plantId, position]) => {
+        const id = parseInt(plantId);
+        if (JSON.stringify(position) !== JSON.stringify(savedPositions[id])) {
+          acc[id] = position;
+        }
+        return acc;
+      },
+      {}
+    );
+
+    if (Object.keys(changedPositions).length > 0) {
+      updatePlantPositions(changedPositions);
+    } else {
+      setIsEditing(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setTempPositions(savedPositions); // Reset to saved positions
+    setIsEditing(false);
   };
 
   if (isLoading) {
@@ -149,10 +179,13 @@ export default function LocationMap() {
 
           {/* Plant Indicators */}
           {plants?.map((plant, index) => {
-            const position = positions[plant.id] || {
+            const defaultPosition = {
               x: 25 + ((index % 2) * 50),
               y: 25 + (Math.floor(index / 2) * 30)
             };
+            const position = isEditing ? 
+              (tempPositions[plant.id] || defaultPosition) : 
+              (savedPositions[plant.id] || defaultPosition);
 
             return isEditing ? (
               <div
@@ -187,23 +220,32 @@ export default function LocationMap() {
 
       {/* Bottom Toolbar */}
       <div className="p-4 border-t bg-white">
-        <Button 
-          className="w-full gap-2"
-          variant={isEditing ? "secondary" : "default"}
-          onClick={() => setIsEditing(!isEditing)}
-        >
-          {isEditing ? (
-            <>
+        {isEditing ? (
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={handleCancel}
+            >
+              Cancel
+            </Button>
+            <Button 
+              className="flex-1 gap-2"
+              onClick={handleSave}
+            >
               <Check className="h-4 w-4" />
               Save Layout
-            </>
-          ) : (
-            <>
-              <PenLine className="h-4 w-4" />
-              Edit Layout
-            </>
-          )}
-        </Button>
+            </Button>
+          </div>
+        ) : (
+          <Button 
+            className="w-full gap-2"
+            onClick={() => setIsEditing(true)}
+          >
+            <PenLine className="h-4 w-4" />
+            Edit Layout
+          </Button>
+        )}
       </div>
     </div>
   );
