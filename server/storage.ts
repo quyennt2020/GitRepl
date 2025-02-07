@@ -59,6 +59,7 @@ export class DatabaseStorage implements IStorage {
         lastFertilized: new Date(),
       })
       .returning();
+
     return plant;
   }
 
@@ -165,7 +166,6 @@ export class DatabaseStorage implements IStorage {
     .leftJoin(taskTemplates, eq(careTasks.templateId, taskTemplates.id));
 
     if (plantId) {
-      // Only return tasks explicitly assigned to this plant
       return await query.where(eq(careTasks.plantId, plantId));
     }
 
@@ -191,7 +191,6 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Care task with id ${id} not found`);
     }
 
-    // Ensure dueDate is properly formatted if it exists in the update
     const updatedData = {
       ...update,
       dueDate: update.dueDate ? new Date(update.dueDate) : undefined,
