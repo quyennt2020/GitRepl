@@ -14,6 +14,7 @@ import HealthRecordForm from "./HealthRecordForm";
 import HealthTrend from "./HealthTrend";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import WateringAnimation from "./WateringAnimation";
+import PlantQRCode from "./PlantQRCode";
 
 interface PlantCardProps {
   plant: Plant;
@@ -57,6 +58,7 @@ export default function PlantCard({ plant }: PlantCardProps) {
             <p className="text-sm text-muted-foreground truncate">{plant.species}</p>
           </div>
           <div className="flex gap-2">
+            <PlantQRCode plant={plant} />
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
