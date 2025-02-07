@@ -14,6 +14,7 @@ export const plants = pgTable("plants", {
   fertilizingInterval: integer("fertilizing_interval").notNull(), // days
   sunlight: text("sunlight").notNull(), // enum: low, medium, high
   notes: text("notes"),
+  position: text("position"), // Add position column to store JSON string of x,y coordinates
 });
 
 export const healthRecords = pgTable("health_records", {
@@ -33,6 +34,7 @@ export const insertPlantSchema = createInsertSchema(plants)
     wateringInterval: z.number().min(1, "Must water at least once per day"),
     fertilizingInterval: z.number().min(1, "Must fertilize at least once per day"),
     sunlight: z.enum(["low", "medium", "high"]),
+    position: z.string().optional(),
   });
 
 export const insertHealthRecordSchema = createInsertSchema(healthRecords)
