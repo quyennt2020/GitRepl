@@ -31,6 +31,22 @@ function snapToGrid(value: number): number {
   return Math.max(0, Math.min(100, gridPosition));
 }
 
+function parsePosition(positionStr: string | null): Position | null {
+  if (!positionStr) return null;
+  try {
+    const position = JSON.parse(positionStr);
+    if (typeof position.x === 'number' && typeof position.y === 'number') {
+      return {
+        x: Math.max(0, Math.min(100, position.x)),
+        y: Math.max(0, Math.min(100, position.y))
+      };
+    }
+  } catch (e) {
+    console.error("Failed to parse position:", e);
+  }
+  return null;
+}
+
 const PlantDetails = ({ plant }: { plant: Plant }) => (
   <div className="mt-1 flex flex-wrap gap-2">
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-sm">
@@ -61,12 +77,9 @@ export default function LocationMap() {
     if (plants) {
       const positions: Record<number, Position> = {};
       plants.forEach((plant) => {
-        if (plant.position) {
-          try {
-            positions[plant.id] = JSON.parse(plant.position as string);
-          } catch (e) {
-            console.error("Failed to parse position for plant:", plant.id);
-          }
+        const position = parsePosition(plant.position as string | null);
+        if (position) {
+          positions[plant.id] = position;
         }
       });
       setSavedPositions(positions);

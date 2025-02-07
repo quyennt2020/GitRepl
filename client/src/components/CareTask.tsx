@@ -21,9 +21,13 @@ export default function CareTask({ plant, date = new Date() }: CareTaskProps) {
     }
   });
 
-  const daysSinceWatered = differenceInDays(date, new Date(plant.lastWatered));
-  const daysSinceFertilized = differenceInDays(date, new Date(plant.lastFertilized));
-  
+  // Add null checks and default to current date if lastWatered/lastFertilized is null
+  const lastWateredDate = plant.lastWatered ? new Date(plant.lastWatered) : date;
+  const lastFertilizedDate = plant.lastFertilized ? new Date(plant.lastFertilized) : date;
+
+  const daysSinceWatered = differenceInDays(date, lastWateredDate);
+  const daysSinceFertilized = differenceInDays(date, lastFertilizedDate);
+
   const needsWater = daysSinceWatered >= plant.wateringInterval;
   const needsFertilizer = daysSinceFertilized >= plant.fertilizingInterval;
 
