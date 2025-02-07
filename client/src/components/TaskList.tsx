@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Clipboard, AlertCircle, Edit2, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import EditTaskDialog from "./EditTaskDialog";
-import { apiRequest } from '@/lib/api';
-import { queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -32,11 +31,13 @@ export default function TaskList({ plantId }: TaskListProps) {
 
   const { mutate: deleteTask } = useMutation({
     mutationFn: async (taskId: number) => {
-      try {
-        await apiRequest("DELETE", `/api/tasks/${taskId}`);
-      } catch (error) {
-        // Let the error propagate to onError handler
-        throw error;
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Failed to delete task" })); //Improved error handling
+        throw new Error(errorData.message);
       }
     },
     onSuccess: () => {
@@ -87,10 +88,15 @@ export default function TaskList({ plantId }: TaskListProps) {
     );
   }
 
+  const handleDeleteClick = (e: React.MouseEvent, taskId: number) => {
+    e.stopPropagation();
+    deleteTask(taskId);
+  };
+
   return (
     <>
       <Accordion type="single" collapsible className="space-y-4">
-        {tasks.map(task => {
+        {tasks?.map(task => {
           const template = templates?.find(t => t.id === task.templateId);
           const progress = task.checklistProgress as Record<string, boolean> || {};
           const isOverdue = new Date(task.dueDate) < new Date();
@@ -145,10 +151,7 @@ export default function TaskList({ plantId }: TaskListProps) {
                               Cancel
                             </AlertDialogCancel>
                             <AlertDialogAction
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteTask(task.id);
-                              }}
+                              onClick={(e) => handleDeleteClick(e, task.id)}
                             >
                               Delete
                             </AlertDialogAction>
