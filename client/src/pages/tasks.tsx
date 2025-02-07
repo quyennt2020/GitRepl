@@ -60,10 +60,14 @@ export default function Tasks() {
       </div>
 
       <div className="p-4 space-y-4">
-        <TaskForm plantId={plantId} />
         <ScrollArea className="h-[calc(100vh-11rem)]">
           <TaskList plantId={plantId} />
         </ScrollArea>
+      </div>
+
+      {/* Floating Create Task Button */}
+      <div className="fixed bottom-[4.5rem] left-0 right-0 p-4 bg-background border-t">
+        <TaskForm plantId={plantId} />
       </div>
     </div>
   );
