@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Clipboard, AlertCircle, Edit2, Trash2, CheckCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import EditTaskDialog from "./EditTaskDialog";
+import TaskCompletionDialog from "./TaskCompletionDialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -24,6 +25,7 @@ const priorityStyles = {
 
 export default function TaskList({ plantId }: TaskListProps) {
   const [editingTask, setEditingTask] = useState<CareTask | null>(null);
+  const [completingTask, setCompletingTask] = useState<CareTask | null>(null);
   const { toast } = useToast();
 
   const { data: tasks } = useQuery<CareTask[]>({
@@ -55,10 +57,19 @@ export default function TaskList({ plantId }: TaskListProps) {
   });
 
   const { mutate: updateTaskStatus } = useMutation({
-    mutationFn: async ({ taskId, completed }: { taskId: number; completed: boolean }) => {
+    mutationFn: async ({ 
+      taskId, 
+      completed, 
+      checklistProgress 
+    }: { 
+      taskId: number; 
+      completed: boolean;
+      checklistProgress?: Record<string, boolean>;
+    }) => {
       const updateData = {
         completed,
         completedAt: completed ? new Date() : null,
+        checklistProgress,
       };
       await apiRequest("PATCH", `/api/tasks/${taskId}`, updateData);
     },
@@ -90,9 +101,30 @@ export default function TaskList({ plantId }: TaskListProps) {
     deleteTask(taskId);
   };
 
-  const handleStatusToggle = (e: React.MouseEvent, taskId: number, currentStatus: boolean) => {
+  const handleStatusToggle = (e: React.MouseEvent, task: CareTask) => {
     e.stopPropagation();
-    updateTaskStatus({ taskId, completed: !currentStatus });
+    if (task.completed) {
+      // For uncompleting a task, just update the status
+      updateTaskStatus({ 
+        taskId: task.id, 
+        completed: false,
+        checklistProgress: {} 
+      });
+    } else {
+      // For completing a task, open the completion dialog
+      setCompletingTask(task);
+    }
+  };
+
+  const handleTaskCompletion = (checklistProgress: Record<string, boolean>) => {
+    if (completingTask) {
+      updateTaskStatus({
+        taskId: completingTask.id,
+        completed: true,
+        checklistProgress
+      });
+      setCompletingTask(null);
+    }
   };
 
   return (
@@ -131,7 +163,7 @@ export default function TaskList({ plantId }: TaskListProps) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => handleStatusToggle(e, task.id, task.completed)}
+                        onClick={(e) => handleStatusToggle(e, task)}
                         className={task.completed ? "text-muted-foreground" : "text-primary"}
                       >
                         <CheckCircle className="h-4 w-4" />
@@ -192,6 +224,22 @@ export default function TaskList({ plantId }: TaskListProps) {
                         <strong className="font-medium">Notes:</strong> {task.notes}
                       </div>
                     )}
+
+                    {task.checklistProgress && Object.keys(task.checklistProgress).length > 0 && (
+                      <div className="text-sm">
+                        <strong className="font-medium">Completion Checklist:</strong>
+                        <ul className="mt-2 space-y-1">
+                          {Object.entries(task.checklistProgress as Record<string, boolean>).map(([id, checked]) => (
+                            <li key={id} className="flex items-center gap-2">
+                              <CheckCircle className={`h-4 w-4 ${checked ? "text-primary" : "text-muted"}`} />
+                              <span className={checked ? "line-through text-muted-foreground" : ""}>
+                                {templates?.find(t => t.id === task.templateId)?.name} - Step {parseInt(id) + 1}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </AccordionContent>
               </Card>
@@ -205,6 +253,15 @@ export default function TaskList({ plantId }: TaskListProps) {
           task={editingTask}
           open={!!editingTask}
           onOpenChange={(open) => !open && setEditingTask(null)}
+        />
+      )}
+
+      {completingTask && (
+        <TaskCompletionDialog
+          templateId={completingTask.templateId}
+          open={!!completingTask}
+          onOpenChange={(open) => !open && setCompletingTask(null)}
+          onComplete={handleTaskCompletion}
         />
       )}
     </>
