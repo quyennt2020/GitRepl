@@ -58,6 +58,14 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
     queryKey: ["/api/task-templates"],
   });
 
+  // Sort and deduplicate templates
+  const uniqueTemplates = templates?.reduce((acc: TaskTemplate[], curr) => {
+    if (!acc.find(t => t.name === curr.name)) {
+      acc.push(curr);
+    }
+    return acc;
+  }, []).sort((a, b) => a.name.localeCompare(b.name));
+
   const { mutate: updateTask, isPending } = useMutation({
     mutationFn: async (data: InsertCareTask & { priority: string }) => {
       const { priority, ...taskData } = data;
@@ -111,9 +119,9 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {templates?.map((template) => (
+                      {uniqueTemplates?.map((template) => (
                         <SelectItem key={template.id} value={template.id.toString()}>
-                          {template.name}
+                          {template.name} ({template.category})
                         </SelectItem>
                       ))}
                     </SelectContent>
