@@ -20,10 +20,8 @@ export default function Schedule() {
       const daysSinceLastWater = differenceInDays(date, lastWatered);
       const daysUntilNextWatering = plant.wateringInterval - (daysSinceLastWater % plant.wateringInterval);
 
-      // Plant needs water on this date if:
-      // 1. It's exactly when the interval is up OR
-      // 2. It's overdue and hasn't been watered yet
-      return daysUntilNextWatering === 0 || (daysSinceLastWater >= plant.wateringInterval);
+      // Only show plants that need water exactly on this date
+      return daysUntilNextWatering === 0;
     });
   };
 
@@ -45,37 +43,21 @@ export default function Schedule() {
                 <ScrollArea className="h-full max-h-[300px]">
                   {hasPlants ? (
                     <div className="space-y-2">
-                      {plantsForDate.map(plant => {
-                        const lastWatered = new Date(plant.lastWatered!);
-                        const daysSinceLastWater = differenceInDays(date, lastWatered);
-                        const isOverdue = daysSinceLastWater > plant.wateringInterval;
-                        const nextScheduledDate = addDays(lastWatered, plant.wateringInterval);
-
-                        return (
-                          <div 
-                            key={plant.id} 
-                            className={`flex items-center gap-4 p-2 border rounded-lg ${
-                              isOverdue ? 'border-red-500' : 'border-blue-500'
-                            }`}
-                          >
-                            <Droplets className={`h-4 w-4 ${isOverdue ? 'text-red-500' : 'text-blue-500'}`} />
-                            <div className="flex-1">
-                              <p className="font-medium">{plant.name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {isOverdue 
-                                  ? `${daysSinceLastWater - plant.wateringInterval} days overdue`
-                                  : `Due today`
-                                }
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Last watered: {format(lastWatered, "MMM d")}
-                                {" • "}
-                                {plant.wateringInterval} day interval
-                              </p>
-                            </div>
+                      {plantsForDate.map(plant => (
+                        <div 
+                          key={plant.id} 
+                          className="flex items-center gap-4 p-2 border rounded-lg border-blue-500"
+                        >
+                          <Droplets className="h-4 w-4 text-blue-500" />
+                          <div className="flex-1">
+                            <p className="font-medium">{plant.name}</p>
+                            <p className="text-sm text-muted-foreground">Due for watering</p>
+                            <p className="text-xs text-muted-foreground">
+                              {plant.wateringInterval} day watering interval
+                            </p>
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <p className="text-center text-muted-foreground py-4">
