@@ -150,17 +150,15 @@ export class DatabaseStorage implements IStorage {
 
   // Existing care tasks methods with template support
   async getCareTasks(plantId?: number): Promise<CareTask[]> {
-    const template = await db.select().from(taskTemplates);
-    const query = db.select().from(careTasks);
+    const query = db.select()
+      .from(careTasks)
+      .leftJoin(taskTemplates, eq(careTasks.templateId, taskTemplates.id));
 
     if (plantId) {
       return await query.where(
         or(
           eq(careTasks.plantId, plantId),
-          and(
-            eq(taskTemplates.applyToAll, true),
-            eq(careTasks.templateId, taskTemplates.id)
-          )
+          eq(taskTemplates.applyToAll, true)
         )
       );
     }

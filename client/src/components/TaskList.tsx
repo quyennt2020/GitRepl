@@ -22,9 +22,10 @@ export default function TaskList({ plantId }: TaskListProps) {
     queryKey: ["/api/task-templates"],
   });
 
-  const { data: checklistItems } = useQuery<ChecklistItem[]>({
-    queryKey: ["/api/task-templates/checklist"],
-  });
+  // Remove the invalid checklist query
+  // const { data: checklistItems } = useQuery<ChecklistItem[]>({
+  //   queryKey: ["/api/task-templates/checklist"],
+  // });
 
   if (tasksLoading) {
     return <div className="animate-pulse space-y-4">
@@ -54,7 +55,8 @@ export default function TaskList({ plantId }: TaskListProps) {
     <Accordion type="single" collapsible className="space-y-4">
       {tasks.map(task => {
         const template = templates?.find(t => t.id === task.templateId);
-        const items = checklistItems?.filter(item => item.templateId === task.templateId) || [];
+        // Assuming checklist items are now directly within the task object.
+        const items = task.checklistItems || [];  
         const progress = task.checklistProgress as Record<string, boolean> || {};
         const completedItems = items.filter(item => progress[item.id]);
         const isOverdue = new Date(task.dueDate) < new Date();
