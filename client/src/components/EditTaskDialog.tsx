@@ -10,7 +10,8 @@ import { CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/api";
+import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,7 +50,12 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
 
   const { mutate: updateTask, isPending } = useMutation({
     mutationFn: async (data: InsertCareTask) => {
-      await apiRequest("PATCH", `/api/tasks/${task.id}`, data);
+      // Convert the Date object to ISO string before sending
+      const payload = {
+        ...data,
+        dueDate: data.dueDate.toISOString(),
+      };
+      await apiRequest("PATCH", `/api/tasks/${task.id}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -81,8 +87,8 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
                 <FormItem>
                   <FormLabel>Task Type</FormLabel>
                   <Select
-                    onValueChange={field.onChange}
-                    value={field.value?.toString() || ""}
+                    onValueChange={(value) => field.onChange(Number(value))}
+                    value={field.value?.toString()}
                   >
                     <FormControl>
                       <SelectTrigger>

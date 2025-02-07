@@ -194,9 +194,15 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Care task with id ${id} not found`);
     }
 
+    // Ensure dueDate is properly formatted if it exists in the update
+    const updatedData = {
+      ...update,
+      dueDate: update.dueDate ? new Date(update.dueDate) : undefined,
+    };
+
     const [task] = await db
       .update(careTasks)
-      .set(update)
+      .set(updatedData)
       .where(eq(careTasks.id, id))
       .returning();
     return task;
