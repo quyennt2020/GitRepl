@@ -208,7 +208,7 @@ export default function LocationMap() {
       {/* Main Content */}
       <div className="flex-1 flex">
         {/* Plant List Panel */}
-        <div className="w-60 border-r bg-background">
+        <div className="w-52 border-r bg-background">
           <div className="p-2 border-b">
             <h2 className="font-semibold">Plant Locations</h2>
           </div>
@@ -221,7 +221,7 @@ export default function LocationMap() {
                 return (
                   <div 
                     key={plant.id}
-                    className={`flex items-center gap-2 p-2 cursor-pointer transition-colors ${
+                    className={`flex items-center gap-1.5 p-1.5 cursor-pointer transition-colors ${
                       isHighlighted ? 'bg-accent' : 'hover:bg-accent/50'
                     }`}
                     onClick={() => setHighlightedPlant(plant.id === highlightedPlant ? null : plant.id)}
@@ -230,7 +230,7 @@ export default function LocationMap() {
                     <img
                       src={plant.image}
                       alt={plant.name}
-                      className="w-8 h-8 rounded-md object-cover"
+                      className="w-7 h-7 rounded-md object-cover"
                     />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-sm truncate">{plant.name}</h3>
@@ -246,13 +246,14 @@ export default function LocationMap() {
         {/* Map and Details Area */}
         <div className="flex-1 flex flex-col">
           {/* Map Area */}
-          <div className="flex-1 p-2 overflow-auto">
+          <div className="flex-1 p-1 overflow-hidden">
             <div 
-              className="relative w-full aspect-square max-w-4xl mx-auto bg-white rounded-lg shadow-sm"
+              className="relative w-full h-full bg-white rounded-lg shadow-sm"
               style={{
                 backgroundImage: 'radial-gradient(circle, #E5E7EB 0.5px, transparent 0.5px)',
                 backgroundSize: '20px 20px',
-                backgroundPosition: '10px 10px'
+                backgroundPosition: '10px 10px',
+                minHeight: '500px'
               }}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
@@ -319,32 +320,29 @@ export default function LocationMap() {
 
           {/* Selected Plant Details */}
           {selectedPlant && (
-            <div className="border-t bg-background p-3">
-              <div className="max-w-4xl mx-auto">
+            <div className="border-t bg-background p-2">
+              <div className="max-w-full">
                 <div className="flex items-start gap-3">
                   <img
                     src={selectedPlant.image}
                     alt={selectedPlant.name}
-                    className="w-16 h-16 rounded-lg object-cover"
+                    className="w-12 h-12 rounded-lg object-cover"
                   />
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold">{selectedPlant.name}</h3>
+                    <h3 className="font-semibold">{selectedPlant.name}</h3>
                     <p className="text-sm text-muted-foreground">{selectedPlant.species}</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-secondary text-sm">
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-sm">
                         <Sun className="h-4 w-4" />
                         {selectedPlant.sunlight}
                       </span>
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-secondary text-sm">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-sm">
                         <Droplets className="h-4 w-4" />
                         Water every {selectedPlant.wateringInterval} days
                       </span>
                     </div>
-                    {selectedPlant.notes && (
-                      <p className="mt-2 text-sm text-muted-foreground">{selectedPlant.notes}</p>
-                    )}
                     <Link href={`/plants/${selectedPlant.id}`}>
-                      <a className="mt-2 text-sm text-primary hover:underline">View Details</a>
+                      <a className="mt-1 text-sm text-primary hover:underline">View Details</a>
                     </Link>
                   </div>
                 </div>
