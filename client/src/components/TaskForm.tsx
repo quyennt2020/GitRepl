@@ -30,6 +30,7 @@ export default function TaskForm({ plantId }: TaskFormProps) {
       plantId,
       completed: false,
       checklistProgress: {},
+      notes: "",
     },
   });
 
@@ -126,7 +127,7 @@ export default function TaskForm({ plantId }: TaskFormProps) {
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
-                        selected={field.value}
+                        selected={field.value as Date}
                         onSelect={field.onChange}
                         disabled={(date) => date < new Date()}
                         initialFocus

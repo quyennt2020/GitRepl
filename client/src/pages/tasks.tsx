@@ -9,11 +9,12 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function Tasks() {
-  const [, params] = useParams();
-  const plantId = parseInt(params.id);
+  const [, params] = useParams<{ id: string }>();
+  const plantId = parseInt(params?.id || "0");
 
   const { data: plant, isLoading } = useQuery<Plant>({
     queryKey: [`/api/plants/${plantId}`],
+    enabled: !!plantId,
   });
 
   if (isLoading) {
