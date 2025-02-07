@@ -2,17 +2,25 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plant } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Share2, Grid, MoreHorizontal, PenLine, Check, Droplets, Sun, Plus } from "lucide-react";
+import { ChevronLeft, Share2, Grid, MoreHorizontal, PenLine, Check } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { differenceInDays } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "@/components/ui/resizable";
-import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import PlantForm from "@/components/PlantForm"; // Assuming this component exists
 
 type Position = { x: number; y: number };
+
+// Grid configuration
+const GRID_SIZE = 10; // 10x10 grid
+const GRID_SNAP_THRESHOLD = 2.5; // Distance in percentage to snap to grid
+
+function snapToGrid(value: number): number {
+  const gridInterval = 100 / GRID_SIZE;
+  const gridPosition = Math.round(value / gridInterval) * gridInterval;
+  return Math.max(0, Math.min(100, gridPosition));
+}
 
 export default function LocationMap() {
   const [isEditing, setIsEditing] = useState(false);
@@ -94,17 +102,16 @@ export default function LocationMap() {
     if (isNaN(plantId)) return;
 
     const container = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - container.left) / container.width) * 100;
-    const y = ((e.clientY - container.top) / container.height) * 100;
+    const rawX = ((e.clientX - container.left) / container.width) * 100;
+    const rawY = ((e.clientY - container.top) / container.height) * 100;
 
-    // Ensure coordinates are within bounds
-    const boundedX = Math.max(0, Math.min(100, x));
-    const boundedY = Math.max(0, Math.min(100, y));
+    // Snap to grid
+    const x = snapToGrid(rawX);
+    const y = snapToGrid(rawY);
 
-    const newPosition = { x: boundedX, y: boundedY };
     setTempPositions(prev => ({
       ...prev,
-      [plantId]: newPosition
+      [plantId]: { x, y }
     }));
   };
 
@@ -167,6 +174,16 @@ export default function LocationMap() {
       </div>
     );
   }
+
+  // Generate grid points for visualization
+  const gridPoints = Array.from({ length: (GRID_SIZE + 1) * (GRID_SIZE + 1) }, (_, index) => {
+    const row = Math.floor(index / (GRID_SIZE + 1));
+    const col = index % (GRID_SIZE + 1);
+    return {
+      x: (col * 100) / GRID_SIZE,
+      y: (row * 100) / GRID_SIZE,
+    };
+  });
 
   return (
     <div className="flex flex-col h-screen bg-[#F8FAFB]">
@@ -261,7 +278,9 @@ export default function LocationMap() {
                   <div 
                     className="relative w-full h-full bg-white rounded-lg shadow-sm flex items-center justify-center"
                     style={{
-                      backgroundImage: 'radial-gradient(circle, #E5E7EB 0.5px, transparent 0.5px)',
+                      backgroundImage: isEditing 
+                        ? 'radial-gradient(circle, #E5E7EB 0.5px, transparent 0.5px)'
+                        : 'none',
                       backgroundSize: '20px 20px',
                       backgroundPosition: '10px 10px',
                     }}
@@ -271,6 +290,18 @@ export default function LocationMap() {
                       onDragOver={handleDragOver}
                       onDrop={handleDrop}
                     >
+                      {/* Grid Points (only visible in edit mode) */}
+                      {isEditing && gridPoints.map((point, index) => (
+                        <div
+                          key={index}
+                          className="absolute w-1 h-1 bg-gray-300 rounded-full transform -translate-x-1/2 -translate-y-1/2"
+                          style={{
+                            left: `${point.x}%`,
+                            top: `${point.y}%`,
+                          }}
+                        />
+                      ))}
+
                       {/* Room Layout */}
                       <div className="absolute inset-0 border border-gray-400">
                         <div className="absolute right-0 bottom-0 w-1/3 h-1/3 border-l border-t border-gray-400 bg-white" />
