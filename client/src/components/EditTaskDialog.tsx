@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import * as z from 'zod';
 
 interface EditTaskDialogProps {
   task: {
@@ -29,11 +30,19 @@ interface EditTaskDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const priorityOptions = [
+  { value: "low", label: "Low Priority" },
+  { value: "medium", label: "Medium Priority" },
+  { value: "high", label: "High Priority" },
+] as const;
+
 export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDialogProps) {
   const { toast } = useToast();
 
-  const form = useForm<InsertCareTask>({
-    resolver: zodResolver(insertCareTaskSchema),
+  const form = useForm<InsertCareTask & { priority: string }>({
+    resolver: zodResolver(insertCareTaskSchema.extend({
+      priority: z.enum(["low", "medium", "high"])
+    })),
     defaultValues: {
       plantId: task.plantId,
       templateId: task.templateId,
@@ -41,6 +50,7 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
       notes: task.notes || "",
       completed: false,
       checklistProgress: {},
+      priority: "medium" // Default priority
     },
   });
 
@@ -49,16 +59,21 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
   });
 
   const { mutate: updateTask, isPending } = useMutation({
-    mutationFn: async (data: InsertCareTask) => {
-      // Convert the Date object to ISO string before sending
+    mutationFn: async (data: InsertCareTask & { priority: string }) => {
+      const { priority, ...taskData } = data;
       const payload = {
-        ...data,
-        dueDate: data.dueDate.toISOString(),
+        ...taskData,
+        dueDate: taskData.dueDate.toISOString(),
       };
+
+      // First update the task template priority
+      await apiRequest("PATCH", `/api/task-templates/${task.templateId}`, { priority });
+      // Then update the task
       await apiRequest("PATCH", `/api/tasks/${task.id}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
       toast({ title: "Task updated successfully" });
       onOpenChange(false);
       form.reset();
@@ -99,6 +114,34 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
                       {templates?.map((template) => (
                         <SelectItem key={template.id} value={template.id.toString()}>
                           {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="priority"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Priority</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {priorityOptions.map(({ value, label }) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -5,7 +5,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clipboard, AlertCircle, Edit2, Trash2, CheckCircle } from "lucide-react";
+import { Clipboard, AlertCircle, Edit2, Trash2, CheckCircle, AlertTriangle, Flag } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import EditTaskDialog from "./EditTaskDialog";
 import TaskCompletionDialog from "./TaskCompletionDialog";
@@ -18,9 +18,21 @@ interface TaskListProps {
 }
 
 const priorityStyles = {
-  high: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-  medium: "bg-warning text-warning-foreground hover:bg-warning/90",
-  low: "bg-muted text-muted-foreground hover:bg-muted/90",
+  high: {
+    badge: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+    border: "border-l-destructive",
+    icon: <Flag className="h-4 w-4 text-destructive" />
+  },
+  medium: {
+    badge: "bg-warning text-warning-foreground hover:bg-warning/90",
+    border: "border-l-warning",
+    icon: <Flag className="h-4 w-4 text-warning" />
+  },
+  low: {
+    badge: "bg-muted text-muted-foreground hover:bg-muted/90",
+    border: "border-l-muted",
+    icon: <Flag className="h-4 w-4 text-muted-foreground" />
+  }
 } as const;
 
 export default function TaskList({ plantId }: TaskListProps) {
@@ -104,14 +116,12 @@ export default function TaskList({ plantId }: TaskListProps) {
   const handleStatusToggle = (e: React.MouseEvent, task: CareTask) => {
     e.stopPropagation();
     if (task.completed) {
-      // For uncompleting a task, just update the status
       updateTaskStatus({ 
         taskId: task.id, 
         completed: false,
         checklistProgress: {} 
       });
     } else {
-      // For completing a task, open the completion dialog
       setCompletingTask(task);
     }
   };
@@ -134,24 +144,21 @@ export default function TaskList({ plantId }: TaskListProps) {
           const template = templates?.find(t => t.id === task.templateId);
           const isOverdue = new Date(task.dueDate) < new Date() && !task.completed;
           const priority = template?.priority || 'low';
+          const priorityStyle = priorityStyles[priority as keyof typeof priorityStyles];
 
           return (
             <AccordionItem key={task.id} value={task.id.toString()}>
-              <Card className={`border-l-4 ${
-                isOverdue ? 'border-l-destructive' : 
-                priority === 'high' ? 'border-l-destructive' :
-                priority === 'medium' ? 'border-l-warning' :
-                'border-l-muted'
-              }`}>
+              <Card className={`border-l-4 ${priorityStyle.border}`}>
                 <AccordionTrigger className="px-4 py-2 hover:no-underline">
                   <div className="flex items-center gap-4 w-full">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
+                        {priorityStyle.icon}
                         <span className="font-medium">{template?.name}</span>
                         <Badge variant={task.completed ? "secondary" : isOverdue ? "destructive" : "default"}>
                           {task.completed ? "Completed" : isOverdue ? "Overdue" : "Active"}
                         </Badge>
-                        <Badge className={priorityStyles[priority as keyof typeof priorityStyles]}>
+                        <Badge className={priorityStyle.badge}>
                           {priority.charAt(0).toUpperCase() + priority.slice(1)} Priority
                         </Badge>
                       </div>
@@ -214,8 +221,8 @@ export default function TaskList({ plantId }: TaskListProps) {
                   <div className="px-4 pb-4 pt-2 space-y-4">
                     {isOverdue && !task.completed && (
                       <div className="flex items-center gap-2 text-sm text-destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        This task is overdue
+                        <AlertTriangle className="h-4 w-4" />
+                        This task is overdue and requires immediate attention
                       </div>
                     )}
 
