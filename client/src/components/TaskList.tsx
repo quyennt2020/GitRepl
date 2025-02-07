@@ -56,10 +56,11 @@ export default function TaskList({ plantId }: TaskListProps) {
 
   const { mutate: updateTaskStatus } = useMutation({
     mutationFn: async ({ taskId, completed }: { taskId: number; completed: boolean }) => {
-      await apiRequest("PATCH", `/api/tasks/${taskId}`, {
+      const updateData = {
         completed,
-        completedAt: completed ? new Date().toISOString() : null
-      });
+        completedAt: completed ? new Date() : null,
+      };
+      await apiRequest("PATCH", `/api/tasks/${taskId}`, updateData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks", plantId] });

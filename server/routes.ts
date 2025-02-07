@@ -127,8 +127,30 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.patch("/api/tasks/:id", async (req, res) => {
-    const task = await storage.updateCareTask(Number(req.params.id), req.body);
-    res.json(task);
+    try {
+      const taskId = Number(req.params.id);
+      if (isNaN(taskId)) {
+        return res.status(400).json({
+          message: "Invalid task ID",
+          code: "INVALID_ID"
+        });
+      }
+
+      // Convert completedAt to proper Date object if present
+      const updateData = {
+        ...req.body,
+        completedAt: req.body.completedAt ? new Date(req.body.completedAt) : null
+      };
+
+      const task = await storage.updateCareTask(taskId, updateData);
+      res.json(task);
+    } catch (error) {
+      console.error('Error updating task:', error);
+      res.status(500).json({
+        message: error instanceof Error ? error.message : "Failed to update task",
+        code: "SERVER_ERROR"
+      });
+    }
   });
 
   // Task-related routes
