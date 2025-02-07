@@ -36,7 +36,7 @@ export default function TaskList({ plantId }: TaskListProps) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "Failed to delete task" })); //Improved error handling
+        const errorData = await response.json().catch(() => ({ message: "Failed to delete task" }));
         throw new Error(errorData.message);
       }
     },
