@@ -27,6 +27,7 @@ export const taskTemplates = pgTable("task_templates", {
   priority: text("priority").notNull(), // high, medium, low
   estimatedDuration: integer("estimated_duration"), // in minutes
   requiresExpertise: boolean("requires_expertise").default(false),
+  applyToAll: boolean("apply_to_all").default(false), // New field
   metadata: jsonb("metadata"), // For flexible additional fields
 });
 
@@ -66,6 +67,7 @@ export const insertTaskTemplateSchema = createInsertSchema(taskTemplates)
     category: z.enum(["water", "fertilize", "prune", "check", "repot", "clean"]),
     priority: z.enum(["high", "medium", "low"]),
     metadata: z.record(z.unknown()).optional(),
+    applyToAll: z.boolean().default(false),
   });
 
 // Zod schema for checklist items

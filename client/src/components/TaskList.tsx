@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clipboard, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { apiRequest } from '@/lib/api';
 
 interface TaskListProps {
   plantId: number;
@@ -14,6 +15,7 @@ interface TaskListProps {
 export default function TaskList({ plantId }: TaskListProps) {
   const { data: tasks, isLoading: tasksLoading } = useQuery<CareTask[]>({
     queryKey: ["/api/tasks", plantId],
+    queryFn: () => apiRequest("GET", `/api/tasks?plantId=${plantId}`),
   });
 
   const { data: templates } = useQuery<TaskTemplate[]>({

@@ -107,9 +107,14 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Care Tasks with template support
-  app.get("/api/tasks", async (_req, res) => {
-    const tasks = await storage.getCareTasks();
-    res.json(tasks);
+  app.get("/api/tasks", async (req, res) => {
+    try {
+      const plantId = req.query.plantId ? Number(req.query.plantId) : undefined;
+      const tasks = await storage.getCareTasks(plantId);
+      res.json(tasks);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch tasks" });
+    }
   });
 
   app.post("/api/tasks", async (req, res) => {

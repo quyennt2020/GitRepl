@@ -1,8 +1,8 @@
-import { Plant, InsertPlant, CareTask, InsertCareTask, HealthRecord, InsertHealthRecord, 
+import { Plant, InsertPlant, CareTask, InsertCareTask, HealthRecord, InsertHealthRecord,
   TaskTemplate, InsertTaskTemplate, ChecklistItem, InsertChecklistItem,
   plants, careTasks, healthRecords, taskTemplates, checklistItems } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, or } from "drizzle-orm";
 
 export interface IStorage {
   // Plants
@@ -13,7 +13,7 @@ export interface IStorage {
   deletePlant(id: number): Promise<void>;
 
   // Care Tasks
-  getCareTasks(): Promise<CareTask[]>;
+  getCareTasks(plantId?: number): Promise<CareTask[]>;
   getCareTask(id: number): Promise<CareTask | undefined>;
   createCareTask(task: InsertCareTask): Promise<CareTask>;
   updateCareTask(id: number, task: Partial<CareTask>): Promise<CareTask>;
@@ -149,8 +149,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Existing care tasks methods with template support
-  async getCareTasks(): Promise<CareTask[]> {
-    return await db.select().from(careTasks);
+  async getCareTasks(plantId?: number): Promise<CareTask[]> {
+    const template = await db.select().from(taskTemplates);
+    const query = db.select().from(careTasks);
+
+    if (plantId) {
+      return await query.where(
+        or(
+          eq(careTasks.plantId, plantId),
+          and(
+            eq(taskTemplates.applyToAll, true),
+            eq(careTasks.templateId, taskTemplates.id)
+          )
+        )
+      );
+    }
+
+    return await query;
   }
 
   async getCareTask(id: number): Promise<CareTask | undefined> {
@@ -184,7 +199,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(careTasks).where(eq(careTasks.plantId, plantId));
   }
 
-  // Existing health records methods remain unchanged
+  // Existing health records methods
   async getHealthRecords(plantId: number): Promise<HealthRecord[]> {
     return await db
       .select()
