@@ -79,11 +79,11 @@ export default function Schedule() {
                             </p>
                           </div>
                           <Button 
-                            variant="ghost" 
-                            size="icon"
+                            className="w-full" 
                             onClick={() => markWatered(plant.id)}
                           >
-                            <Check className="h-4 w-4" />
+                            <Check className="h-4 w-4 mr-2" />
+                            Mark as Watered
                           </Button>
                         </div>
                       ))}
