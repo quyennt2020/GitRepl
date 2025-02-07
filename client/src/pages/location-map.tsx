@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plant } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,23 @@ export default function LocationMap() {
   const { data: plants, isLoading } = useQuery<Plant[]>({ 
     queryKey: ["/api/plants"]
   });
+
+  // Load saved positions from plants data
+  useEffect(() => {
+    if (plants) {
+      const savedPositions: Record<number, Position> = {};
+      plants.forEach((plant) => {
+        if (plant.position) {
+          try {
+            savedPositions[plant.id] = JSON.parse(plant.position as string);
+          } catch (e) {
+            console.error("Failed to parse position for plant:", plant.id);
+          }
+        }
+      });
+      setPositions(savedPositions);
+    }
+  }, [plants]);
 
   const { mutate: updatePlantPosition } = useMutation({
     mutationFn: async ({ plantId, position }: { plantId: number; position: Position }) => {
@@ -38,29 +55,46 @@ export default function LocationMap() {
 
   const handleDragStart = (e: React.DragEvent, plantId: number) => {
     if (!isEditing) return;
-    e.dataTransfer.setData("plant_id", plantId.toString());
+    e.dataTransfer.setData("text/plain", plantId.toString());
+    // Add visual feedback
+    const elem = e.target as HTMLElement;
+    elem.style.opacity = '0.5';
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    // Reset visual feedback
+    const elem = e.target as HTMLElement;
+    elem.style.opacity = '1';
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     if (!isEditing) return;
     e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
   };
 
   const handleDrop = (e: React.DragEvent) => {
     if (!isEditing) return;
     e.preventDefault();
 
-    const plantId = parseInt(e.dataTransfer.getData("plant_id"));
+    const plantId = parseInt(e.dataTransfer.getData("text/plain"));
+    if (isNaN(plantId)) return;
+
     const container = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - container.left) / container.width) * 100;
     const y = ((e.clientY - container.top) / container.height) * 100;
 
+    // Ensure coordinates are within bounds
+    const boundedX = Math.max(0, Math.min(100, x));
+    const boundedY = Math.max(0, Math.min(100, y));
+
+    const newPosition = { x: boundedX, y: boundedY };
     setPositions(prev => ({
       ...prev,
-      [plantId]: { x, y }
+      [plantId]: newPosition
     }));
 
-    updatePlantPosition({ plantId, position: { x, y } });
+    updatePlantPosition({ plantId, position: newPosition });
   };
 
   if (isLoading) {
@@ -125,6 +159,7 @@ export default function LocationMap() {
                 key={plant.id}
                 draggable
                 onDragStart={(e) => handleDragStart(e, plant.id)}
+                onDragEnd={handleDragEnd}
                 className="absolute w-4 h-4 bg-blue-400 cursor-move transition-all hover:brightness-110"
                 style={{
                   left: `${position.x}%`,
