@@ -5,7 +5,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clipboard, AlertCircle, Edit2, Trash2 } from "lucide-react";
+import { Clipboard, AlertCircle, Edit2, Trash2, CheckCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import EditTaskDialog from "./EditTaskDialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -44,20 +44,33 @@ export default function TaskList({ plantId }: TaskListProps) {
     },
     onError: (error) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks", plantId] });
-
       if (error instanceof Error) {
-        const isExpectedError = 
-          error.message.includes('not found') || 
-          error.message.includes('Invalid task ID');
-
-        if (!isExpectedError) {
-          toast({
-            title: "Failed to delete task",
-            description: error.message,
-            variant: "destructive",
-          });
-        }
+        toast({
+          title: "Failed to delete task",
+          description: error.message,
+          variant: "destructive",
+        });
       }
+    },
+  });
+
+  const { mutate: updateTaskStatus } = useMutation({
+    mutationFn: async ({ taskId, completed }: { taskId: number; completed: boolean }) => {
+      await apiRequest("PATCH", `/api/tasks/${taskId}`, {
+        completed,
+        completedAt: completed ? new Date().toISOString() : null
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", plantId] });
+      toast({ title: "Task status updated" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to update task status",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
+      });
     },
   });
 
@@ -76,12 +89,17 @@ export default function TaskList({ plantId }: TaskListProps) {
     deleteTask(taskId);
   };
 
+  const handleStatusToggle = (e: React.MouseEvent, taskId: number, currentStatus: boolean) => {
+    e.stopPropagation();
+    updateTaskStatus({ taskId, completed: !currentStatus });
+  };
+
   return (
     <>
       <Accordion type="single" collapsible className="space-y-4">
         {tasks.map(task => {
           const template = templates?.find(t => t.id === task.templateId);
-          const isOverdue = new Date(task.dueDate) < new Date();
+          const isOverdue = new Date(task.dueDate) < new Date() && !task.completed;
           const priority = template?.priority || 'low';
 
           return (
@@ -109,6 +127,14 @@ export default function TaskList({ plantId }: TaskListProps) {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => handleStatusToggle(e, task.id, task.completed)}
+                        className={task.completed ? "text-muted-foreground" : "text-primary"}
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
