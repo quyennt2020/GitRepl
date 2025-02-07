@@ -31,8 +31,6 @@ export default function TaskForm({ plantId }: TaskFormProps) {
       completed: false,
       checklistProgress: {},
       notes: "",
-      templateId: undefined,
-      dueDate: undefined,
     },
   });
 
@@ -50,9 +48,9 @@ export default function TaskForm({ plantId }: TaskFormProps) {
       setOpen(false);
       form.reset();
     },
-    onError: () => {
+    onError: (error) => {
       toast({
-        title: "Failed to create task",
+        title: error instanceof Error ? error.message : "Failed to create task",
         variant: "destructive",
       });
     },
@@ -80,7 +78,7 @@ export default function TaskForm({ plantId }: TaskFormProps) {
                 <FormItem>
                   <FormLabel>Task Type</FormLabel>
                   <Select
-                    onValueChange={(value) => field.onChange(Number(value))}
+                    onValueChange={field.onChange}
                     value={field.value?.toString() || ""}
                   >
                     <FormControl>
@@ -152,6 +150,7 @@ export default function TaskForm({ plantId }: TaskFormProps) {
                       placeholder="Add any additional notes or instructions..."
                       className="resize-none"
                       {...field}
+                      value={field.value || ""}
                     />
                   </FormControl>
                   <FormMessage />
