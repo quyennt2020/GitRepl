@@ -42,22 +42,6 @@ export default function Plants() {
     <div className="container py-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">My Plants</h1>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Plant
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[90vh]">
-            <DialogHeader>
-              <DialogTitle>Add New Plant</DialogTitle>
-            </DialogHeader>
-            <ScrollArea className="max-h-[70vh] pr-4">
-              <PlantForm />
-            </ScrollArea>
-          </DialogContent>
-        </Dialog>
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -141,6 +125,26 @@ export default function Plants() {
           ))}
         </div>
       )}
+
+      {/* Floating Action Button */}
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button 
+            className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg"
+            size="icon"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Add New Plant</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[70vh] pr-4">
+            <PlantForm />
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
