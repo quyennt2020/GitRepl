@@ -32,7 +32,7 @@ const priorityStyles = {
     border: "border-l-muted",
     icon: <Flag className="h-4 w-4 text-muted-foreground" />
   }
-} as const;
+};
 
 export default function TaskList({ plantId }: TaskListProps) {
   const [editingTask, setEditingTask] = useState<CareTask | null>(null);
@@ -146,7 +146,6 @@ export default function TaskList({ plantId }: TaskListProps) {
                       setCompletingTask(task);
                     }
                   }}
-                  className={task.completed ? "text-muted-foreground" : "text-primary"}
                 >
                   <CheckCircle className="h-4 w-4" />
                 </Button>
@@ -159,31 +158,14 @@ export default function TaskList({ plantId }: TaskListProps) {
                   <Edit2 className="h-4 w-4" />
                 </Button>
 
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:text-destructive/90"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Task</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to delete this task? This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => deleteTask(task.id)}>
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => deleteTask(task.id)}
+                  className="text-destructive hover:text-destructive/90"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </Card>
