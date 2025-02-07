@@ -16,6 +16,12 @@ interface TaskListProps {
   plantId: number;
 }
 
+const priorityStyles = {
+  high: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+  medium: "bg-warning text-warning-foreground hover:bg-warning/90",
+  low: "bg-muted text-muted-foreground hover:bg-muted/90",
+} as const;
+
 export default function TaskList({ plantId }: TaskListProps) {
   const [editingTask, setEditingTask] = useState<CareTask | null>(null);
   const { toast } = useToast();
@@ -37,7 +43,6 @@ export default function TaskList({ plantId }: TaskListProps) {
       toast({ title: "Task deleted successfully" });
     },
     onError: (error) => {
-      // Always refresh the task list to ensure UI is in sync with server state
       queryClient.invalidateQueries({ queryKey: ["/api/tasks", plantId] });
 
       if (error instanceof Error) {
@@ -77,10 +82,16 @@ export default function TaskList({ plantId }: TaskListProps) {
         {tasks.map(task => {
           const template = templates?.find(t => t.id === task.templateId);
           const isOverdue = new Date(task.dueDate) < new Date();
+          const priority = template?.priority || 'low';
 
           return (
             <AccordionItem key={task.id} value={task.id.toString()}>
-              <Card>
+              <Card className={`border-l-4 ${
+                isOverdue ? 'border-l-destructive' : 
+                priority === 'high' ? 'border-l-destructive' :
+                priority === 'medium' ? 'border-l-warning' :
+                'border-l-muted'
+              }`}>
                 <AccordionTrigger className="px-4 py-2 hover:no-underline">
                   <div className="flex items-center gap-4 w-full">
                     <div className="flex-1">
@@ -88,6 +99,9 @@ export default function TaskList({ plantId }: TaskListProps) {
                         <span className="font-medium">{template?.name}</span>
                         <Badge variant={task.completed ? "secondary" : isOverdue ? "destructive" : "default"}>
                           {task.completed ? "Completed" : isOverdue ? "Overdue" : "Active"}
+                        </Badge>
+                        <Badge className={priorityStyles[priority as keyof typeof priorityStyles]}>
+                          {priority.charAt(0).toUpperCase() + priority.slice(1)} Priority
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
