@@ -84,7 +84,7 @@ export default function HealthTrend({ plantId }: HealthTrendProps) {
                 <YAxis domain={[1, 5]} />
                 <Tooltip />
                 <Line
-                  type="monotone"
+                  type="linear"
                   dataKey="healthScore"
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
