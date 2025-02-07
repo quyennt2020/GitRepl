@@ -6,6 +6,7 @@ import BottomNav from "@/components/BottomNav";
 import Home from "@/pages/home";
 import Plants from "@/pages/plants";
 import PlantDetails from "@/pages/plant-details";
+import Tasks from "@/pages/tasks";
 import LocationMap from "@/pages/location-map";
 import Guides from "@/pages/guides";
 import Schedule from "@/pages/schedule";
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/plants" component={Plants} />
       <Route path="/plants/:id" component={PlantDetails} />
+      <Route path="/plants/:id/tasks" component={Tasks} />
       <Route path="/location-map" component={LocationMap} />
       <Route path="/guides" component={Guides} />
       <Route path="/schedule" component={Schedule} />

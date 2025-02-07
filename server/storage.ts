@@ -1,6 +1,8 @@
-import { Plant, InsertPlant, CareTask, InsertCareTask, HealthRecord, InsertHealthRecord, plants, careTasks, healthRecords } from "@shared/schema";
+import { Plant, InsertPlant, CareTask, InsertCareTask, HealthRecord, InsertHealthRecord, 
+  TaskTemplate, InsertTaskTemplate, ChecklistItem, InsertChecklistItem,
+  plants, careTasks, healthRecords, taskTemplates, checklistItems } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   // Plants
@@ -17,6 +19,19 @@ export interface IStorage {
   updateCareTask(id: number, task: Partial<CareTask>): Promise<CareTask>;
   deleteCareTasks(plantId: number): Promise<void>;
 
+  // Task Templates
+  getTaskTemplates(): Promise<TaskTemplate[]>;
+  getTaskTemplate(id: number): Promise<TaskTemplate | undefined>;
+  createTaskTemplate(template: InsertTaskTemplate): Promise<TaskTemplate>;
+  updateTaskTemplate(id: number, template: Partial<TaskTemplate>): Promise<TaskTemplate>;
+  deleteTaskTemplate(id: number): Promise<void>;
+
+  // Checklist Items
+  getChecklistItems(templateId: number): Promise<ChecklistItem[]>;
+  createChecklistItem(item: InsertChecklistItem): Promise<ChecklistItem>;
+  updateChecklistItem(id: number, item: Partial<ChecklistItem>): Promise<ChecklistItem>;
+  deleteChecklistItem(id: number): Promise<void>;
+
   // Health Records
   getHealthRecords(plantId: number): Promise<HealthRecord[]>;
   getHealthRecord(id: number): Promise<HealthRecord | undefined>;
@@ -25,6 +40,7 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Existing methods remain unchanged
   async getPlants(): Promise<Plant[]> {
     return await db.select().from(plants);
   }
@@ -61,6 +77,71 @@ export class DatabaseStorage implements IStorage {
     await this.deleteCareTasks(id);
   }
 
+  // Task Template methods
+  async getTaskTemplates(): Promise<TaskTemplate[]> {
+    return await db.select().from(taskTemplates);
+  }
+
+  async getTaskTemplate(id: number): Promise<TaskTemplate | undefined> {
+    const [template] = await db.select().from(taskTemplates).where(eq(taskTemplates.id, id));
+    return template;
+  }
+
+  async createTaskTemplate(template: InsertTaskTemplate): Promise<TaskTemplate> {
+    const [newTemplate] = await db
+      .insert(taskTemplates)
+      .values(template)
+      .returning();
+    return newTemplate;
+  }
+
+  async updateTaskTemplate(id: number, update: Partial<TaskTemplate>): Promise<TaskTemplate> {
+    const [template] = await db
+      .update(taskTemplates)
+      .set(update)
+      .where(eq(taskTemplates.id, id))
+      .returning();
+    if (!template) throw new Error("Task template not found");
+    return template;
+  }
+
+  async deleteTaskTemplate(id: number): Promise<void> {
+    await db.delete(checklistItems).where(eq(checklistItems.templateId, id));
+    await db.delete(taskTemplates).where(eq(taskTemplates.id, id));
+  }
+
+  // Checklist Items methods
+  async getChecklistItems(templateId: number): Promise<ChecklistItem[]> {
+    return await db
+      .select()
+      .from(checklistItems)
+      .where(eq(checklistItems.templateId, templateId))
+      .orderBy(checklistItems.order);
+  }
+
+  async createChecklistItem(item: InsertChecklistItem): Promise<ChecklistItem> {
+    const [newItem] = await db
+      .insert(checklistItems)
+      .values(item)
+      .returning();
+    return newItem;
+  }
+
+  async updateChecklistItem(id: number, update: Partial<ChecklistItem>): Promise<ChecklistItem> {
+    const [item] = await db
+      .update(checklistItems)
+      .set(update)
+      .where(eq(checklistItems.id, id))
+      .returning();
+    if (!item) throw new Error("Checklist item not found");
+    return item;
+  }
+
+  async deleteChecklistItem(id: number): Promise<void> {
+    await db.delete(checklistItems).where(eq(checklistItems.id, id));
+  }
+
+  // Existing care tasks methods with template support
   async getCareTasks(): Promise<CareTask[]> {
     return await db.select().from(careTasks);
   }
@@ -70,12 +151,12 @@ export class DatabaseStorage implements IStorage {
     return task;
   }
 
-  async createCareTask(insertTask: InsertCareTask): Promise<CareTask> {
-    const [task] = await db
+  async createCareTask(task: InsertCareTask): Promise<CareTask> {
+    const [newTask] = await db
       .insert(careTasks)
-      .values(insertTask)
+      .values(task)
       .returning();
-    return task;
+    return newTask;
   }
 
   async updateCareTask(id: number, update: Partial<CareTask>): Promise<CareTask> {
@@ -96,6 +177,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(careTasks).where(eq(careTasks.plantId, plantId));
   }
 
+  // Existing health records methods remain unchanged
   async getHealthRecords(plantId: number): Promise<HealthRecord[]> {
     return await db
       .select()
@@ -116,6 +198,7 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return healthRecord;
   }
+
   async updateHealthRecord(id: number, update: Partial<HealthRecord>): Promise<HealthRecord> {
     const [record] = await db
       .update(healthRecords)

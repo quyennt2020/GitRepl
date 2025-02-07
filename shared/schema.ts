@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -14,7 +14,40 @@ export const plants = pgTable("plants", {
   fertilizingInterval: integer("fertilizing_interval").notNull(), // days
   sunlight: text("sunlight").notNull(), // enum: low, medium, high
   notes: text("notes"),
-  position: text("position"), // Add position column to store JSON string of x,y coordinates
+  position: text("position"), // Store JSON string of x,y coordinates
+});
+
+// New table for task templates
+export const taskTemplates = pgTable("task_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  category: text("category").notNull(), // water, fertilize, prune, check, etc.
+  description: text("description"),
+  defaultInterval: integer("default_interval"), // Default interval in days
+  priority: text("priority").notNull(), // high, medium, low
+  estimatedDuration: integer("estimated_duration"), // in minutes
+  requiresExpertise: boolean("requires_expertise").default(false),
+  metadata: jsonb("metadata"), // For flexible additional fields
+});
+
+// New table for checklist items within task templates
+export const checklistItems = pgTable("checklist_items", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").notNull(),
+  text: text("text").notNull(),
+  order: integer("order").notNull(),
+  required: boolean("required").default(true),
+});
+
+export const careTasks = pgTable("care_tasks", {
+  id: serial("id").primaryKey(),
+  plantId: integer("plant_id").notNull(),
+  templateId: integer("template_id").notNull(), // Reference to task template
+  dueDate: timestamp("due_date").notNull(),
+  completed: boolean("completed").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+  notes: text("notes"),
+  checklistProgress: jsonb("checklist_progress"), // Store completion status of checklist items
 });
 
 export const healthRecords = pgTable("health_records", {
@@ -25,6 +58,26 @@ export const healthRecords = pgTable("health_records", {
   issues: text("issues").array(), // Array of issues like ["yellow_leaves", "drooping"]
   notes: text("notes"),
 });
+
+// Zod schemas for task templates
+export const insertTaskTemplateSchema = createInsertSchema(taskTemplates)
+  .omit({ id: true })
+  .extend({
+    category: z.enum(["water", "fertilize", "prune", "check", "repot", "clean"]),
+    priority: z.enum(["high", "medium", "low"]),
+    metadata: z.record(z.unknown()).optional(),
+  });
+
+// Zod schema for checklist items
+export const insertChecklistItemSchema = createInsertSchema(checklistItems)
+  .omit({ id: true });
+
+// Update care task schema to include template and checklist progress
+export const insertCareTaskSchema = createInsertSchema(careTasks)
+  .omit({ id: true, completedAt: true })
+  .extend({
+    checklistProgress: z.record(z.boolean()).optional(),
+  });
 
 export const insertPlantSchema = createInsertSchema(plants)
   .omit({ id: true, lastWatered: true, lastFertilized: true })
@@ -44,24 +97,14 @@ export const insertHealthRecordSchema = createInsertSchema(healthRecords)
     issues: z.array(z.string()),
   });
 
+// Type exports
 export type Plant = typeof plants.$inferSelect;
 export type InsertPlant = z.infer<typeof insertPlantSchema>;
 export type CareTask = typeof careTasks.$inferSelect;
 export type InsertCareTask = z.infer<typeof insertCareTaskSchema>;
-
 export type HealthRecord = typeof healthRecords.$inferSelect;
 export type InsertHealthRecord = z.infer<typeof insertHealthRecordSchema>;
-
-export const careTasks = pgTable("care_tasks", {
-  id: serial("id").primaryKey(),
-  plantId: integer("plant_id").notNull(),
-  type: text("type").notNull(), // water, fertilize
-  dueDate: timestamp("due_date").notNull(),
-  completed: boolean("completed").notNull().default(false),
-});
-
-export const insertCareTaskSchema = createInsertSchema(careTasks)
-  .omit({ id: true })
-  .extend({
-    type: z.enum(["water", "fertilize"]),
-  });
+export type TaskTemplate = typeof taskTemplates.$inferSelect;
+export type InsertTaskTemplate = z.infer<typeof insertTaskTemplateSchema>;
+export type ChecklistItem = typeof checklistItems.$inferSelect;
+export type InsertChecklistItem = z.infer<typeof insertChecklistItemSchema>;
