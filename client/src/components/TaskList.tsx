@@ -39,16 +39,23 @@ export default function TaskList({ plantId }: TaskListProps) {
       toast({ title: "Task deleted successfully" });
     },
     onError: (error) => {
-      // Only show error toast if it's not a "not found" error
-      if (!error.message?.includes('not found')) {
-        toast({
-          title: "Failed to delete task",
-          description: error instanceof Error ? error.message : "An error occurred",
-          variant: "destructive",
-        });
-      }
       // Always refresh the task list to ensure UI is in sync
       queryClient.invalidateQueries({ queryKey: ["/api/tasks", plantId] });
+
+      // Only show error toast for unexpected errors
+      if (error instanceof Error) {
+        const isExpectedError = 
+          error.message.includes('not found') || 
+          error.message.includes('Invalid task ID');
+
+        if (!isExpectedError) {
+          toast({
+            title: "Failed to delete task",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
+      }
     },
   });
 

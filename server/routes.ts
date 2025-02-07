@@ -131,20 +131,30 @@ export function registerRoutes(app: Express): Server {
     res.json(task);
   });
 
-  // Add delete task endpoint
+  // Task-related routes
   app.delete("/api/tasks/:id", async (req, res) => {
     try {
       const taskId = Number(req.params.id);
       if (isNaN(taskId)) {
-        return res.status(400).json({ message: "Invalid task ID" });
+        return res.status(400).json({
+          message: "Invalid task ID",
+          code: "INVALID_ID"
+        });
       }
 
       await storage.deleteCareTask(taskId);
       res.status(204).end();
     } catch (error) {
       console.error('Error in delete task route:', error);
-      res.status(500).json({ 
-        message: error instanceof Error ? error.message : "Failed to delete task" 
+      if (error instanceof Error && error.message.includes('not found')) {
+        return res.status(404).json({
+          message: error.message,
+          code: "NOT_FOUND"
+        });
+      }
+      res.status(500).json({
+        message: error instanceof Error ? error.message : "Failed to delete task",
+        code: "SERVER_ERROR"
       });
     }
   });
