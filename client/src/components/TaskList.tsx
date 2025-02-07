@@ -1,11 +1,13 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CareTask, TaskTemplate } from "@shared/schema";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clipboard, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Clipboard, AlertCircle, Edit2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import EditTaskDialog from "./EditTaskDialog";
 import { apiRequest } from '@/lib/api';
 
 interface TaskListProps {
@@ -13,6 +15,8 @@ interface TaskListProps {
 }
 
 export default function TaskList({ plantId }: TaskListProps) {
+  const [editingTask, setEditingTask] = useState<CareTask | null>(null);
+
   const { data: tasks, isLoading: tasksLoading } = useQuery<CareTask[]>({
     queryKey: ["/api/tasks", plantId],
     queryFn: () => apiRequest("GET", `/api/tasks?plantId=${plantId}`),
@@ -47,51 +51,71 @@ export default function TaskList({ plantId }: TaskListProps) {
   }
 
   return (
-    <Accordion type="single" collapsible className="space-y-4">
-      {tasks.map(task => {
-        const template = templates?.find(t => t.id === task.templateId);
-        const progress = task.checklistProgress as Record<string, boolean> || {};
-        const isOverdue = new Date(task.dueDate) < new Date();
+    <>
+      <Accordion type="single" collapsible className="space-y-4">
+        {tasks.map(task => {
+          const template = templates?.find(t => t.id === task.templateId);
+          const progress = task.checklistProgress as Record<string, boolean> || {};
+          const isOverdue = new Date(task.dueDate) < new Date();
 
-        return (
-          <AccordionItem key={task.id} value={task.id.toString()}>
-            <Card>
-              <AccordionTrigger className="px-4 py-2 hover:no-underline">
-                <div className="flex items-center gap-4 w-full">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{template?.name}</span>
-                      <Badge variant={task.completed ? "secondary" : isOverdue ? "destructive" : "default"}>
-                        {task.completed ? "Completed" : isOverdue ? "Overdue" : "Active"}
-                      </Badge>
+          return (
+            <AccordionItem key={task.id} value={task.id.toString()}>
+              <Card>
+                <AccordionTrigger className="px-4 py-2 hover:no-underline">
+                  <div className="flex items-center gap-4 w-full">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{template?.name}</span>
+                        <Badge variant={task.completed ? "secondary" : isOverdue ? "destructive" : "default"}>
+                          {task.completed ? "Completed" : isOverdue ? "Overdue" : "Active"}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Due {formatDistanceToNow(new Date(task.dueDate), { addSuffix: true })}
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Due {formatDistanceToNow(new Date(task.dueDate), { addSuffix: true })}
-                    </p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingTask(task);
+                      }}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                </div>
-              </AccordionTrigger>
+                </AccordionTrigger>
 
-              <AccordionContent>
-                <div className="px-4 pb-4 pt-2 space-y-4">
-                  {isOverdue && !task.completed && (
-                    <div className="flex items-center gap-2 text-sm text-destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      This task is overdue
-                    </div>
-                  )}
+                <AccordionContent>
+                  <div className="px-4 pb-4 pt-2 space-y-4">
+                    {isOverdue && !task.completed && (
+                      <div className="flex items-center gap-2 text-sm text-destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        This task is overdue
+                      </div>
+                    )}
 
-                  {task.notes && (
-                    <div className="text-sm text-muted-foreground">
-                      <strong className="font-medium">Notes:</strong> {task.notes}
-                    </div>
-                  )}
-                </div>
-              </AccordionContent>
-            </Card>
-          </AccordionItem>
-        );
-      })}
-    </Accordion>
+                    {task.notes && (
+                      <div className="text-sm text-muted-foreground">
+                        <strong className="font-medium">Notes:</strong> {task.notes}
+                      </div>
+                    )}
+                  </div>
+                </AccordionContent>
+              </Card>
+            </AccordionItem>
+          );
+        })}
+      </Accordion>
+
+      {editingTask && (
+        <EditTaskDialog
+          task={editingTask}
+          open={!!editingTask}
+          onOpenChange={(open) => !open && setEditingTask(null)}
+        />
+      )}
+    </>
   );
 }
