@@ -78,6 +78,21 @@ export default function TaskTemplateConfig() {
 
       {uniqueTemplates?.map((template) => (
         <Card key={template.id} className="p-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <h3 className="font-medium">{template.name}</h3>
+              {(allChecklistItems?.[template.id] || []).map((item) => (
+                <div key={item.id} className="flex items-center gap-2 mt-2">
+                  <Input type="text" value={item.description} readOnly />
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      ))}
+
+      {uniqueTemplates?.map((template) => (
+        <Card key={template.id} className="p-4">
           <div className="flex items-center justify-between">
             <div className="space-y-2">
               <h3 className="font-medium">{template.name}</h3>
