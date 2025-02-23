@@ -54,16 +54,16 @@ export default function TaskTemplateConfig() {
     return <div>Loading...</div>;
   }
 
+  const { data: allChecklistItems } = useQuery<Record<number, ChecklistItem[]>>({
+    queryKey: ["/api/task-templates/checklist-items"],
+  });
+
   const uniqueTemplates = templates?.reduce((acc: TaskTemplate[], curr) => {
     if (!acc.find(t => t.name === curr.name)) {
       acc.push(curr);
     }
     return acc;
   }, []).sort((a, b) => a.name.localeCompare(b.name));
-
-  const { data: allChecklistItems } = useQuery<Record<number, ChecklistItem[]>>({
-    queryKey: ["/api/task-templates/checklist-items"],
-  });
 
   return (
     <div className="space-y-4 p-4">
