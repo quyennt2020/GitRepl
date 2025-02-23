@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
-import { InsertPlant, insertPlantSchema, type Plant } from "@shared/schema";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { InsertPlant, insertPlantSchema, type Plant, TaskTemplate } from "@shared/schema";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,6 +17,10 @@ interface PlantFormProps {
 
 export default function PlantForm({ plant }: PlantFormProps) {
   const { toast } = useToast();
+
+  const { data: templates } = useQuery<TaskTemplate[]>({
+    queryKey: ["/api/task-templates"],
+  });
 
   const form = useForm<InsertPlant>({
     resolver: zodResolver(insertPlantSchema),
@@ -129,9 +133,20 @@ export default function PlantForm({ plant }: PlantFormProps) {
           name="wateringInterval"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Watering Interval (days)</FormLabel>
+              <FormLabel>Watering Interval</FormLabel>
               <FormControl>
-                <Input type="number" min={1} {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select watering interval" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates?.map((template) => (
+                      <SelectItem key={template.id} value={template.wateringInterval}>
+                        {template.name} ({template.wateringInterval} days)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -143,9 +158,20 @@ export default function PlantForm({ plant }: PlantFormProps) {
           name="fertilizingInterval"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Fertilizing Interval (days)</FormLabel>
+              <FormLabel>Fertilizing Interval</FormLabel>
               <FormControl>
-                <Input type="number" min={1} {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select fertilizing interval" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates?.map((template) => (
+                      <SelectItem key={template.id} value={template.fertilizingInterval}>
+                        {template.name} ({template.fertilizingInterval} days)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </FormControl>
               <FormMessage />
             </FormItem>
