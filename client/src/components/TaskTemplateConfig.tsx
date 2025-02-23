@@ -19,7 +19,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import * as z from "zod";
 import {AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction} from "@/components/ui/alert-dialog";
 
-
 export default function TaskTemplateConfig() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<TaskTemplate | null>(null);
@@ -27,6 +26,10 @@ export default function TaskTemplateConfig() {
 
   const { data: templates, isLoading } = useQuery<TaskTemplate[]>({
     queryKey: ["/api/task-templates"],
+  });
+
+  const { data: allChecklistItems } = useQuery<Record<number, ChecklistItem[]>>({
+    queryKey: ["/api/task-templates/checklist-items"],
   });
 
   const { mutate: updateTemplate } = useMutation({
@@ -49,14 +52,9 @@ export default function TaskTemplateConfig() {
     },
   });
 
-
   if (isLoading) {
     return <div>Loading...</div>;
   }
-
-  const { data: allChecklistItems } = useQuery<Record<number, ChecklistItem[]>>({
-    queryKey: ["/api/task-templates/checklist-items"],
-  });
 
   const uniqueTemplates = templates?.reduce((acc: TaskTemplate[], curr) => {
     if (!acc.find(t => t.name === curr.name)) {
