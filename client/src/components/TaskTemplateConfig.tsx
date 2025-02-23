@@ -271,6 +271,41 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: { editingTemplate: T
           />
         </div>
 
+        <div className="space-y-4">
+          <h3 className="font-medium">Checklist Items</h3>
+          {form.watch("id") && allChecklistItems?.[form.watch("id")]?.map((item, index) => (
+            <div key={item.id} className="flex items-center gap-2">
+              <Input 
+                value={item.text}
+                onChange={(e) => {
+                  // Update checklist item text - Placeholder for implementation
+                }}
+                className="flex-1"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  // Delete checklist item - Placeholder for implementation
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              // Add new checklist item - Placeholder for implementation
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Checklist Item
+          </Button>
+        </div>
+
         <div className="flex items-center gap-2">
           <FormField
             control={form.control}
