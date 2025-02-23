@@ -10,16 +10,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Info } from "lucide-react";
+import { Plus, Info, Edit2, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import * as z from "zod";
+import {AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction} from "@/components/ui/alert-dialog";
+
 
 export default function TaskTemplateConfig() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<TaskTemplate | null>(null);
   const { toast } = useToast();
 
   const { data: templates, isLoading } = useQuery<TaskTemplate[]>({
@@ -36,6 +39,17 @@ export default function TaskTemplateConfig() {
     },
   });
 
+  const { mutate: deleteTemplate } = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/task-templates/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
+      toast({ title: "Template deleted successfully" });
+    },
+  });
+
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
@@ -51,70 +65,77 @@ export default function TaskTemplateConfig() {
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold tracking-tight">Task Templates</h2>
-        <Button onClick={() => setIsDialogOpen(true)}>
+        <Button onClick={() => {
+          setEditingTemplate(null);
+          setIsDialogOpen(true);
+        }}>
           <Plus className="mr-2 h-4 w-4" />
           New Template
         </Button>
       </div>
 
-      <div className="grid gap-4">
-        {uniqueTemplates?.map((template) => (
-          <Card key={template.id} className="p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-medium">{template.name}</h3>
-                <p className="text-sm text-muted-foreground">{template.description}</p>
-                <div className="flex gap-2 mt-1">
-                  <Badge>{template.category}</Badge>
-                  <Badge variant={template.priority === "high" ? "destructive" : template.priority === "medium" ? "default" : "secondary"}>
-                    {template.priority} priority
-                  </Badge>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">Apply to all plants</span>
-                        <Info className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>When enabled, this task template will be automatically available for all plants in your collection.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <Switch
-                  checked={template.applyToAll}
-                  onCheckedChange={(checked) => {
-                    updateTemplate({ id: template.id, applyToAll: checked });
-                  }}
-                />
+      {uniqueTemplates?.map((template) => (
+        <Card key={template.id} className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium">{template.name}</h3>
+              <p className="text-sm text-muted-foreground">{template.description}</p>
+              <div className="flex gap-2 mt-2">
+                <Badge>{template.category}</Badge>
+                <Badge variant="outline">{template.priority} priority</Badge>
               </div>
             </div>
-          </Card>
-        ))}
-      </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="icon" onClick={() => {
+                setEditingTemplate(template);
+                setIsDialogOpen(true);
+              }}>
+                <Edit2 className="h-4 w-4" />
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Template</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete this template? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => deleteTemplate(template.id)}>
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+        </Card>
+      ))}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New Task Template</DialogTitle>
+            <DialogTitle>{editingTemplate ? "Edit Task Template" : "New Task Template"}</DialogTitle>
           </DialogHeader>
-          <CreateTemplateForm onSuccess={() => setIsDialogOpen(false)} />
+          <CreateTemplateForm editingTemplate={editingTemplate} onSuccess={() => setIsDialogOpen(false)} />
         </DialogContent>
       </Dialog>
     </div>
   );
 }
 
-function CreateTemplateForm({ onSuccess }: { onSuccess: () => void }) {
+function CreateTemplateForm({ editingTemplate, onSuccess }: { editingTemplate: TaskTemplate | null; onSuccess: () => void }) {
   const { toast } = useToast();
-  
+
   const form = useForm({
     resolver: zodResolver(insertTaskTemplateSchema),
-    defaultValues: {
+    defaultValues: editingTemplate || {
       name: "",
       category: "water",
       description: "",
@@ -128,17 +149,21 @@ function CreateTemplateForm({ onSuccess }: { onSuccess: () => void }) {
 
   const { mutate: createTemplate, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
-      await apiRequest("POST", "/api/task-templates", data);
+      if (editingTemplate) {
+        await apiRequest("PUT", `/api/task-templates/${editingTemplate.id}`, data);
+      } else {
+        await apiRequest("POST", "/api/task-templates", data);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      toast({ title: "Template created successfully" });
+      toast({ title: editingTemplate ? "Template updated successfully" : "Template created successfully" });
       onSuccess();
       form.reset();
     },
     onError: (error) => {
       toast({
-        title: "Failed to create template",
+        title: editingTemplate ? "Failed to update template" : "Failed to create template",
         description: error instanceof Error ? error.message : "Unknown error occurred",
         variant: "destructive",
       });
@@ -262,7 +287,7 @@ function CreateTemplateForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
 
         <Button type="submit" className="w-full" disabled={isPending}>
-          Create Template
+          {editingTemplate ? "Update Template" : "Create Template"}
         </Button>
       </form>
     </Form>
