@@ -61,8 +61,9 @@ export default function TaskTemplateConfig() {
     return acc;
   }, []).sort((a, b) => a.name.localeCompare(b.name));
 
-  // Assuming allChecklistItems is fetched elsewhere and contains checklist items for each template ID
-  const allChecklistItems = {}; //replace with actual data fetching
+  const { data: allChecklistItems } = useQuery<Record<number, ChecklistItem[]>>({
+    queryKey: ["/api/task-templates/checklist-items"],
+  });
 
   return (
     <div className="space-y-4 p-4">
