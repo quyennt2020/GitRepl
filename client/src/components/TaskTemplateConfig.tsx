@@ -61,6 +61,9 @@ export default function TaskTemplateConfig() {
     return acc;
   }, []).sort((a, b) => a.name.localeCompare(b.name));
 
+  // Assuming allChecklistItems is fetched elsewhere and contains checklist items for each template ID
+  const allChecklistItems = {}; //replace with actual data fetching
+
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
@@ -77,13 +80,15 @@ export default function TaskTemplateConfig() {
       {uniqueTemplates?.map((template) => (
         <Card key={template.id} className="p-4">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="space-y-2">
               <h3 className="font-medium">{template.name}</h3>
               <p className="text-sm text-muted-foreground">{template.description}</p>
-              <div className="flex gap-2 mt-2">
-                <Badge>{template.category}</Badge>
-                <Badge variant="outline">{template.priority} priority</Badge>
-              </div>
+              {allChecklistItems?.[template.id]?.map((item) => (
+                <div key={item.id} className="flex items-center gap-2">
+                  <div className="h-4 w-4 border rounded" />
+                  <span className="text-sm">{item.text}</span>
+                </div>
+              ))}
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" size="icon" onClick={() => {

@@ -86,6 +86,17 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Checklist Items routes
+  app.get("/api/task-templates/checklist-items", async (req, res) => {
+    const templates = await storage.getTaskTemplates();
+    const checklistItemsByTemplate: Record<number, ChecklistItem[]> = {};
+    
+    for (const template of templates) {
+      checklistItemsByTemplate[template.id] = await storage.getChecklistItems(template.id);
+    }
+    
+    res.json(checklistItemsByTemplate);
+  });
+
   app.get("/api/task-templates/:templateId/checklist", async (req, res) => {
     const items = await storage.getChecklistItems(Number(req.params.templateId));
     res.json(items);
