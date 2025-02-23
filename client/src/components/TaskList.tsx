@@ -43,6 +43,8 @@ export default function TaskList({ plantId }: TaskListProps) {
     queryKey: ["/api/tasks", plantId],
   });
 
+
+
   const { data: templates } = useQuery<TaskTemplate[]>({
     queryKey: ["/api/task-templates"],
   });
