@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { TaskTemplate, ChecklistItem, insertTaskTemplateSchema } from "@shared/schema";
-import ChecklistItemsConfig from "./ChecklistItemsConfig";
+import { TaskTemplate, insertTaskTemplateSchema } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit2, Info, Plus, Trash2 } from "lucide-react";
+import { Edit2, Info, Plus, Trash2, List } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
@@ -19,10 +18,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import * as z from 'zod';
+import { Link } from "wouter";
 
 interface CreateTemplateFormProps {
   editingTemplate: TaskTemplate | null;
-  allChecklistItems: Record<number, ChecklistItem[]>;
   onSuccess?: () => void;
 }
 
@@ -33,11 +32,6 @@ export default function TaskTemplateConfig() {
 
   const { data: templates, isLoading } = useQuery<TaskTemplate[]>({
     queryKey: ["/api/task-templates"],
-  });
-
-  const { data: allChecklistItems = {}, isLoading: checklistLoading } = useQuery<Record<number, ChecklistItem[]>>({
-    queryKey: ["/api/task-templates/checklist-items"],
-    enabled: !!templates,
   });
 
   const { mutate: updateTemplate } = useMutation({
@@ -56,12 +50,11 @@ export default function TaskTemplateConfig() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
       toast({ title: "Template deleted successfully" });
     },
   });
 
-  if (isLoading || checklistLoading) {
+  if (isLoading) {
     return <div>Loading...</div>;
   }
 
@@ -115,6 +108,11 @@ export default function TaskTemplateConfig() {
                     updateTemplate({ id: template.id, applyToAll: checked });
                   }}
                 />
+                <Link href={`/templates/${template.id}/checklist`}>
+                  <Button variant="ghost" size="icon">
+                    <List className="h-4 w-4" />
+                  </Button>
+                </Link>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -171,12 +169,11 @@ export default function TaskTemplateConfig() {
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-2">
             <CreateTemplateForm 
-              editingTemplate={editingTemplate} 
-              allChecklistItems={allChecklistItems} 
+              editingTemplate={editingTemplate}
               onSuccess={() => {
                 setIsDialogOpen(false);
                 setEditingTemplate(null);
-              }} 
+              }}
             />
           </div>
         </DialogContent>
@@ -185,101 +182,33 @@ export default function TaskTemplateConfig() {
   );
 }
 
-function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: CreateTemplateFormProps) {
+function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormProps) {
   const { toast } = useToast();
-  const [localItems, setLocalItems] = useState<Array<{text: string, required: boolean, order: number}>>([]);
 
   const form = useForm<z.infer<typeof insertTaskTemplateSchema>>({
     resolver: zodResolver(insertTaskTemplateSchema),
-    defaultValues: {
-      name: editingTemplate?.name ?? "",
-      category: editingTemplate?.category ?? "water",
-      description: editingTemplate?.description ?? "",
-      priority: editingTemplate?.priority ?? "medium",
-      defaultInterval: editingTemplate?.defaultInterval ?? 7,
-      applyToAll: editingTemplate?.applyToAll ?? false,
-      estimatedDuration: editingTemplate?.estimatedDuration ?? 15,
-      requiresExpertise: editingTemplate?.requiresExpertise ?? false,
+    defaultValues: editingTemplate || {
+      name: "",
+      category: "water",
+      description: "",
+      priority: "medium",
+      defaultInterval: 7,
+      applyToAll: false,
+      estimatedDuration: 15,
+      requiresExpertise: false,
     },
   });
 
-  useEffect(() => {
-    if (editingTemplate) {
-      form.reset({
-        name: editingTemplate.name,
-        category: editingTemplate.category,
-        description: editingTemplate.description,
-        priority: editingTemplate.priority,
-        defaultInterval: editingTemplate.defaultInterval,
-        applyToAll: editingTemplate.applyToAll,
-        estimatedDuration: editingTemplate.estimatedDuration,
-        requiresExpertise: editingTemplate.requiresExpertise,
-      });
-
-      if (editingTemplate.id && allChecklistItems[editingTemplate.id]) {
-        const items = allChecklistItems[editingTemplate.id];
-        setLocalItems(items.map(item => ({
-          text: item.text,
-          required: true,
-          order: item.order
-        })));
-      }
-    } else {
-      form.reset({
-        name: "",
-        category: "water",
-        description: "",
-        priority: "medium",
-        defaultInterval: 7,
-        applyToAll: false,
-        estimatedDuration: 15,
-        requiresExpertise: false,
-      });
-      setLocalItems([]);
-    }
-  }, [editingTemplate, form, allChecklistItems]);
-
   const { mutate: saveTemplate, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
-      try {
-        let templateId: number;
-
-        if (editingTemplate?.id) {
-          const response = await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, data);
-          const updatedTemplate = await response.json();
-          templateId = updatedTemplate.id;
-
-          const currentItems = allChecklistItems[editingTemplate.id] || [];
-          for (const item of currentItems) {
-            await apiRequest("DELETE", `/api/checklist-items/${item.id}`);
-          }
-        } else {
-          const response = await apiRequest("POST", "/api/task-templates", data);
-          const newTemplate = await response.json();
-          templateId = newTemplate.id;
-        }
-
-        for (let i = 0; i < localItems.length; i++) {
-          const item = localItems[i];
-          if (item.text.trim()) {
-            await apiRequest("POST", "/api/checklist-items", {
-              templateId,
-              text: item.text,
-              required: item.required,
-              order: i
-            });
-          }
-        }
-
-        return templateId;
-      } catch (error) {
-        console.error("Error saving template:", error);
-        throw error;
+      if (editingTemplate?.id) {
+        await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, data);
+      } else {
+        await apiRequest("POST", "/api/task-templates", data);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
       toast({ 
         title: `Template ${editingTemplate ? "updated" : "created"} successfully`,
         description: "All changes have been saved to the database"
@@ -397,11 +326,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
             )}
           />
         </div>
-
-        <ChecklistItemsConfig 
-          templateId={editingTemplate?.id ?? -1} 
-          setLocalItems={setLocalItems} 
-        />
 
         <FormField
           control={form.control}

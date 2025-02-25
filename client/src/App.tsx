@@ -11,6 +11,7 @@ import LocationMap from "@/pages/location-map";
 import Guides from "@/pages/guides";
 import Schedule from "@/pages/schedule";
 import TaskTemplateConfig from "@/components/TaskTemplateConfig";
+import ChecklistItemsPage from "@/pages/ChecklistItemsPage";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -23,7 +24,8 @@ function Router() {
       <Route path="/location-map" component={LocationMap} />
       <Route path="/guides" component={Guides} />
       <Route path="/schedule" component={Schedule} />
-      <Route path="/task-templates" component={TaskTemplateConfig} />
+      <Route path="/templates" component={TaskTemplateConfig} />
+      <Route path="/templates/:id/checklist" component={ChecklistItemsPage} />
       <Route component={NotFound} />
     </Switch>
   );
