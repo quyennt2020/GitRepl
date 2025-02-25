@@ -43,8 +43,13 @@ export default function TaskForm({ plantId }: TaskFormProps) {
 
   const { mutate: createTask, isPending } = useMutation({
     mutationFn: async (data: InsertCareTask) => {
-      // Add bulkCreate parameter only if template is public AND applyToAll is true
-      const queryParam = selectedTemplate?.public && selectedTemplate?.applyToAll ? '?bulkCreate=true' : '';
+      // Only add bulkCreate param if explicitly requested for templates that support it
+      const shouldBulkCreate = selectedTemplate?.public && selectedTemplate?.applyToAll;
+      const queryParam = shouldBulkCreate ? '?bulkCreate=true' : '';
+
+      console.log('Creating task with template:', selectedTemplate);
+      console.log('Using bulk create:', shouldBulkCreate);
+
       const response = await apiRequest("POST", `/api/tasks${queryParam}`, data);
       if (!response.ok) {
         const error = await response.json();

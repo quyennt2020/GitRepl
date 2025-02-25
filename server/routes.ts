@@ -175,9 +175,17 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
-      // If applyToAll is true and this is marked as a bulk operation
-      if (template.applyToAll && req.query.bulkCreate === 'true') {
-        // Create tasks for all plants
+      // If bulkCreate is requested but template doesn't allow it
+      if (req.query.bulkCreate === 'true' && !template.applyToAll) {
+        return res.status(403).json({
+          message: "This template does not support bulk task creation",
+          code: "BULK_NOT_ALLOWED"
+        });
+      }
+
+      // Handle bulk creation (only if explicitly requested AND template allows it)
+      if (req.query.bulkCreate === 'true' && template.applyToAll) {
+        console.log('Creating bulk tasks for template:', template.id);
         const plants = await storage.getPlants();
         const tasks = await Promise.all(
           plants.map(plant =>
@@ -192,9 +200,10 @@ export function registerRoutes(app: Express): Server {
           tasks,
           appliedToAll: true
         });
-      } 
+      }
 
-      // For single plant task creation
+      // Single plant task creation
+      console.log('Creating single task for plant:', result.data.plantId);
       const task = await storage.createCareTask(result.data);
       return res.status(201).json({
         tasks: [task],
