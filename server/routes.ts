@@ -89,11 +89,20 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/task-templates/checklist-items", async (req, res) => {
     try {
       const templates = await storage.getTaskTemplates();
+      if (!templates?.length) {
+        return res.json({});
+      }
+      
       const checklistItemsByTemplate: Record<number, ChecklistItem[]> = {};
       
       await Promise.all(templates.map(async (template) => {
-        const items = await storage.getChecklistItems(template.id);
-        checklistItemsByTemplate[template.id] = items;
+        try {
+          const items = await storage.getChecklistItems(template.id);
+          checklistItemsByTemplate[template.id] = items;
+        } catch (err) {
+          console.error(`Error fetching items for template ${template.id}:`, err);
+          checklistItemsByTemplate[template.id] = [];
+        }
       }));
       
       res.json(checklistItemsByTemplate);
