@@ -295,20 +295,28 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
 
         <div className="space-y-4">
           <h3 className="font-medium">Checklist Items</h3>
-          {form.watch("id") && allChecklistItems?.[form.watch("id")]?.map((item, index) => (
+          {editingTemplate?.id && allChecklistItems?.[editingTemplate.id]?.map((item, index) => (
             <div key={item.id} className="flex items-center gap-2">
               <Input 
                 value={item.text}
-                onChange={(e) => {
-                  // Update checklist item text - Placeholder for implementation
+                onChange={async (e) => {
+                  const newText = e.target.value;
+                  await apiRequest("PATCH", `/api/checklist-items/${item.id}`, {
+                    text: newText,
+                    templateId: editingTemplate.id,
+                    order: index,
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
                 }}
                 className="flex-1"
               />
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => {
-                  // Delete checklist item - Placeholder for implementation
+                onClick={async () => {
+                  await apiRequest("DELETE", `/api/checklist-items/${item.id}`);
+                  queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
+                  toast({ title: "Checklist item removed" });
                 }}
               >
                 <Trash2 className="h-4 w-4" />
@@ -319,8 +327,15 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
             type="button"
             variant="outline"
             className="w-full"
-            onClick={() => {
-              // Add new checklist item - Placeholder for implementation
+            onClick={async () => {
+              if (!editingTemplate?.id) return;
+              await apiRequest("POST", "/api/checklist-items", {
+                templateId: editingTemplate.id,
+                text: "New item",
+                order: allChecklistItems?.[editingTemplate.id]?.length || 0,
+              });
+              queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
+              toast({ title: "Checklist item added" });
             }}
           >
             <Plus className="h-4 w-4 mr-2" />
