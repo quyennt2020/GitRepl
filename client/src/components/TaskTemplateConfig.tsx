@@ -17,8 +17,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import * as z from "zod";
-import {AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction} from "@/components/ui/alert-dialog";
+import * as z from 'zod';
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
+
+interface CreateTemplateFormProps {
+  editingTemplate: TaskTemplate | null;
+  allChecklistItems: Record<number, ChecklistItem[]>;
+  onSuccess?: () => void;
+}
 
 export default function TaskTemplateConfig() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -54,24 +60,13 @@ export default function TaskTemplateConfig() {
     },
   });
 
-  const { mutate: deleteChecklistItem } = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/checklist-items/${id}`);
-    },
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/task-templates/${editingTemplate?.id}/checklist`] });
-      toast({ title: "Checklist item deleted successfully" });
-    },
-  });
-
   if (isLoading || checklistLoading) {
     return <div>Loading...</div>;
   }
 
   const uniqueTemplates = [...new Set(templates?.map(t => t.name))];
-  const sortedTemplates = templates?.filter(template => uniqueTemplates.includes(template.name)).sort((a, b) => a.name.localeCompare(b.name));
-
+  const sortedTemplates = templates?.filter(template => uniqueTemplates.includes(template.name))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className="space-y-4 p-4">
@@ -86,70 +81,43 @@ export default function TaskTemplateConfig() {
         </Button>
       </div>
 
-      <div className="max-h-[calc(100vh-12rem)] overflow-y-auto pr-2">
+      <div className="grid gap-4">
         {sortedTemplates?.map((template) => (
-        <Card key={template.id} className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <h3 className="font-medium">{template.name}</h3>
-              <div className="mt-2 space-y-2">
-                {(allChecklistItems?.[template.id] || []).map((item) => (
-                  <div key={item.id} className="flex items-center gap-2">
-                    <div className="h-4 w-4 border rounded" />
-                    <span className="text-sm">{item.text}</span>
-                  </div>
-                ))}
+          <Card key={template.id} className="p-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-medium">{template.name}</h3>
+                <p className="text-sm text-muted-foreground">{template.description}</p>
+                <div className="flex gap-2 mt-2">
+                  <Badge variant="outline">
+                    {template.category}
+                  </Badge>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">Apply to all plants</span>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>When enabled, this task template will be automatically available for all plants in your collection.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <Switch
+                  checked={template.applyToAll}
+                  onCheckedChange={(checked) => {
+                    updateTemplate({ id: template.id, applyToAll: checked });
+                  }}
+                />
               </div>
             </div>
-          </div>
-        </Card>
-      ))}
-
-      {sortedTemplates?.map((template) => (
-        <Card key={template.id} className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <h3 className="font-medium">{template.name}</h3>
-              <p className="text-sm text-muted-foreground">{template.description}</p>
-              {allChecklistItems?.[template.id]?.map((item) => (
-                <div key={item.id} className="flex items-center gap-2">
-                  <div className="h-4 w-4 border rounded" />
-                  <span className="text-sm">{item.text}</span>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="icon" onClick={() => {
-                setEditingTemplate(template);
-                setIsDialogOpen(true);
-              }}>
-                <Edit2 className="h-4 w-4" />
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Template</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to delete this template? This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => deleteTemplate(template.id)}>
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </div>
-        </Card>
-      ))}
+          </Card>
+        ))}
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -158,18 +126,16 @@ export default function TaskTemplateConfig() {
             <DialogTitle>{editingTemplate ? "Edit Task Template" : "New Task Template"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-2">
-            <CreateTemplateForm editingTemplate={editingTemplate} allChecklistItems={allChecklistItems} onSuccess={() => setIsDialogOpen(false)} />
+            <CreateTemplateForm 
+              editingTemplate={editingTemplate} 
+              allChecklistItems={allChecklistItems} 
+              onSuccess={() => setIsDialogOpen(false)} 
+            />
           </div>
         </DialogContent>
       </Dialog>
     </div>
   );
-}
-
-interface CreateTemplateFormProps {
-  template: TaskTemplate | null;
-  allChecklistItems: Record<number, ChecklistItem[]>;
-  onSuccess: () => void;
 }
 
 function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: CreateTemplateFormProps) {
@@ -178,84 +144,50 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
 
   const { mutate: updateTemplate } = useMutation({
     mutationFn: async (template: z.infer<typeof insertTaskTemplateSchema>) => {
-      try {
-        if (editingTemplate?.id) {
-          // Update template first
-          await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, template);
-          
-          // Get current checklist items
-          const currentItems = allChecklistItems?.[editingTemplate.id] || [];
-          
-          // First delete all existing checklist items
-          await Promise.all(currentItems.map(item => 
-            apiRequest("DELETE", `/api/checklist-items/${item.id}`)
-          ));
-          
-          // Add new checklist items
-          if (localItems.length > 0) {
-            const results = await Promise.all(localItems.map((item, index) => 
-              apiRequest("POST", "/api/checklist-items", {
-                templateId: editingTemplate.id,
-                text: item.text,
-                required: item.required,
-                order: index
-              })
-            ));
-            
-            // Verify all items were created
-            if (!results.every(r => r.ok)) {
-              throw new Error("Failed to create some checklist items");
-            }
-          }
-        } else {
-          // Create new template
-          const response = await apiRequest("POST", "/api/task-templates", template);
-          const newTemplate = await response.json();
-          
-          // Add checklist items to new template
-          if (localItems.length > 0) {
-            const results = await Promise.all(localItems.map((item, index) => 
-              apiRequest("POST", "/api/checklist-items", {
-                templateId: newTemplate.id,
-                text: item.text,
-                required: item.required,
-                order: index
-              })
-            ));
-            
-            // Verify all items were created
-            if (!results.every(r => r.ok)) {
-              throw new Error("Failed to create some checklist items");
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Failed to save template:", error);
-        throw error;
-      }
-    },
-              order: index,
-              required: item.required
+      if (editingTemplate?.id) {
+        // Update existing template
+        await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, template);
+
+        // Get current checklist items
+        const currentItems = allChecklistItems?.[editingTemplate.id] || [];
+
+        // Delete existing checklist items
+        await Promise.all(currentItems.map(item => 
+          apiRequest("DELETE", `/api/checklist-items/${item.id}`)
+        ));
+
+        // Add new checklist items
+        if (localItems.length > 0) {
+          await Promise.all(localItems.map((item, index) => 
+            apiRequest("POST", "/api/checklist-items", {
+              templateId: editingTemplate.id,
+              text: item.text,
+              required: item.required,
+              order: index
             })
           ));
-
-          // Verify all items were created
-          if (!results.every(r => r.ok)) {
-            throw new Error("Failed to create some checklist items");
-          }
-        } catch (error) {
-          throw new Error("Failed to update checklist items");
         }
       } else {
+        // Create new template
         const response = await apiRequest("POST", "/api/task-templates", template);
-        if (!response.ok) {
-          throw new Error("Failed to create template");
+        const newTemplate = await response.json();
+
+        // Add checklist items to new template
+        if (localItems.length > 0) {
+          await Promise.all(localItems.map((item, index) => 
+            apiRequest("POST", "/api/checklist-items", {
+              templateId: newTemplate.id,
+              text: item.text,
+              required: item.required,
+              order: index
+            })
+          ));
         }
       }
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
       toast({ 
         title: "Template updated successfully",
         description: "All changes have been saved to the database"
@@ -285,18 +217,8 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
     },
   });
 
-  const onSubmit = async (data: z.infer<typeof insertTaskTemplateSchema>) => {
-    try {
-      if (!editingTemplate?.id) {
-        await apiRequest("POST", "/api/task-templates", data);
-      } else {
-        await updateTemplate(data);
-      }
-      onSuccess?.();
-      
-    } catch (error) {
-      console.error("Failed to save template:", error);
-    }
+  const onSubmit = (data: z.infer<typeof insertTaskTemplateSchema>) => {
+    updateTemplate(data);
   };
 
   return (
@@ -397,7 +319,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         </div>
 
         {editingTemplate?.id && (
-            <ChecklistItemsConfig templateId={editingTemplate.id} setLocalItems={setLocalItems} />
+          <ChecklistItemsConfig templateId={editingTemplate.id} setLocalItems={setLocalItems} />
         )}
 
         <div className="flex items-center gap-2">
@@ -419,7 +341,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
           />
         </div>
 
-        <Button type="submit" className="w-full" >
+        <Button type="submit" className="w-full">
           {editingTemplate ? "Update Template" : "Create Template"}
         </Button>
       </form>
