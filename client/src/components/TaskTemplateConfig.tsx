@@ -193,7 +193,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
           
           // Add new checklist items
           if (localItems.length > 0) {
-            await Promise.all(localItems.map((item, index) => 
+            const results = await Promise.all(localItems.map((item, index) => 
               apiRequest("POST", "/api/checklist-items", {
                 templateId: editingTemplate.id,
                 text: item.text,
@@ -201,6 +201,11 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
                 order: index
               })
             ));
+            
+            // Verify all items were created
+            if (!results.every(r => r.ok)) {
+              throw new Error("Failed to create some checklist items");
+            }
           }
         } else {
           // Create new template
@@ -209,7 +214,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
           
           // Add checklist items to new template
           if (localItems.length > 0) {
-            await Promise.all(localItems.map((item, index) => 
+            const results = await Promise.all(localItems.map((item, index) => 
               apiRequest("POST", "/api/checklist-items", {
                 templateId: newTemplate.id,
                 text: item.text,
@@ -217,15 +222,18 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
                 order: index
               })
             ));
+            
+            // Verify all items were created
+            if (!results.every(r => r.ok)) {
+              throw new Error("Failed to create some checklist items");
+            }
           }
         }
       } catch (error) {
         console.error("Failed to save template:", error);
         throw error;
-      } 
-            apiRequest("POST", "/api/checklist-items", {
-              templateId: editingTemplate.id,
-              text: item.text,
+      }
+    },
               order: index,
               required: item.required
             })
