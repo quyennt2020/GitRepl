@@ -62,7 +62,8 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
       deleteChecklistItem(item.id);
     }
     
-    const newItems = internalItems.filter((_, i) => i !== index);
+    const newItems = internalItems.filter((_, i) => i !== index)
+      .map((item, idx) => ({ ...item, order: idx }));
     setInternalItems(newItems);
     setLocalItems(newItems.map(item => ({
       text: item.text,
@@ -73,7 +74,7 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
 
   const handleTextChange = (index: number, text: string) => {
     const newItems = internalItems.map((item, i) => 
-      i === index ? { ...item, text } : item
+      i === index ? { ...item, text, order: i } : { ...item, order: i }
     );
     setInternalItems(newItems);
     setLocalItems(newItems.map(item => ({
