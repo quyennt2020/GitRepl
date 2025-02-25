@@ -25,61 +25,78 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/task-templates/${templateId}/checklist`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/task-templates/checklist-items`] });
     },
   });
 
   useEffect(() => {
-    setInternalItems(checklistItems);
-    setLocalItems(checklistItems.map(item => ({
+    if (checklistItems?.length >= 0) {
+      const sortedItems = [...checklistItems].sort((a, b) => a.order - b.order);
+      setInternalItems(sortedItems);
+      setLocalItems(sortedItems.map(item => ({
+        text: item.text,
+        required: true,
+        order: item.order
+      })));
+    }
+  }, [checklistItems, setLocalItems]);
+
+  const handleAdd = () => {
+    const newOrder = internalItems.length;
+    const newItem = {
+      templateId,
+      text: "",
+      order: newOrder,
+      required: true
+    } as ChecklistItem;
+    
+    const updatedItems = [...internalItems, newItem];
+    setInternalItems(updatedItems);
+    setLocalItems(updatedItems.map(item => ({
       text: item.text,
       required: true,
       order: item.order
     })));
-  }, [checklistItems, setLocalItems]);
-
-  const handleAdd = () => {
-    const newItem = {
-      id: Date.now(),
-      templateId,
-      text: "",
-      order: internalItems.length,
-      required: true
-    } as ChecklistItem;
-    
-    setInternalItems(prev => [...prev, newItem]);
-    setLocalItems(prev => [...prev, {
-      text: newItem.text,
-      required: true,
-      order: newItem.order
-    }]);
   };
 
   const handleDelete = (index: number) => {
     const item = internalItems[index];
-    if (item.id && !isNaN(Number(item.id))) {
-      deleteChecklistItem(Number(item.id));
+    if (item.id) {
+      deleteChecklistItem(item.id);
     }
     
-    setInternalItems(prev => prev.filter((_, i) => i !== index));
-    setLocalItems(prev => prev.filter((_, i) => i !== index));
+    const updatedItems = internalItems
+      .filter((_, i) => i !== index)
+      .map((item, idx) => ({ ...item, order: idx }));
+      
+    setInternalItems(updatedItems);
+    setLocalItems(updatedItems.map(item => ({
+      text: item.text,
+      required: true,
+      order: item.order
+    })));
   };
 
   const handleTextChange = (index: number, text: string) => {
-    setInternalItems(prev => 
-      prev.map((item, i) => i === index ? { ...item, text } : item)
+    const updatedItems = internalItems.map((item, i) => 
+      i === index ? { ...item, text } : item
     );
-    setLocalItems(prev =>
-      prev.map((item, i) => i === index ? { ...item, text } : item)
-    );
+    
+    setInternalItems(updatedItems);
+    setLocalItems(updatedItems.map(item => ({
+      text: item.text,
+      required: true,
+      order: item.order
+    })));
   };
 
   return (
     <div className="space-y-4 max-h-[300px] overflow-y-auto">
       <div className="space-y-2">
         {internalItems.map((item, index) => (
-          <div key={item.id} className="flex items-center gap-2">
+          <div key={index} className="flex items-center gap-2">
             <Input
-              value={item.text}
+              value={item.text || ""}
               onChange={(e) => handleTextChange(index, e.target.value)}
               placeholder="Enter checklist item"
             />
