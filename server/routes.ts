@@ -90,19 +90,27 @@ export function registerRoutes(app: Express): Server {
     try {
       const templates = await storage.getTaskTemplates();
       const checklistItemsByTemplate: Record<number, ChecklistItem[]> = {};
-      
+
       if (templates?.length) {
-        await Promise.all(templates.map(async (template) => {
-          try {
-            const items = await storage.getChecklistItems(template.id);
-            checklistItemsByTemplate[template.id] = items;
-          } catch (err) {
-            console.error(`Error fetching items for template ${template.id}:`, err);
-            checklistItemsByTemplate[template.id] = [];
-          }
-        }));
+        // Use Promise.all to fetch all checklist items in parallel
+        const results = await Promise.all(
+          templates.map(async (template) => {
+            try {
+              const items = await storage.getChecklistItems(template.id);
+              return { templateId: template.id, items };
+            } catch (err) {
+              console.error(`Error fetching items for template ${template.id}:`, err);
+              return { templateId: template.id, items: [] };
+            }
+          })
+        );
+
+        // Convert results to the expected format
+        results.forEach(({ templateId, items }) => {
+          checklistItemsByTemplate[templateId] = items;
+        });
       }
-      
+
       res.json(checklistItemsByTemplate);
     } catch (error) {
       console.error('Error fetching checklist items:', error);
