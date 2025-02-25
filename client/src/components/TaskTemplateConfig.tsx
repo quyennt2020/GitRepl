@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { TaskTemplate, ChecklistItem, insertTaskTemplateSchema, insertChecklistItemSchema } from "@shared/schema";
+import ChecklistItemsConfig from "./ChecklistItemsConfig";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
