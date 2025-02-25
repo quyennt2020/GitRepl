@@ -333,7 +333,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         </div>
 
         {editingTemplate?.id && (
-            <ChecklistItemsConfig templateId={editingTemplate.id} setLocalItems={setLocalItems} /> {/* Pass setLocalItems */}
+            <ChecklistItemsConfig templateId={editingTemplate.id} setLocalItems={setLocalItems} />
         )}
 
         <div className="flex items-center gap-2">
