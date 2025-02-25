@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertPlantSchema, insertCareTaskSchema, insertHealthRecordSchema, insertTaskTemplateSchema, insertChecklistItemSchema } from "@shared/schema";
-import type { ChecklistItem } from "@shared/types";
+import type { ChecklistItem } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
   // Plants routes
@@ -175,7 +175,7 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
-      // If template is public but applyToAll is false, create single task
+      // If template is public but applyToAll is false or null, create single task
       if (!template.applyToAll) {
         const task = await storage.createCareTask(result.data);
         return res.status(201).json({
