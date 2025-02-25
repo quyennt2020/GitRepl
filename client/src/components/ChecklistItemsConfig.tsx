@@ -19,6 +19,24 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
     queryKey: [`/api/task-templates/${templateId}/checklist`],
   });
 
+  const { mutate: createOrUpdateChecklistItem } = useMutation({
+    mutationFn: async (item: Partial<ChecklistItem>) => {
+      if (item.id) {
+        await apiRequest("PATCH", `/api/checklist-items/${item.id}`, item);
+      } else {
+        await apiRequest("POST", "/api/checklist-items", {
+          ...item,
+          templateId,
+          required: true
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/task-templates/${templateId}/checklist`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/task-templates/checklist-items`] });
+    },
+  });
+
   const { mutate: deleteChecklistItem } = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/checklist-items/${id}`);
@@ -50,13 +68,7 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
       required: true
     } as ChecklistItem;
     
-    const updatedItems = [...internalItems, newItem];
-    setInternalItems(updatedItems);
-    setLocalItems(updatedItems.map(item => ({
-      text: item.text,
-      required: true,
-      order: item.order
-    })));
+    createOrUpdateChecklistItem(newItem);
   };
 
   const handleDelete = (index: number) => {
@@ -64,37 +76,22 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
     if (item.id) {
       deleteChecklistItem(item.id);
     }
-    
-    const updatedItems = internalItems
-      .filter((_, i) => i !== index)
-      .map((item, idx) => ({ ...item, order: idx }));
-      
-    setInternalItems(updatedItems);
-    setLocalItems(updatedItems.map(item => ({
-      text: item.text,
-      required: true,
-      order: item.order
-    })));
   };
 
   const handleTextChange = (index: number, text: string) => {
-    const updatedItems = internalItems.map((item, i) => 
-      i === index ? { ...item, text } : item
-    );
-    
-    setInternalItems(updatedItems);
-    setLocalItems(updatedItems.map(item => ({
-      text: item.text,
-      required: true,
-      order: item.order
-    })));
+    const item = internalItems[index];
+    createOrUpdateChecklistItem({
+      ...item,
+      text,
+      order: index
+    });
   };
 
   return (
     <div className="space-y-4 max-h-[300px] overflow-y-auto">
       <div className="space-y-2">
         {internalItems.map((item, index) => (
-          <div key={index} className="flex items-center gap-2">
+          <div key={item.id || index} className="flex items-center gap-2">
             <Input
               value={item.text || ""}
               onChange={(e) => handleTextChange(index, e.target.value)}
