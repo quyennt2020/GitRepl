@@ -22,16 +22,36 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
   const { mutate: createOrUpdateChecklistItem } = useMutation({
     mutationFn: async (item: Partial<ChecklistItem>) => {
       if (item.id) {
-        await apiRequest("PATCH", `/api/checklist-items/${item.id}`, item);
+        const response = await apiRequest("PATCH", `/api/checklist-items/${item.id}`, item);
+        return response.json();
       } else {
-        await apiRequest("POST", "/api/checklist-items", {
+        const response = await apiRequest("POST", "/api/checklist-items", {
           ...item,
           templateId,
           required: true
         });
+        return response.json();
       }
     },
-    onSuccess: () => {
+    onMutate: async (newItem) => {
+      await queryClient.cancelQueries({ queryKey: [`/api/task-templates/${templateId}/checklist`] });
+      const previousItems = queryClient.getQueryData([`/api/task-templates/${templateId}/checklist`]);
+      
+      queryClient.setQueryData([`/api/task-templates/${templateId}/checklist`], (old: ChecklistItem[] = []) => {
+        if (newItem.id) {
+          return old.map(item => item.id === newItem.id ? { ...item, ...newItem } : item);
+        } else {
+          const tempId = Date.now();
+          return [...old, { ...newItem, id: tempId, templateId } as ChecklistItem];
+        }
+      });
+      
+      return { previousItems };
+    },
+    onError: (err, newItem, context) => {
+      queryClient.setQueryData([`/api/task-templates/${templateId}/checklist`], context?.previousItems);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/task-templates/${templateId}/checklist`] });
       queryClient.invalidateQueries({ queryKey: [`/api/task-templates/checklist-items`] });
     },
@@ -41,7 +61,20 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/checklist-items/${id}`);
     },
-    onSuccess: () => {
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: [`/api/task-templates/${templateId}/checklist`] });
+      const previousItems = queryClient.getQueryData([`/api/task-templates/${templateId}/checklist`]);
+      
+      queryClient.setQueryData([`/api/task-templates/${templateId}/checklist`], (old: ChecklistItem[] = []) => {
+        return old.filter(item => item.id !== deletedId);
+      });
+      
+      return { previousItems };
+    },
+    onError: (err, deletedId, context) => {
+      queryClient.setQueryData([`/api/task-templates/${templateId}/checklist`], context?.previousItems);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/task-templates/${templateId}/checklist`] });
       queryClient.invalidateQueries({ queryKey: [`/api/task-templates/checklist-items`] });
     },
