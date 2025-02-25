@@ -64,7 +64,7 @@ export default function TaskTemplateConfig() {
 
   return (
     <div className="space-y-4 p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-semibold tracking-tight">Task Templates</h2>
         <Button onClick={() => {
           setEditingTemplate(null);
@@ -75,7 +75,8 @@ export default function TaskTemplateConfig() {
         </Button>
       </div>
 
-      {sortedTemplates?.map((template) => (
+      <div className="max-h-[calc(100vh-12rem)] overflow-y-auto pr-2">
+        {sortedTemplates?.map((template) => (
         <Card key={template.id} className="p-4">
           <div className="flex items-center gap-4">
             <div className="flex-1">
@@ -138,6 +139,7 @@ export default function TaskTemplateConfig() {
           </div>
         </Card>
       ))}
+      </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
