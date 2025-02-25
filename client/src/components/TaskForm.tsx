@@ -41,13 +41,10 @@ export default function TaskForm({ plantId }: TaskFormProps) {
     queryKey: ["/api/task-templates"],
   });
 
-  // Filter to show only public templates
-  const publicTemplates = templates?.filter(t => t.public) || [];
-
   const { mutate: createTask, isPending } = useMutation({
     mutationFn: async (data: InsertCareTask) => {
-      // If the template has applyToAll enabled, add the query parameter
-      const queryParam = selectedTemplate?.applyToAll ? '?bulkCreate=true' : '';
+      // Add bulkCreate parameter only if template is public AND applyToAll is true
+      const queryParam = selectedTemplate?.public && selectedTemplate?.applyToAll ? '?bulkCreate=true' : '';
       const response = await apiRequest("POST", `/api/tasks${queryParam}`, data);
       if (!response.ok) {
         const error = await response.json();
@@ -111,9 +108,11 @@ export default function TaskForm({ plantId }: TaskFormProps) {
                             <Info className="h-4 w-4 text-muted-foreground" />
                           </TooltipTrigger>
                           <TooltipContent>
-                            {selectedTemplate.applyToAll 
-                              ? "This task will be created for all plants"
-                              : "This task will only be created for the selected plant"}
+                            {selectedTemplate.public
+                              ? selectedTemplate.applyToAll 
+                                ? "This task will be created for all plants"
+                                : "This task will only be created for the selected plant"
+                              : "This template is locked and cannot be used to create tasks"}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -149,7 +148,7 @@ export default function TaskForm({ plantId }: TaskFormProps) {
                                 </Tooltip>
                               </TooltipProvider>
                             )}
-                            {template.applyToAll && template.public && (
+                            {template.public && template.applyToAll && (
                               <Badge variant="secondary" className="ml-2">
                                 All Plants
                               </Badge>

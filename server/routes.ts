@@ -167,7 +167,7 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
-      // Check if template is public - this is required for task creation
+      // Check if template is public
       if (!template.public) {
         return res.status(403).json({
           message: "This template is not public and cannot be used to create tasks",
