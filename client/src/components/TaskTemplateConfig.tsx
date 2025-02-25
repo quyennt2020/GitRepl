@@ -296,7 +296,8 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         {editingTemplate?.id && (
             <ChecklistItemsConfig templateId={editingTemplate.id} />
         )}
-        await apiRequest("POST", "/api/checklist-items", {
+        const handleAddItem = async () => {
+          await apiRequest("POST", "/api/checklist-items", {
             templateId: editingTemplate.id,
             text: "New item",
             order: allChecklistItems?.[editingTemplate.id]?.length || 0,
