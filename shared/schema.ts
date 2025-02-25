@@ -27,8 +27,9 @@ export const taskTemplates = pgTable("task_templates", {
   priority: text("priority").notNull(), // high, medium, low
   estimatedDuration: integer("estimated_duration"), // in minutes
   requiresExpertise: boolean("requires_expertise").default(false),
-  public: boolean("public").default(false), // New field: controls if template can be applied to plants
-  applyToAll: boolean("apply_to_all").default(false), // Now only works if public is true
+  public: boolean("public").default(false),
+  applyToAll: boolean("apply_to_all").default(false),
+  oneShot: boolean("one_shot").default(false), // New field: true for one-time tasks
   metadata: jsonb("metadata"), // For flexible additional fields
 });
 
@@ -44,12 +45,16 @@ export const checklistItems = pgTable("checklist_items", {
 export const careTasks = pgTable("care_tasks", {
   id: serial("id").primaryKey(),
   plantId: integer("plant_id").notNull(),
-  templateId: integer("template_id").notNull(), // Reference to task template
+  templateId: integer("template_id").notNull(),
   dueDate: timestamp("due_date").notNull(),
   completed: boolean("completed").notNull().default(false),
   completedAt: timestamp("completed_at"),
   notes: text("notes"),
-  checklistProgress: jsonb("checklist_progress"), // Store completion status of checklist items
+  checklistProgress: jsonb("checklist_progress"),
+  progress: integer("progress").default(0), // New field: 0-100 progress percentage
+  status: text("status").default("pending"), // New field: pending, in_progress, completed, cancelled
+  startedAt: timestamp("started_at"), // New field: when task was started
+  lastUpdated: timestamp("last_updated"), // New field: last progress update
 });
 
 export const healthRecords = pgTable("health_records", {
@@ -70,17 +75,20 @@ export const insertTaskTemplateSchema = createInsertSchema(taskTemplates)
     metadata: z.record(z.unknown()).optional(),
     public: z.boolean().default(false),
     applyToAll: z.boolean().default(false),
+    oneShot: z.boolean().default(false),
   });
 
 // Zod schema for checklist items
 export const insertChecklistItemSchema = createInsertSchema(checklistItems)
   .omit({ id: true });
 
-// Update care task schema to include template and checklist progress
+// Update care task schema with new fields
 export const insertCareTaskSchema = createInsertSchema(careTasks)
-  .omit({ id: true, completedAt: true })
+  .omit({ id: true, completedAt: true, startedAt: true, lastUpdated: true })
   .extend({
     checklistProgress: z.record(z.boolean()).optional(),
+    progress: z.number().min(0).max(100).optional(),
+    status: z.enum(["pending", "in_progress", "completed", "cancelled"]).default("pending"),
     templateId: z.coerce.number({
       required_error: "Please select a task type",
       invalid_type_error: "Task type must be a number"
