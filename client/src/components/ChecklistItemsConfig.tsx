@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ChecklistItem } from "@shared/schema";
@@ -6,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface ChecklistItemsConfigProps {
   templateId: number;
@@ -14,6 +14,7 @@ interface ChecklistItemsConfigProps {
 
 export default function ChecklistItemsConfig({ templateId, setLocalItems }: ChecklistItemsConfigProps) {
   const [internalItems, setInternalItems] = useState<ChecklistItem[]>([]);
+  const { toast } = useToast();
 
   const { data: checklistItems = [] } = useQuery<ChecklistItem[]>({
     queryKey: [`/api/task-templates/${templateId}/checklist`],
@@ -33,27 +34,16 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
         return response.json();
       }
     },
-    onMutate: async (newItem) => {
-      await queryClient.cancelQueries({ queryKey: [`/api/task-templates/${templateId}/checklist`] });
-      const previousItems = queryClient.getQueryData([`/api/task-templates/${templateId}/checklist`]);
-      
-      queryClient.setQueryData([`/api/task-templates/${templateId}/checklist`], (old: ChecklistItem[] = []) => {
-        if (newItem.id) {
-          return old.map(item => item.id === newItem.id ? { ...item, ...newItem } : item);
-        } else {
-          const tempId = Date.now();
-          return [...old, { ...newItem, id: tempId, templateId } as ChecklistItem];
-        }
-      });
-      
-      return { previousItems };
-    },
-    onError: (err, newItem, context) => {
-      queryClient.setQueryData([`/api/task-templates/${templateId}/checklist`], context?.previousItems);
-    },
-    onSettled: () => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/task-templates/${templateId}/checklist`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/task-templates/checklist-items`] });
+      toast({ title: "Checklist item saved" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to save checklist item",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
     },
   });
 
@@ -61,22 +51,16 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/checklist-items/${id}`);
     },
-    onMutate: async (deletedId) => {
-      await queryClient.cancelQueries({ queryKey: [`/api/task-templates/${templateId}/checklist`] });
-      const previousItems = queryClient.getQueryData([`/api/task-templates/${templateId}/checklist`]);
-      
-      queryClient.setQueryData([`/api/task-templates/${templateId}/checklist`], (old: ChecklistItem[] = []) => {
-        return old.filter(item => item.id !== deletedId);
-      });
-      
-      return { previousItems };
-    },
-    onError: (err, deletedId, context) => {
-      queryClient.setQueryData([`/api/task-templates/${templateId}/checklist`], context?.previousItems);
-    },
-    onSettled: () => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/task-templates/${templateId}/checklist`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/task-templates/checklist-items`] });
+      toast({ title: "Checklist item deleted" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to delete checklist item",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
     },
   });
 
@@ -100,7 +84,7 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
       order: newOrder,
       required: true
     } as ChecklistItem;
-    
+
     const updatedItems = [...internalItems, newItem];
     setInternalItems(updatedItems);
     setLocalItems(updatedItems.map(item => ({
@@ -111,6 +95,10 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
   };
 
   const handleDelete = (index: number) => {
+    const item = internalItems[index];
+    if (item.id) {
+      deleteChecklistItem(item.id);
+    }
     const updatedItems = internalItems.filter((_, i) => i !== index);
     setInternalItems(updatedItems);
     setLocalItems(updatedItems.map(item => ({
@@ -130,11 +118,22 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
       required: true,
       order: item.order
     })));
+
+    const item = updatedItems[index];
+    if (item.id) {
+      createOrUpdateChecklistItem({
+        id: item.id,
+        text: item.text,
+        order: item.order,
+        required: true
+      });
+    }
   };
 
   return (
-    <div className="space-y-4 max-h-[300px] overflow-y-auto">
-      <div className="space-y-2">
+    <div className="space-y-4">
+      <h3 className="font-medium">Checklist Items</h3>
+      <div className="space-y-2 max-h-[300px] overflow-y-auto">
         {internalItems.map((item, index) => (
           <div key={item.id || index} className="flex items-center gap-2">
             <Input

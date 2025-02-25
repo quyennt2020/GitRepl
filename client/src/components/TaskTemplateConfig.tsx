@@ -318,9 +318,11 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
           />
         </div>
 
-        {editingTemplate?.id && (
-          <ChecklistItemsConfig templateId={editingTemplate.id} setLocalItems={setLocalItems} />
-        )}
+        {/* Always show ChecklistItemsConfig regardless of new or edit */}
+        <ChecklistItemsConfig 
+          templateId={editingTemplate?.id ?? -1} 
+          setLocalItems={setLocalItems} 
+        />
 
         <div className="flex items-center gap-2">
           <FormField
