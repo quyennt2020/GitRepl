@@ -54,6 +54,17 @@ export default function TaskTemplateConfig() {
     },
   });
 
+  const { mutate: deleteChecklistItem } = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/checklist-items/${id}`);
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/task-templates/${editingTemplate?.id}/checklist`] });
+      toast({ title: "Checklist item deleted successfully" });
+    },
+  });
+
   if (isLoading || checklistLoading) {
     return <div>Loading...</div>;
   }

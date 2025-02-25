@@ -44,7 +44,21 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
     })));
   };
 
+  const { mutate: deleteChecklistItem } = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/checklist-items/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/task-templates/${templateId}/checklist`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
+    },
+  });
+
   const handleDelete = (index: number) => {
+    const item = internalItems[index];
+    if (item.id) {
+      deleteChecklistItem(item.id);
+    }
     setInternalItems(items => {
       const newItems = items.filter((_, i) => i !== index);
       setLocalItems(newItems.map(item => ({
