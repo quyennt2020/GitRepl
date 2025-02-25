@@ -45,12 +45,13 @@ export default function TaskForm({ plantId }: TaskFormProps) {
       const response = await apiRequest("POST", "/api/tasks", data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-      const applyToAll = selectedTemplate?.applyToAll;
       toast({ 
-        title: "Task created successfully", 
-        description: applyToAll ? "Task has been created for all plants" : undefined
+        title: "Task created successfully",
+        description: response.appliedToAll 
+          ? "Task has been created for all plants based on template settings"
+          : undefined
       });
       setOpen(false);
       form.reset();
@@ -58,8 +59,9 @@ export default function TaskForm({ plantId }: TaskFormProps) {
     },
     onError: (error) => {
       toast({
-        title: error instanceof Error ? error.message : "Failed to create task",
+        title: "Failed to create task",
         variant: "destructive",
+        description: error instanceof Error ? error.message : "Unknown error occurred"
       });
     },
   });
@@ -100,7 +102,7 @@ export default function TaskForm({ plantId }: TaskFormProps) {
                           </TooltipTrigger>
                           <TooltipContent>
                             {selectedTemplate.applyToAll 
-                              ? "This task will be created for all plants" 
+                              ? "This task will be created for all plants"
                               : "This task will only be created for the selected plant"}
                           </TooltipContent>
                         </Tooltip>

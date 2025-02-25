@@ -163,11 +163,8 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ message: "Template not found" });
       }
 
-      // Convert applyToAll to boolean explicitly since it might be null
-      const shouldApplyToAll = template.applyToAll === true;
-
-      if (shouldApplyToAll) {
-        // If applyToAll is true, create task for all plants
+      // Only create tasks for all plants if applyToAll is explicitly true
+      if (template.applyToAll === true) {
         const plants = await storage.getPlants();
         const tasks = await Promise.all(
           plants.map(plant =>
@@ -177,11 +174,17 @@ export function registerRoutes(app: Express): Server {
             })
           )
         );
-        res.status(201).json(tasks);
+        res.status(201).json({ 
+          tasks,
+          appliedToAll: true 
+        });
       } else {
-        // If applyToAll is false or null, create task only for the specified plant
+        // Otherwise, create task only for the specified plant
         const task = await storage.createCareTask(result.data);
-        res.status(201).json(task);
+        res.status(201).json({ 
+          tasks: [task],
+          appliedToAll: false
+        });
       }
     } catch (error) {
       console.error('Error creating task:', error);
