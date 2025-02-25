@@ -80,11 +80,14 @@ export default function TaskTemplateConfig() {
           <div className="flex items-center gap-4">
             <div className="flex-1">
               <h3 className="font-medium">{template.name}</h3>
-              {(allChecklistItems?.[template.id] || []).map((item) => (
-                <div key={item.id} className="flex items-center gap-2 mt-2">
-                  <Input type="text" value={item.description} readOnly />
-                </div>
-              ))}
+              <div className="mt-2 space-y-2">
+                {(allChecklistItems?.[template.id] || []).map((item) => (
+                  <div key={item.id} className="flex items-center gap-2">
+                    <div className="h-4 w-4 border rounded" />
+                    <span className="text-sm">{item.text}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </Card>
