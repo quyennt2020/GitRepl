@@ -10,8 +10,8 @@ import { useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 
 export default function ChecklistItemsPage() {
-  const [_, params] = useLocation();
-  const templateId = parseInt(params.split('/').pop() || '0');
+  const [location] = useLocation();
+  const templateId = parseInt(location.split('/')[2]); // Get ID from URL /templates/[id]/checklist
   const [items, setItems] = useState<Array<{text: string, id?: number, order: number}>>([]);
   const { toast } = useToast();
 
