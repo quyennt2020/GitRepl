@@ -144,9 +144,14 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/tasks", async (req, res) => {
     try {
       const plantId = req.query.plantId ? Number(req.query.plantId) : undefined;
+      console.log('Fetching tasks for plantId:', plantId);
+
       const tasks = await storage.getCareTasks(plantId);
+      console.log('Retrieved tasks:', tasks);
+
       res.json(tasks);
     } catch (error) {
+      console.error('Error fetching tasks:', error);
       res.status(500).json({ message: "Failed to fetch tasks" });
     }
   });

@@ -39,8 +39,16 @@ export default function TaskList({ plantId }: TaskListProps) {
   const [completingTask, setCompletingTask] = useState<CareTask | null>(null);
   const { toast } = useToast();
 
+  // Query tasks with plantId parameter
   const { data: tasks, refetch: refetchTasks } = useQuery<CareTask[]>({
-    queryKey: ["/api/tasks", plantId],
+    queryKey: ["/api/tasks", { plantId }],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/tasks?plantId=${plantId}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch tasks");
+      }
+      return response.json();
+    }
   });
 
   const { data: templates } = useQuery<TaskTemplate[]>({
