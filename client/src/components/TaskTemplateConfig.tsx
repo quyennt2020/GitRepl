@@ -11,14 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Info, Edit2, Trash2 } from "lucide-react";
+import { Edit2, Info, Plus, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import * as z from 'zod';
-import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 
 interface CreateTemplateFormProps {
   editingTemplate: TaskTemplate | null;
@@ -56,6 +56,7 @@ export default function TaskTemplateConfig() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
       toast({ title: "Template deleted successfully" });
     },
   });
@@ -188,20 +189,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
   const { toast } = useToast();
   const [localItems, setLocalItems] = useState<Array<{text: string, required: boolean, order: number}>>([]);
 
-  // Reset local items when editing template changes
-  useEffect(() => {
-    if (editingTemplate?.id && allChecklistItems[editingTemplate.id]) {
-      const items = allChecklistItems[editingTemplate.id];
-      setLocalItems(items.map(item => ({
-        text: item.text,
-        required: true,
-        order: item.order
-      })));
-    } else {
-      setLocalItems([]);
-    }
-  }, [editingTemplate, allChecklistItems]);
-
   const form = useForm<z.infer<typeof insertTaskTemplateSchema>>({
     resolver: zodResolver(insertTaskTemplateSchema),
     defaultValues: {
@@ -216,7 +203,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
     },
   });
 
-  // Reset form when editing template changes
   useEffect(() => {
     if (editingTemplate) {
       form.reset({
@@ -229,6 +215,16 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         estimatedDuration: editingTemplate.estimatedDuration,
         requiresExpertise: editingTemplate.requiresExpertise,
       });
+
+      // Load checklist items if editing
+      if (editingTemplate.id && allChecklistItems[editingTemplate.id]) {
+        const items = allChecklistItems[editingTemplate.id];
+        setLocalItems(items.map(item => ({
+          text: item.text,
+          required: true,
+          order: item.order
+        })));
+      }
     } else {
       form.reset({
         name: "",
@@ -240,42 +236,46 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         estimatedDuration: 15,
         requiresExpertise: false,
       });
+      setLocalItems([]);
     }
-  }, [editingTemplate, form]);
+  }, [editingTemplate, form, allChecklistItems]);
 
   const { mutate: saveTemplate, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
-      let templateId: number;
+      try {
+        let templateId: number;
 
-      if (editingTemplate?.id) {
-        // Update existing template
-        await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, data);
-        templateId = editingTemplate.id;
+        if (editingTemplate?.id) {
+          // Update existing template
+          await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, data);
+          templateId = editingTemplate.id;
 
-        // Get current checklist items
-        const currentItems = allChecklistItems?.[editingTemplate.id] || [];
+          // Delete existing checklist items
+          const currentItems = allChecklistItems[editingTemplate.id] || [];
+          await Promise.all(currentItems.map(item => 
+            apiRequest("DELETE", `/api/checklist-items/${item.id}`)
+          ));
+        } else {
+          // Create new template
+          const response = await apiRequest("POST", "/api/task-templates", data);
+          const newTemplate = await response.json();
+          templateId = newTemplate.id;
+        }
 
-        // Delete existing checklist items
-        await Promise.all(currentItems.map(item => 
-          apiRequest("DELETE", `/api/checklist-items/${item.id}`)
-        ));
-      } else {
-        // Create new template
-        const response = await apiRequest("POST", "/api/task-templates", data);
-        const newTemplate = await response.json();
-        templateId = newTemplate.id;
-      }
-
-      // Add all checklist items
-      if (localItems.length > 0) {
-        await Promise.all(localItems.map((item, index) => 
-          apiRequest("POST", "/api/checklist-items", {
-            templateId,
-            text: item.text,
-            required: item.required,
-            order: index
-          })
-        ));
+        // Add all checklist items
+        if (localItems.length > 0) {
+          await Promise.all(localItems.map((item, index) => 
+            apiRequest("POST", "/api/checklist-items", {
+              templateId,
+              text: item.text,
+              required: item.required,
+              order: index
+            })
+          ));
+        }
+      } catch (error) {
+        console.error("Error saving template:", error);
+        throw error;
       }
     },
     onSuccess: () => {

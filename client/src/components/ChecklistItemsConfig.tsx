@@ -35,41 +35,53 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
   }, [checklistItems, setLocalItems]);
 
   const handleAdd = () => {
-    const newOrder = internalItems.length;
-    const newItem = {
-      text: "",
-      order: newOrder
-    };
+    try {
+      const newOrder = internalItems.length;
+      const newItem = {
+        text: "",
+        order: newOrder
+      };
 
-    const updatedItems = [...internalItems, newItem];
-    setInternalItems(updatedItems);
-    setLocalItems(updatedItems.map(item => ({
-      text: item.text,
-      required: true,
-      order: item.order
-    })));
+      const updatedItems = [...internalItems, newItem];
+      setInternalItems(updatedItems);
+      setLocalItems(updatedItems.map(item => ({
+        text: item.text,
+        required: true,
+        order: item.order
+      })));
+    } catch (error) {
+      console.error("Error adding checklist item:", error);
+    }
   };
 
   const handleDelete = (index: number) => {
-    const updatedItems = internalItems.filter((_, i) => i !== index);
-    setInternalItems(updatedItems);
-    setLocalItems(updatedItems.map(item => ({
-      text: item.text,
-      required: true,
-      order: item.order
-    })));
+    try {
+      const updatedItems = internalItems.filter((_, i) => i !== index);
+      setInternalItems(updatedItems);
+      setLocalItems(updatedItems.map(item => ({
+        text: item.text,
+        required: true,
+        order: item.order
+      })));
+    } catch (error) {
+      console.error("Error deleting checklist item:", error);
+    }
   };
 
   const handleTextChange = (index: number, text: string) => {
-    const updatedItems = internalItems.map((item, i) => 
-      i === index ? { ...item, text } : item
-    );
-    setInternalItems(updatedItems);
-    setLocalItems(updatedItems.map(item => ({
-      text: item.text,
-      required: true,
-      order: item.order
-    })));
+    try {
+      const updatedItems = internalItems.map((item, i) => 
+        i === index ? { ...item, text } : item
+      );
+      setInternalItems(updatedItems);
+      setLocalItems(updatedItems.map(item => ({
+        text: item.text,
+        required: true,
+        order: item.order
+      })));
+    } catch (error) {
+      console.error("Error updating checklist item text:", error);
+    }
   };
 
   return (
@@ -79,7 +91,7 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
         {internalItems.map((item, index) => (
           <div key={item.id || index} className="flex items-center gap-2">
             <Input
-              value={item.text}
+              value={item.text || ""}
               onChange={(e) => handleTextChange(index, e.target.value)}
               placeholder="Enter checklist item"
             />
