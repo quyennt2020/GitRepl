@@ -7,8 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Plus, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-export default function ChecklistItemsConfig({ templateId }: { templateId: number }) {
-  const [localItems, setLocalItems] = useState<ChecklistItem[]>([]);
+interface ChecklistItemsConfigProps {
+  templateId: number;
+  setLocalItems: (items: Array<{text: string, required: boolean, order: number}>) => void;
+}
+
+export default function ChecklistItemsConfig({ templateId, setLocalItems }: ChecklistItemsConfigProps) {
+  const [internalItems, setInternalItems] = useState<ChecklistItem[]>([]);
 
   const { data: checklistItems = [] } = useQuery<ChecklistItem[]>({
     queryKey: [`/api/task-templates/${templateId}/checklist`],
@@ -16,27 +21,52 @@ export default function ChecklistItemsConfig({ templateId }: { templateId: numbe
 
   useEffect(() => {
     if (checklistItems.length > 0) {
-      setLocalItems(checklistItems);
+      setInternalItems(checklistItems);
+      setLocalItems(checklistItems.map(item => ({
+        text: item.text,
+        required: true,
+        order: item.order
+      })));
     }
-  }, [checklistItems]);
+  }, [checklistItems, setLocalItems]);
 
   const handleAdd = () => {
     const newItem = {
       templateId,
       text: "",
-      order: localItems.length,
+      order: internalItems.length,
     };
-    setLocalItems([...localItems, { ...newItem, id: Date.now() } as ChecklistItem]);
+    const newInternalItems = [...internalItems, { ...newItem, id: Date.now() } as ChecklistItem];
+    setInternalItems(newInternalItems);
+    setLocalItems(newInternalItems.map(item => ({
+      text: item.text,
+      required: true,
+      order: item.order
+    })));
   };
 
   const handleDelete = (index: number) => {
-    setLocalItems(items => items.filter((_, i) => i !== index));
+    setInternalItems(items => {
+      const newItems = items.filter((_, i) => i !== index);
+      setLocalItems(newItems.map(item => ({
+        text: item.text,
+        required: true,
+        order: item.order
+      })));
+      return newItems;
+    });
   };
 
   const handleTextChange = (index: number, text: string) => {
-    setLocalItems(items =>
-      items.map((item, i) => (i === index ? { ...item, text } : item))
-    );
+    setInternalItems(items => {
+      const newItems = items.map((item, i) => (i === index ? { ...item, text } : item));
+      setLocalItems(newItems.map(item => ({
+        text: item.text,
+        required: true,
+        order: item.order
+      })));
+      return newItems;
+    });
   };
 
   return (
