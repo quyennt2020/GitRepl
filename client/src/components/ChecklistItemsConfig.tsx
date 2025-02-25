@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { ChecklistItem } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2 } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 
 interface ChecklistItemsConfigProps {
   templateId: number;
@@ -13,61 +11,21 @@ interface ChecklistItemsConfigProps {
 }
 
 export default function ChecklistItemsConfig({ templateId, setLocalItems }: ChecklistItemsConfigProps) {
-  const [internalItems, setInternalItems] = useState<ChecklistItem[]>([]);
-  const { toast } = useToast();
+  const [internalItems, setInternalItems] = useState<Array<{text: string, id?: number, order: number}>>([]);
 
   const { data: checklistItems = [] } = useQuery<ChecklistItem[]>({
     queryKey: [`/api/task-templates/${templateId}/checklist`],
-  });
-
-  const { mutate: createOrUpdateChecklistItem } = useMutation({
-    mutationFn: async (item: Partial<ChecklistItem>) => {
-      if (item.id) {
-        const response = await apiRequest("PATCH", `/api/checklist-items/${item.id}`, item);
-        return response.json();
-      } else {
-        const response = await apiRequest("POST", "/api/checklist-items", {
-          ...item,
-          templateId,
-          required: true
-        });
-        return response.json();
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/task-templates/${templateId}/checklist`] });
-      toast({ title: "Checklist item saved" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to save checklist item",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const { mutate: deleteChecklistItem } = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/checklist-items/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/task-templates/${templateId}/checklist`] });
-      toast({ title: "Checklist item deleted" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to delete checklist item",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      });
-    },
+    enabled: templateId > 0,
   });
 
   useEffect(() => {
     if (checklistItems?.length >= 0) {
       const sortedItems = [...checklistItems].sort((a, b) => a.order - b.order);
-      setInternalItems(sortedItems);
+      setInternalItems(sortedItems.map(item => ({
+        text: item.text,
+        id: item.id,
+        order: item.order
+      })));
       setLocalItems(sortedItems.map(item => ({
         text: item.text,
         required: true,
@@ -79,11 +37,9 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
   const handleAdd = () => {
     const newOrder = internalItems.length;
     const newItem = {
-      templateId,
       text: "",
-      order: newOrder,
-      required: true
-    } as ChecklistItem;
+      order: newOrder
+    };
 
     const updatedItems = [...internalItems, newItem];
     setInternalItems(updatedItems);
@@ -95,10 +51,6 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
   };
 
   const handleDelete = (index: number) => {
-    const item = internalItems[index];
-    if (item.id) {
-      deleteChecklistItem(item.id);
-    }
     const updatedItems = internalItems.filter((_, i) => i !== index);
     setInternalItems(updatedItems);
     setLocalItems(updatedItems.map(item => ({
@@ -118,16 +70,6 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
       required: true,
       order: item.order
     })));
-
-    const item = updatedItems[index];
-    if (item.id) {
-      createOrUpdateChecklistItem({
-        id: item.id,
-        text: item.text,
-        order: item.order,
-        required: true
-      });
-    }
   };
 
   return (
@@ -137,7 +79,7 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
         {internalItems.map((item, index) => (
           <div key={item.id || index} className="flex items-center gap-2">
             <Input
-              value={item.text || ""}
+              value={item.text}
               onChange={(e) => handleTextChange(index, e.target.value)}
               placeholder="Enter checklist item"
             />
@@ -145,7 +87,7 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
               variant="ghost"
               size="icon"
               onClick={() => handleDelete(index)}
-              className="text-destructive"
+              className="text-destructive hover:text-destructive/90"
             >
               <Trash2 className="h-4 w-4" />
             </Button>

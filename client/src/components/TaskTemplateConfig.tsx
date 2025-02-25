@@ -92,6 +92,12 @@ export default function TaskTemplateConfig() {
                   <Badge variant="outline">
                     {template.category}
                   </Badge>
+                  <Badge variant="outline">
+                    {template.priority} priority
+                  </Badge>
+                  <Badge variant="outline">
+                    {template.defaultInterval} days interval
+                  </Badge>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -114,6 +120,41 @@ export default function TaskTemplateConfig() {
                     updateTemplate({ id: template.id, applyToAll: checked });
                   }}
                 />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setEditingTemplate(template);
+                    setIsDialogOpen(true);
+                  }}
+                >
+                  <Edit2 className="h-4 w-4" />
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive/90"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Template</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete this template? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => deleteTemplate(template.id)}>
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           </Card>
@@ -142,11 +183,14 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
   const { toast } = useToast();
   const [localItems, setLocalItems] = useState<Array<{text: string, required: boolean, order: number}>>([]);
 
-  const { mutate: updateTemplate } = useMutation({
-    mutationFn: async (template: z.infer<typeof insertTaskTemplateSchema>) => {
+  const { mutate: saveTemplate } = useMutation({
+    mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
+      let templateId: number;
+
       if (editingTemplate?.id) {
         // Update existing template
-        await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, template);
+        await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, data);
+        templateId = editingTemplate.id;
 
         // Get current checklist items
         const currentItems = allChecklistItems?.[editingTemplate.id] || [];
@@ -155,48 +199,37 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         await Promise.all(currentItems.map(item => 
           apiRequest("DELETE", `/api/checklist-items/${item.id}`)
         ));
-
-        // Add new checklist items
-        if (localItems.length > 0) {
-          await Promise.all(localItems.map((item, index) => 
-            apiRequest("POST", "/api/checklist-items", {
-              templateId: editingTemplate.id,
-              text: item.text,
-              required: item.required,
-              order: index
-            })
-          ));
-        }
       } else {
         // Create new template
-        const response = await apiRequest("POST", "/api/task-templates", template);
+        const response = await apiRequest("POST", "/api/task-templates", data);
         const newTemplate = await response.json();
+        templateId = newTemplate.id;
+      }
 
-        // Add checklist items to new template
-        if (localItems.length > 0) {
-          await Promise.all(localItems.map((item, index) => 
-            apiRequest("POST", "/api/checklist-items", {
-              templateId: newTemplate.id,
-              text: item.text,
-              required: item.required,
-              order: index
-            })
-          ));
-        }
+      // Add all checklist items
+      if (localItems.length > 0) {
+        await Promise.all(localItems.map((item, index) => 
+          apiRequest("POST", "/api/checklist-items", {
+            templateId,
+            text: item.text,
+            required: item.required,
+            order: index
+          })
+        ));
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
       toast({ 
-        title: "Template updated successfully",
+        title: `Template ${editingTemplate ? "updated" : "created"} successfully`,
         description: "All changes have been saved to the database"
       });
       onSuccess?.();
     },
     onError: (error) => {
       toast({ 
-        title: "Failed to update template",
+        title: `Failed to ${editingTemplate ? "update" : "create"} template`,
         variant: "destructive",
         description: error instanceof Error ? error.message : "Unknown error occurred"
       });
@@ -217,13 +250,9 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
     },
   });
 
-  const onSubmit = (data: z.infer<typeof insertTaskTemplateSchema>) => {
-    updateTemplate(data);
-  };
-
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit((data) => saveTemplate(data))} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
@@ -324,24 +353,22 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
           setLocalItems={setLocalItems} 
         />
 
-        <div className="flex items-center gap-2">
-          <FormField
-            control={form.control}
-            name="applyToAll"
-            render={({ field }) => (
-              <FormItem className="flex items-center gap-2">
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <FormLabel className="!mt-0">Apply to all plants</FormLabel>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <FormField
+          control={form.control}
+          name="applyToAll"
+          render={({ field }) => (
+            <FormItem className="flex items-center gap-2">
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+              <FormLabel className="!mt-0">Apply to all plants</FormLabel>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <Button type="submit" className="w-full">
           {editingTemplate ? "Update Template" : "Create Template"}
