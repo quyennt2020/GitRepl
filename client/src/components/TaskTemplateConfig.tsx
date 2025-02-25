@@ -28,7 +28,7 @@ export default function TaskTemplateConfig() {
     queryKey: ["/api/task-templates"],
   });
 
-  const { data: allChecklistItems = {} } = useQuery<Record<number, ChecklistItem[]>>({
+  const { data: allChecklistItems = {}, isLoading: checklistLoading } = useQuery<Record<number, ChecklistItem[]>>({
     queryKey: ["/api/task-templates/checklist-items"],
   });
 
@@ -52,7 +52,7 @@ export default function TaskTemplateConfig() {
     },
   });
 
-  if (isLoading) {
+  if (isLoading || checklistLoading) {
     return <div>Loading...</div>;
   }
 
