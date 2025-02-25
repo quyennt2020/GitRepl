@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChecklistItem } from "@shared/schema";
@@ -72,7 +71,7 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
   return (
     <div className="space-y-4 max-h-[300px] overflow-y-auto">
       <div className="space-y-2">
-        {localItems.map((item, index) => (
+        {internalItems.map((item, index) => (
           <div key={item.id} className="flex items-center gap-2">
             <Input
               value={item.text}
