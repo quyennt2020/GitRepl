@@ -142,11 +142,13 @@ export default function TaskTemplateConfig() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{editingTemplate ? "Edit Task Template" : "New Task Template"}</DialogTitle>
           </DialogHeader>
-          <CreateTemplateForm editingTemplate={editingTemplate} allChecklistItems={allChecklistItems} onSuccess={() => setIsDialogOpen(false)} />
+          <div className="flex-1 overflow-y-auto pr-2">
+            <CreateTemplateForm editingTemplate={editingTemplate} allChecklistItems={allChecklistItems} onSuccess={() => setIsDialogOpen(false)} />
+          </div>
         </DialogContent>
       </Dialog>
     </div>
