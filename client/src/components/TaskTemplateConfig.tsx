@@ -192,9 +192,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
 
   const onSubmit = async (data: z.infer<typeof insertTaskTemplateSchema>) => {
     try {
-      if (editingTemplate?.id) {
-        await updateTemplate(data);
-      } else {
+      if (!editingTemplate?.id) {
         await apiRequest("POST", "/api/task-templates", data);
         queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
       }
