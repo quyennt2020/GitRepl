@@ -224,10 +224,13 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         }
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
-      toast({ title: "Template updated successfully" });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
+      toast({ 
+        title: "Template updated successfully",
+        description: "All changes have been saved to the database"
+      });
       onSuccess?.();
     },
     onError: (error) => {

@@ -101,23 +101,35 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
       required: true
     } as ChecklistItem;
     
-    createOrUpdateChecklistItem(newItem);
+    const updatedItems = [...internalItems, newItem];
+    setInternalItems(updatedItems);
+    setLocalItems(updatedItems.map(item => ({
+      text: item.text,
+      required: true,
+      order: item.order
+    })));
   };
 
   const handleDelete = (index: number) => {
-    const item = internalItems[index];
-    if (item.id) {
-      deleteChecklistItem(item.id);
-    }
+    const updatedItems = internalItems.filter((_, i) => i !== index);
+    setInternalItems(updatedItems);
+    setLocalItems(updatedItems.map(item => ({
+      text: item.text,
+      required: true,
+      order: item.order
+    })));
   };
 
   const handleTextChange = (index: number, text: string) => {
-    const item = internalItems[index];
-    createOrUpdateChecklistItem({
-      ...item,
-      text,
-      order: index
-    });
+    const updatedItems = internalItems.map((item, i) => 
+      i === index ? { ...item, text } : item
+    );
+    setInternalItems(updatedItems);
+    setLocalItems(updatedItems.map(item => ({
+      text: item.text,
+      required: true,
+      order: item.order
+    })));
   };
 
   return (
