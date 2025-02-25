@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertPlantSchema, insertCareTaskSchema, insertHealthRecordSchema, insertTaskTemplateSchema, insertChecklistItemSchema } from "@shared/schema";
+import type { ChecklistItem } from "@shared/types";
 
 export function registerRoutes(app: Express): Server {
   // Plants routes
@@ -157,35 +158,48 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      // Get the template to check applyToAll setting
+      // Get the template to check settings
       const template = await storage.getTaskTemplate(result.data.templateId);
       if (!template) {
-        return res.status(404).json({ message: "Template not found" });
+        return res.status(404).json({ 
+          message: "Template not found",
+          code: "TEMPLATE_NOT_FOUND" 
+        });
       }
 
-      // Only create tasks for all plants if applyToAll is explicitly true
-      if (template.applyToAll === true) {
-        const plants = await storage.getPlants();
-        const tasks = await Promise.all(
-          plants.map(plant =>
-            storage.createCareTask({
-              ...result.data,
-              plantId: plant.id
-            })
-          )
-        );
-        res.status(201).json({
-          tasks,
-          appliedToAll: true
+      // Check if template is public
+      if (!template.public) {
+        return res.status(403).json({
+          message: "This template is not public and cannot be used to create tasks",
+          code: "TEMPLATE_NOT_PUBLIC"
         });
-      } else {
-        // Otherwise, create task only for the specified plant
+      }
+
+      // If template is public but applyToAll is false, create single task
+      if (!template.applyToAll) {
         const task = await storage.createCareTask(result.data);
-        res.status(201).json({
+        return res.status(201).json({
           tasks: [task],
           appliedToAll: false
         });
       }
+
+      // If template is public and applyToAll is true, create tasks for all plants
+      const plants = await storage.getPlants();
+      const tasks = await Promise.all(
+        plants.map(plant =>
+          storage.createCareTask({
+            ...result.data,
+            plantId: plant.id
+          })
+        )
+      );
+
+      res.status(201).json({
+        tasks,
+        appliedToAll: true
+      });
+
     } catch (error) {
       console.error('Error creating task:', error);
       res.status(500).json({

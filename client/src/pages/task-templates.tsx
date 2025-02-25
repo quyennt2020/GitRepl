@@ -150,8 +150,8 @@ export default function TaskTemplateConfig() {
         ))}
       </div>
 
-      <Dialog 
-        open={isDialogOpen} 
+      <Dialog
+        open={isDialogOpen}
         onOpenChange={(open) => {
           if (!open) {
             setEditingTemplate(null);
@@ -164,7 +164,7 @@ export default function TaskTemplateConfig() {
             <DialogTitle>{editingTemplate ? "Edit Task Template" : "New Task Template"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-2">
-            <CreateTemplateForm 
+            <CreateTemplateForm
               editingTemplate={editingTemplate}
               onSuccess={() => {
                 setIsDialogOpen(false);
@@ -189,6 +189,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
       description: editingTemplate?.description ?? "",
       priority: editingTemplate?.priority ?? "medium",
       defaultInterval: editingTemplate?.defaultInterval ?? 7,
+      public: editingTemplate?.public ?? false,
       applyToAll: editingTemplate?.applyToAll ?? false,
       estimatedDuration: editingTemplate?.estimatedDuration ?? 15,
       requiresExpertise: editingTemplate?.requiresExpertise ?? false,
@@ -207,14 +208,14 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      toast({ 
+      toast({
         title: `Template ${editingTemplate ? "updated" : "created"} successfully`,
         description: "All changes have been saved to the database"
       });
       onSuccess?.();
     },
     onError: (error) => {
-      toast({ 
+      toast({
         title: `Failed to ${editingTemplate ? "update" : "create"} template`,
         variant: "destructive",
         description: error instanceof Error ? error.message : "Unknown error occurred"
@@ -311,8 +312,8 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
               <FormItem>
                 <FormLabel>Default Interval (days)</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="number" 
+                  <Input
+                    type="number"
                     min={1}
                     {...field}
                     onChange={(e) => field.onChange(parseInt(e.target.value) || 7)}
@@ -325,22 +326,54 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
           />
         </div>
 
-        <FormField
-          control={form.control}
-          name="applyToAll"
-          render={({ field }) => (
-            <FormItem className="flex items-center gap-2">
-              <FormControl>
-                <Switch
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-              </FormControl>
-              <FormLabel className="!mt-0">Apply to all plants</FormLabel>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="space-y-4 rounded-lg border p-4">
+          <h3 className="font-medium">Template Settings</h3>
+
+          <FormField
+            control={form.control}
+            name="public"
+            render={({ field }) => (
+              <FormItem className="flex items-center gap-2">
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <div className="space-y-0.5">
+                  <FormLabel className="!mt-0">Public Template</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    Make this template available for assigning tasks to plants
+                  </p>
+                </div>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="applyToAll"
+            render={({ field }) => (
+              <FormItem className="flex items-center gap-2">
+                <FormControl>
+                  <Switch
+                    disabled={!form.watch("public")}
+                    checked={field.value && form.watch("public")}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <div className="space-y-0.5">
+                  <FormLabel className="!mt-0">Apply to All Plants</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    {form.watch("public")
+                      ? "Automatically assign tasks to all plants when created"
+                      : "Make template public first to enable this option"}
+                  </p>
+                </div>
+              </FormItem>
+            )}
+          />
+        </div>
 
         <Button type="submit" className="w-full" disabled={isPending}>
           {editingTemplate ? "Update Template" : "Create Template"}

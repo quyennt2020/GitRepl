@@ -6,16 +6,17 @@ import { TaskTemplate, insertCareTaskSchema, type InsertCareTask } from "@shared
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Plus, CalendarIcon, Info } from "lucide-react";
+import { Plus, CalendarIcon, Info, Lock } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 interface TaskFormProps {
   plantId: number;
@@ -40,9 +41,16 @@ export default function TaskForm({ plantId }: TaskFormProps) {
     queryKey: ["/api/task-templates"],
   });
 
+  // Filter to show only public templates
+  const publicTemplates = templates?.filter(t => t.public) || [];
+
   const { mutate: createTask, isPending } = useMutation({
     mutationFn: async (data: InsertCareTask) => {
       const response = await apiRequest("POST", "/api/tasks", data);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to create task");
+      }
       return response.json();
     },
     onSuccess: (response) => {
@@ -51,7 +59,7 @@ export default function TaskForm({ plantId }: TaskFormProps) {
         title: "Task created successfully",
         description: response.appliedToAll 
           ? "Task has been created for all plants based on template settings"
-          : undefined
+          : "Task has been created for the selected plant"
       });
       setOpen(false);
       form.reset();
@@ -120,8 +128,31 @@ export default function TaskForm({ plantId }: TaskFormProps) {
                     </FormControl>
                     <SelectContent>
                       {templates?.map((template) => (
-                        <SelectItem key={template.id} value={template.id.toString()}>
-                          {template.name}
+                        <SelectItem 
+                          key={template.id} 
+                          value={template.id.toString()}
+                          disabled={!template.public}
+                        >
+                          <div className="flex items-center gap-2">
+                            {template.name}
+                            {!template.public && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Lock className="h-4 w-4 text-muted-foreground" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    This template is not public and cannot be used
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                            {template.applyToAll && template.public && (
+                              <Badge variant="secondary" className="ml-2">
+                                All Plants
+                              </Badge>
+                            )}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
