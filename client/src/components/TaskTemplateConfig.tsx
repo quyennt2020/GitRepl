@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { TaskTemplate, ChecklistItem, insertTaskTemplateSchema } from "@shared/schema";
 import ChecklistItemsConfig from "./ChecklistItemsConfig";
@@ -155,12 +155,15 @@ export default function TaskTemplateConfig() {
         ))}
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={(open) => {
-        if (!open) {
-          setEditingTemplate(null);
-        }
-        setIsDialogOpen(open);
-      }}>
+      <Dialog 
+        open={isDialogOpen} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingTemplate(null);
+          }
+          setIsDialogOpen(open);
+        }}
+      >
         <DialogContent className="max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{editingTemplate ? "Edit Task Template" : "New Task Template"}</DialogTitle>
@@ -185,6 +188,20 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
   const { toast } = useToast();
   const [localItems, setLocalItems] = useState<Array<{text: string, required: boolean, order: number}>>([]);
 
+  // Reset local items when editing template changes
+  useEffect(() => {
+    if (editingTemplate?.id && allChecklistItems[editingTemplate.id]) {
+      const items = allChecklistItems[editingTemplate.id];
+      setLocalItems(items.map(item => ({
+        text: item.text,
+        required: true,
+        order: item.order
+      })));
+    } else {
+      setLocalItems([]);
+    }
+  }, [editingTemplate, allChecklistItems]);
+
   const form = useForm<z.infer<typeof insertTaskTemplateSchema>>({
     resolver: zodResolver(insertTaskTemplateSchema),
     defaultValues: {
@@ -198,6 +215,33 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
       requiresExpertise: editingTemplate?.requiresExpertise ?? false,
     },
   });
+
+  // Reset form when editing template changes
+  useEffect(() => {
+    if (editingTemplate) {
+      form.reset({
+        name: editingTemplate.name,
+        category: editingTemplate.category,
+        description: editingTemplate.description,
+        priority: editingTemplate.priority,
+        defaultInterval: editingTemplate.defaultInterval,
+        applyToAll: editingTemplate.applyToAll,
+        estimatedDuration: editingTemplate.estimatedDuration,
+        requiresExpertise: editingTemplate.requiresExpertise,
+      });
+    } else {
+      form.reset({
+        name: "",
+        category: "water",
+        description: "",
+        priority: "medium",
+        defaultInterval: 7,
+        applyToAll: false,
+        estimatedDuration: 15,
+        requiresExpertise: false,
+      });
+    }
+  }, [editingTemplate, form]);
 
   const { mutate: saveTemplate, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
@@ -301,7 +345,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea {...field} placeholder="Template description" />
+                <Textarea {...field} placeholder="Template description" value={field.value || ""} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -341,7 +385,13 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
               <FormItem>
                 <FormLabel>Default Interval (days)</FormLabel>
                 <FormControl>
-                  <Input {...field} type="number" min={1} />
+                  <Input 
+                    type="number" 
+                    min={1}
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 7)}
+                    value={field.value || ""}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
