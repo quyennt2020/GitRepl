@@ -164,6 +164,18 @@ interface CreateTemplateFormProps {
 function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: CreateTemplateFormProps) {
   const { toast } = useToast();
 
+  const { mutate: updateTemplate } = useMutation({
+    mutationFn: async (template: Partial<TaskTemplate>) => {
+      if (editingTemplate?.id) {
+        await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, template);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
+      onSuccess?.();
+    },
+  });
+
   const form = useForm({
     resolver: zodResolver(insertTaskTemplateSchema),
     defaultValues: editingTemplate || {
@@ -178,32 +190,23 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
     },
   });
 
-  const { mutate: createTemplate, isPending } = useMutation({
-    mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
-      if (editingTemplate) {
-        await apiRequest("PUT", `/api/task-templates/${editingTemplate.id}`, data);
+  const onSubmit = async (data: z.infer<typeof insertTaskTemplateSchema>) => {
+    try {
+      if (editingTemplate?.id) {
+        await updateTemplate(data);
       } else {
         await apiRequest("POST", "/api/task-templates", data);
+        queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      toast({ title: editingTemplate ? "Template updated successfully" : "Template created successfully" });
-      onSuccess();
-      form.reset();
-    },
-    onError: (error) => {
-      toast({
-        title: editingTemplate ? "Failed to update template" : "Failed to create template",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
-        variant: "destructive",
-      });
-    },
-  });
+      onSuccess?.();
+    } catch (error) {
+      console.error("Failed to save template:", error);
+    }
+  };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => createTemplate(data))} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
@@ -321,7 +324,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
           />
         </div>
 
-        <Button type="submit" className="w-full" disabled={isPending}>
+        <Button type="submit" className="w-full" >
           {editingTemplate ? "Update Template" : "Create Template"}
         </Button>
       </form>
