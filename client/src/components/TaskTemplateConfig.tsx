@@ -163,7 +163,7 @@ interface CreateTemplateFormProps {
 
 function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: CreateTemplateFormProps) {
   const { toast } = useToast();
-  const [localItems, setLocalItems] = useState<Array<{text: string, required: boolean, order: number}>[]>([]); // Added state for local items
+  const [localItems, setLocalItems] = useState<Array<{text: string, required: boolean, order: number}>>([]);
 
   const { mutate: updateTemplate } = useMutation({
     mutationFn: async (template: z.infer<typeof insertTaskTemplateSchema>) => {
