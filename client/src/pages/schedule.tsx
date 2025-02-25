@@ -2,15 +2,34 @@ import { useQuery } from "@tanstack/react-query";
 import { Plant, CareTask, TaskTemplate } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { format, addDays } from "date-fns";
-import { Button } from "@/components/ui/button";
-import { CheckCircle } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { AlertCircle, Flag, Clock, CheckCircle } from "lucide-react";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
+// Priority styles matching TaskList component
+const priorityStyles = {
+  high: {
+    badge: "bg-destructive text-destructive-foreground",
+    border: "border-l-destructive",
+    icon: <AlertCircle className="h-4 w-4 text-destructive" />,
+    background: "bg-destructive/5",
+  },
+  medium: {
+    badge: "bg-warning text-warning-foreground",
+    border: "border-l-warning",
+    icon: <Flag className="h-4 w-4 text-warning" />,
+    background: "bg-warning/5",
+  },
+  low: {
+    badge: "bg-muted text-muted-foreground",
+    border: "border-l-muted",
+    icon: <Clock className="h-4 w-4 text-muted-foreground" />,
+    background: "bg-muted/5",
+  }
+};
 
 export default function Schedule() {
-  const { toast } = useToast();
   const { data: plants } = useQuery<Plant[]>({ 
     queryKey: ["/api/plants"]
   });
@@ -52,12 +71,20 @@ export default function Schedule() {
                     {tasksForDate.map(task => {
                       const plant = plants?.find(p => p.id === task.plantId);
                       const template = templates?.find(t => t.id === task.templateId);
+                      const priority = template?.priority || 'low';
+                      const priorityStyle = priorityStyles[priority as keyof typeof priorityStyles];
 
                       return (
                         <Link key={task.id} href={`/plants/${task.plantId}/tasks`}>
-                          <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent cursor-pointer">
+                          <div className={cn(
+                            "flex items-center justify-between p-3 rounded-lg cursor-pointer border-l-4",
+                            priorityStyle.border,
+                            priorityStyle.background,
+                            "hover:bg-accent/10"
+                          )}>
                             <div>
                               <div className="flex items-center gap-2">
+                                {priorityStyle.icon}
                                 <p className="font-medium">{plant?.name}</p>
                                 <Badge variant="outline">{template?.name}</Badge>
                               </div>
@@ -65,14 +92,19 @@ export default function Schedule() {
                                 Due {format(new Date(task.dueDate), "h:mm a")}
                               </p>
                             </div>
-                            <Badge variant={task.completed ? "secondary" : "default"}>
-                              {task.completed ? (
-                                <span className="flex items-center gap-1">
-                                  <CheckCircle className="w-3 h-3" />
-                                  Done
-                                </span>
-                              ) : "Due"}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge className={priorityStyle.badge}>
+                                {priority.charAt(0).toUpperCase() + priority.slice(1)} Priority
+                              </Badge>
+                              <Badge variant={task.completed ? "secondary" : "default"}>
+                                {task.completed ? (
+                                  <span className="flex items-center gap-1">
+                                    <CheckCircle className="w-3 h-3" />
+                                    Done
+                                  </span>
+                                ) : "Due"}
+                              </Badge>
+                            </div>
                           </div>
                         </Link>
                       );

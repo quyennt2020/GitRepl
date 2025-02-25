@@ -4,7 +4,7 @@ import { CareTask, TaskTemplate } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clipboard, Edit2, Trash2, CheckCircle, Flag } from "lucide-react";
+import { Clipboard, Edit2, Trash2, CheckCircle, Flag, AlertCircle, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import EditTaskDialog from "./EditTaskDialog";
 import TaskCompletionDialog from "./TaskCompletionDialog";
@@ -17,23 +17,32 @@ interface TaskListProps {
   plantId: number;
 }
 
+// Enhanced priority styles with more visual cues
 const priorityStyles = {
   high: {
     badge: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
     border: "border-l-destructive",
-    icon: <Flag className="h-4 w-4 text-destructive" />
+    icon: <AlertCircle className="h-4 w-4 text-destructive" />,
+    background: "bg-destructive/5",
+    hover: "hover:bg-destructive/10"
   },
   medium: {
     badge: "bg-warning text-warning-foreground hover:bg-warning/90",
     border: "border-l-warning",
-    icon: <Flag className="h-4 w-4 text-warning" />
+    icon: <Flag className="h-4 w-4 text-warning" />,
+    background: "bg-warning/5",
+    hover: "hover:bg-warning/10"
   },
   low: {
     badge: "bg-muted text-muted-foreground hover:bg-muted/90",
     border: "border-l-muted",
-    icon: <Flag className="h-4 w-4 text-muted-foreground" />
+    icon: <Clock className="h-4 w-4 text-muted-foreground" />,
+    background: "bg-muted/5",
+    hover: "hover:bg-muted/10"
   }
 };
+
+// Rest of the imports remain unchanged
 
 export default function TaskList({ plantId }: TaskListProps) {
   const [editingTask, setEditingTask] = useState<CareTask | null>(null);
@@ -136,7 +145,16 @@ export default function TaskList({ plantId }: TaskListProps) {
         const priorityStyle = priorityStyles[priority as keyof typeof priorityStyles];
 
         return (
-          <Card key={task.id} className={`p-4 border-l-4 ${priorityStyle.border}`}>
+          <Card 
+            key={task.id} 
+            className={cn(
+              "p-4 border-l-4",
+              priorityStyle.border,
+              priorityStyle.background,
+              "transition-colors duration-200",
+              priorityStyle.hover
+            )}
+          >
             <div className="flex items-center gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -165,14 +183,12 @@ export default function TaskList({ plantId }: TaskListProps) {
                   size="icon"
                   onClick={() => {
                     if (task.completed) {
-                      // If task is completed, uncomplete it and clear checklist progress
                       updateTaskStatus({ 
                         taskId: task.id, 
                         completed: false,
                         checklistProgress: {} 
                       });
                     } else {
-                      // If task is not completed, show completion dialog
                       setCompletingTask(task);
                     }
                   }}

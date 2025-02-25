@@ -1,12 +1,36 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
-import { Plant, CareTask } from "@shared/schema";
+import { Plant, CareTask, TaskTemplate } from "@shared/schema";
 import PlantCard from "@/components/PlantCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import QRScanner from "@/components/QRScanner";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
+import { AlertCircle, Flag, Clock } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// Priority styles matching TaskList component
+const priorityStyles = {
+  high: {
+    badge: "bg-destructive text-destructive-foreground",
+    border: "border-l-destructive",
+    icon: <AlertCircle className="h-4 w-4 text-destructive" />,
+    background: "bg-destructive/5",
+  },
+  medium: {
+    badge: "bg-warning text-warning-foreground",
+    border: "border-l-warning",
+    icon: <Flag className="h-4 w-4 text-warning" />,
+    background: "bg-warning/5",
+  },
+  low: {
+    badge: "bg-muted text-muted-foreground",
+    border: "border-l-muted",
+    icon: <Clock className="h-4 w-4 text-muted-foreground" />,
+    background: "bg-muted/5",
+  }
+};
 
 export default function Home() {
   const { data: plants, isLoading: plantsLoading } = useQuery<Plant[]>({ 
@@ -15,6 +39,10 @@ export default function Home() {
 
   const { data: tasks } = useQuery<CareTask[]>({
     queryKey: ["/api/tasks"],
+  });
+
+  const { data: templates } = useQuery<TaskTemplate[]>({
+    queryKey: ["/api/task-templates"],
   });
 
   const todaysTasks = tasks?.filter(task => {
@@ -41,17 +69,32 @@ export default function Home() {
               )}
               {todaysTasks?.map(task => {
                 const plant = plants?.find(p => p.id === task.plantId);
+                const template = templates?.find(t => t.id === task.templateId);
+                const priority = template?.priority || 'low';
+                const priorityStyle = priorityStyles[priority as keyof typeof priorityStyles];
+
                 return (
                   <Link key={task.id} href={`/plants/${task.plantId}/tasks`}>
-                    <div className="flex items-center justify-between p-2 hover:bg-accent rounded-lg cursor-pointer">
+                    <div 
+                      className={cn(
+                        "flex items-center justify-between p-2 rounded-lg cursor-pointer border-l-4",
+                        priorityStyle.border,
+                        priorityStyle.background,
+                        "hover:bg-accent/10"
+                      )}
+                    >
                       <div>
-                        <p className="font-medium">{plant?.name}</p>
+                        <div className="flex items-center gap-2">
+                          {priorityStyle.icon}
+                          <p className="font-medium">{plant?.name}</p>
+                          <Badge variant="outline">{template?.name}</Badge>
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           Due {format(new Date(task.dueDate), "h:mm a")}
                         </p>
                       </div>
-                      <Badge>
-                        {task.completed ? "Completed" : "Due"}
+                      <Badge className={priorityStyle.badge}>
+                        {priority.charAt(0).toUpperCase() + priority.slice(1)} Priority
                       </Badge>
                     </div>
                   </Link>
