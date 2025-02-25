@@ -296,15 +296,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         {editingTemplate?.id && (
             <ChecklistItemsConfig templateId={editingTemplate.id} />
         )}
-        const handleAddItem = async () => {
-          await apiRequest("POST", "/api/checklist-items", {
-            templateId: editingTemplate.id,
-            text: "New item",
-            order: allChecklistItems?.[editingTemplate.id]?.length || 0,
-          });
-              queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
-              toast({ title: "Checklist item added" });
-            }}
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Checklist Item
