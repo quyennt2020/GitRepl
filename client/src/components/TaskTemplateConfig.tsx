@@ -167,11 +167,25 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
   const { mutate: updateTemplate } = useMutation({
     mutationFn: async (template: z.infer<typeof insertTaskTemplateSchema>) => {
       if (editingTemplate?.id) {
+        // Update template first
         await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, template);
-        // Also update checklist items
-        const checklistItems = allChecklistItems?.[editingTemplate.id] || [];
-        await Promise.all(checklistItems.map(item => 
-          apiRequest("PATCH", `/api/checklist-items/${item.id}`, { text: item.text })
+        
+        // Get current checklist items
+        const currentItems = allChecklistItems?.[editingTemplate.id] || [];
+        
+        // First delete all existing checklist items
+        await Promise.all(currentItems.map(item => 
+          apiRequest("DELETE", `/api/checklist-items/${item.id}`, {})
+        ));
+        
+        // Then create new checklist items
+        await Promise.all(localItems.map((item, index) => 
+          apiRequest("POST", "/api/checklist-items", {
+            templateId: editingTemplate.id,
+            text: item.text,
+            order: index,
+            required: true
+          })
         ));
       }
     },
