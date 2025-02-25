@@ -180,27 +180,48 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
     mutationFn: async (template: z.infer<typeof insertTaskTemplateSchema>) => {
       if (editingTemplate?.id) {
         // Update template first
-        await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, template);
+        const updatedTemplate = await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, template);
+        if (!updatedTemplate.ok) {
+          throw new Error("Failed to update template");
+        }
 
         // Get current checklist items
         const currentItems = allChecklistItems?.[editingTemplate.id] || [];
+        
+        try {
+          // First delete all existing checklist items
+          await Promise.all(currentItems.map(item => 
+            apiRequest("DELETE", `/api/checklist-items/${item.id}`, {})
+          ));
 
-        // First delete all existing checklist items
-        await Promise.all(currentItems.map(item => 
-          apiRequest("DELETE", `/api/checklist-items/${item.id}`, {})
-        ));
+          // Verify deletion
+          const checklistResponse = await apiRequest("GET", `/api/task-templates/${editingTemplate.id}/checklist`);
+          if (!checklistResponse.ok) {
+            throw new Error("Failed to verify checklist items deletion");
+          }
 
         // Then create new checklist items
-        await Promise.all(localItems.map((item, index) => 
-          apiRequest("POST", "/api/checklist-items", {
-            templateId: editingTemplate.id,
-            text: item.text,
-            order: index,
-            required: item.required // Added required field
-          })
-        ));
+          const results = await Promise.all(localItems.map((item, index) => 
+            apiRequest("POST", "/api/checklist-items", {
+              templateId: editingTemplate.id,
+              text: item.text,
+              order: index,
+              required: item.required
+            })
+          ));
+
+          // Verify all items were created
+          if (!results.every(r => r.ok)) {
+            throw new Error("Failed to create some checklist items");
+          }
+        } catch (error) {
+          throw new Error("Failed to update checklist items");
+        }
       } else {
-        await apiRequest("POST", "/api/task-templates", template);
+        const response = await apiRequest("POST", "/api/task-templates", template);
+        if (!response.ok) {
+          throw new Error("Failed to create template");
+        }
       }
     },
     onSuccess: () => {
