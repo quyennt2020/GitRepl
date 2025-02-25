@@ -293,42 +293,9 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
           />
         </div>
 
-        <div className="space-y-4">
-          <h3 className="font-medium">Checklist Items</h3>
-          {editingTemplate?.id && allChecklistItems?.[editingTemplate.id]?.map((item, index) => (
-            <div key={item.id} className="flex items-center gap-2">
-              <Input 
-                value={item.text}
-                onChange={async (e) => {
-                  const newText = e.target.value;
-                  await apiRequest("PATCH", `/api/checklist-items/${item.id}`, {
-                    text: newText,
-                    templateId: editingTemplate.id,
-                    order: index,
-                  });
-                  queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
-                }}
-                className="flex-1"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={async () => {
-                  await apiRequest("DELETE", `/api/checklist-items/${item.id}`);
-                  queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
-                  toast({ title: "Checklist item removed" });
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={async () => {
-              if (!editingTemplate?.id) return;
+        {editingTemplate?.id && (
+            <ChecklistItemsConfig templateId={editingTemplate.id} />
+          )}
               await apiRequest("POST", "/api/checklist-items", {
                 templateId: editingTemplate.id,
                 text: "New item",
