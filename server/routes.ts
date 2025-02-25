@@ -86,24 +86,22 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Checklist Items routes
-  app.get("/api/task-templates/checklist-items", async (req, res) => {
+  app.get("/api/task-templates/checklist-items", async (_req, res) => {
     try {
       const templates = await storage.getTaskTemplates();
-      if (!templates?.length) {
-        return res.json({});
-      }
-      
       const checklistItemsByTemplate: Record<number, ChecklistItem[]> = {};
       
-      await Promise.all(templates.map(async (template) => {
-        try {
-          const items = await storage.getChecklistItems(template.id);
-          checklistItemsByTemplate[template.id] = items;
-        } catch (err) {
-          console.error(`Error fetching items for template ${template.id}:`, err);
-          checklistItemsByTemplate[template.id] = [];
-        }
-      }));
+      if (templates?.length) {
+        await Promise.all(templates.map(async (template) => {
+          try {
+            const items = await storage.getChecklistItems(template.id);
+            checklistItemsByTemplate[template.id] = items;
+          } catch (err) {
+            console.error(`Error fetching items for template ${template.id}:`, err);
+            checklistItemsByTemplate[template.id] = [];
+          }
+        }));
+      }
       
       res.json(checklistItemsByTemplate);
     } catch (error) {
