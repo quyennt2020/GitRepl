@@ -57,12 +57,9 @@ export default function TaskTemplateConfig() {
     return <div>Loading...</div>;
   }
 
-  const uniqueTemplates = templates?.reduce((acc: TaskTemplate[], curr) => {
-    if (!acc.find(t => t.name === curr.name)) {
-      acc.push(curr);
-    }
-    return acc;
-  }, []).sort((a, b) => a.name.localeCompare(b.name));
+  const uniqueTemplates = [...new Set(templates?.map(t => t.name))];
+  const sortedTemplates = templates?.filter(template => uniqueTemplates.includes(template.name)).sort((a, b) => a.name.localeCompare(b.name));
+
 
   return (
     <div className="space-y-4 p-4">
@@ -77,7 +74,7 @@ export default function TaskTemplateConfig() {
         </Button>
       </div>
 
-      {uniqueTemplates?.map((template) => (
+      {sortedTemplates?.map((template) => (
         <Card key={template.id} className="p-4">
           <div className="flex items-center gap-4">
             <div className="flex-1">
@@ -92,7 +89,7 @@ export default function TaskTemplateConfig() {
         </Card>
       ))}
 
-      {uniqueTemplates?.map((template) => (
+      {sortedTemplates?.map((template) => (
         <Card key={template.id} className="p-4">
           <div className="flex items-center justify-between">
             <div className="space-y-2">
