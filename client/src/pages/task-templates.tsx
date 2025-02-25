@@ -183,24 +183,26 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
 
   const form = useForm<z.infer<typeof insertTaskTemplateSchema>>({
     resolver: zodResolver(insertTaskTemplateSchema),
-    defaultValues: editingTemplate || {
-      name: "",
-      category: "water",
-      description: "",
-      priority: "medium",
-      defaultInterval: 7,
-      applyToAll: false,
-      estimatedDuration: 15,
-      requiresExpertise: false,
+    defaultValues: {
+      name: editingTemplate?.name ?? "",
+      category: editingTemplate?.category ?? "water",
+      description: editingTemplate?.description ?? "",
+      priority: editingTemplate?.priority ?? "medium",
+      defaultInterval: editingTemplate?.defaultInterval ?? 7,
+      applyToAll: editingTemplate?.applyToAll ?? false,
+      estimatedDuration: editingTemplate?.estimatedDuration ?? 15,
+      requiresExpertise: editingTemplate?.requiresExpertise ?? false,
     },
   });
 
   const { mutate: saveTemplate, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
       if (editingTemplate?.id) {
-        await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, data);
+        const response = await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, data);
+        return response.json();
       } else {
-        await apiRequest("POST", "/api/task-templates", data);
+        const response = await apiRequest("POST", "/api/task-templates", data);
+        return response.json();
       }
     },
     onSuccess: () => {
@@ -243,7 +245,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
           render={({ field }) => (
             <FormItem>
               <FormLabel>Category</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
+              <Select onValueChange={field.onChange} value={field.value || "water"}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
@@ -283,7 +285,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Priority</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select onValueChange={field.onChange} value={field.value || "medium"}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select priority" />
