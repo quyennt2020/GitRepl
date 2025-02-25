@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { href: "/location-map", icon: Map, label: "Locations" },
   { href: "/schedule", icon: Calendar, label: "Schedule" },
   { href: "/guides", icon: Book, label: "Guides" },
-  { href: "/task-templates", icon: Settings, label: "Settings" }
+  { href: "/settings", icon: Settings, label: "Settings" }
 ];
 
 export default function BottomNav() {
