@@ -205,6 +205,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
 
   useEffect(() => {
     if (editingTemplate) {
+      // Reset form values
       form.reset({
         name: editingTemplate.name,
         category: editingTemplate.category,
@@ -216,7 +217,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         requiresExpertise: editingTemplate.requiresExpertise,
       });
 
-      // Load checklist items if editing
+      // Load existing checklist items
       if (editingTemplate.id && allChecklistItems[editingTemplate.id]) {
         const items = allChecklistItems[editingTemplate.id];
         setLocalItems(items.map(item => ({
@@ -226,6 +227,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         })));
       }
     } else {
+      // Reset for new template
       form.reset({
         name: "",
         category: "water",
@@ -250,11 +252,11 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
           await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, data);
           templateId = editingTemplate.id;
 
-          // Delete existing checklist items
+          // Delete existing checklist items first
           const currentItems = allChecklistItems[editingTemplate.id] || [];
-          await Promise.all(currentItems.map(item => 
-            apiRequest("DELETE", `/api/checklist-items/${item.id}`)
-          ));
+          for (const item of currentItems) {
+            await apiRequest("DELETE", `/api/checklist-items/${item.id}`);
+          }
         } else {
           // Create new template
           const response = await apiRequest("POST", "/api/task-templates", data);
@@ -263,16 +265,19 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         }
 
         // Add all checklist items
-        if (localItems.length > 0) {
-          await Promise.all(localItems.map((item, index) => 
-            apiRequest("POST", "/api/checklist-items", {
+        for (let i = 0; i < localItems.length; i++) {
+          const item = localItems[i];
+          if (item.text.trim()) { // Only add items with non-empty text
+            await apiRequest("POST", "/api/checklist-items", {
               templateId,
               text: item.text,
               required: item.required,
-              order: index
-            })
-          ));
+              order: i
+            });
+          }
         }
+
+        return templateId;
       } catch (error) {
         console.error("Error saving template:", error);
         throw error;
