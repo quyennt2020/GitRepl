@@ -11,6 +11,7 @@ import TaskCompletionDialog from "./TaskCompletionDialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 interface TaskListProps {
   plantId: number;
@@ -89,22 +90,30 @@ export default function TaskList({ plantId }: TaskListProps) {
       completed: boolean;
       checklistProgress?: Record<string, boolean>;
     }) => {
-      await apiRequest("PATCH", `/api/tasks/${taskId}`, {
+      const response = await apiRequest("PATCH", `/api/tasks/${taskId}`, {
         completed,
         completedAt: completed ? new Date().toISOString() : null,
-        checklistProgress,
+        checklistProgress
       });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to update task status");
+      }
+      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks", plantId] });
-      toast({ title: "Task status updated" });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", { plantId }] });
+      toast({ title: "Task status updated successfully" });
     },
     onError: (error) => {
       toast({
         title: "Failed to update task status",
-        description: error instanceof Error ? error.message : "Unknown error",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
         variant: "destructive",
       });
+      // Refetch to ensure our list is in sync with the server
+      refetchTasks();
     },
   });
 
@@ -120,7 +129,7 @@ export default function TaskList({ plantId }: TaskListProps) {
 
   return (
     <div className="space-y-4">
-      {tasks.map((task) => {
+      {tasks?.map((task) => {
         const template = templates?.find(t => t.id === task.templateId);
         const isOverdue = new Date(task.dueDate) < new Date() && !task.completed;
         const priority = template?.priority || 'low';
@@ -156,17 +165,24 @@ export default function TaskList({ plantId }: TaskListProps) {
                   size="icon"
                   onClick={() => {
                     if (task.completed) {
+                      // If task is completed, uncomplete it and clear checklist progress
                       updateTaskStatus({ 
                         taskId: task.id, 
                         completed: false,
                         checklistProgress: {} 
                       });
                     } else {
+                      // If task is not completed, show completion dialog
                       setCompletingTask(task);
                     }
                   }}
                 >
-                  <CheckCircle className="h-4 w-4" />
+                  <CheckCircle 
+                    className={cn(
+                      "h-4 w-4",
+                      task.completed && "text-primary fill-primary"
+                    )} 
+                  />
                 </Button>
 
                 <Button
