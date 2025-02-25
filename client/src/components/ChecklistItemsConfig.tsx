@@ -57,8 +57,15 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
   const handleDelete = (index: number) => {
     try {
       const updatedItems = internalItems.filter((_, i) => i !== index);
-      setInternalItems(updatedItems);
-      setLocalItems(updatedItems.map(item => ({
+
+      // Reorder remaining items
+      const reorderedItems = updatedItems.map((item, i) => ({
+        ...item,
+        order: i
+      }));
+
+      setInternalItems(reorderedItems);
+      setLocalItems(reorderedItems.map(item => ({
         text: item.text,
         required: true,
         order: item.order

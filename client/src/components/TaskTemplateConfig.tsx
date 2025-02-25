@@ -205,7 +205,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
 
   useEffect(() => {
     if (editingTemplate) {
-      // Reset form values
       form.reset({
         name: editingTemplate.name,
         category: editingTemplate.category,
@@ -217,7 +216,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         requiresExpertise: editingTemplate.requiresExpertise,
       });
 
-      // Load existing checklist items
       if (editingTemplate.id && allChecklistItems[editingTemplate.id]) {
         const items = allChecklistItems[editingTemplate.id];
         setLocalItems(items.map(item => ({
@@ -227,7 +225,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         })));
       }
     } else {
-      // Reset for new template
       form.reset({
         name: "",
         category: "water",
@@ -248,26 +245,23 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         let templateId: number;
 
         if (editingTemplate?.id) {
-          // Update existing template
-          await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, data);
-          templateId = editingTemplate.id;
+          const response = await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, data);
+          const updatedTemplate = await response.json();
+          templateId = updatedTemplate.id;
 
-          // Delete existing checklist items first
           const currentItems = allChecklistItems[editingTemplate.id] || [];
           for (const item of currentItems) {
             await apiRequest("DELETE", `/api/checklist-items/${item.id}`);
           }
         } else {
-          // Create new template
           const response = await apiRequest("POST", "/api/task-templates", data);
           const newTemplate = await response.json();
           templateId = newTemplate.id;
         }
 
-        // Add all checklist items
         for (let i = 0; i < localItems.length; i++) {
           const item = localItems[i];
-          if (item.text.trim()) { // Only add items with non-empty text
+          if (item.text.trim()) {
             await apiRequest("POST", "/api/checklist-items", {
               templateId,
               text: item.text,
