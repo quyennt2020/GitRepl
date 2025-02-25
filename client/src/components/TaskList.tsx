@@ -39,11 +39,9 @@ export default function TaskList({ plantId }: TaskListProps) {
   const [completingTask, setCompletingTask] = useState<CareTask | null>(null);
   const { toast } = useToast();
 
-  const { data: tasks } = useQuery<CareTask[]>({
+  const { data: tasks, refetch: refetchTasks } = useQuery<CareTask[]>({
     queryKey: ["/api/tasks", plantId],
   });
-
-
 
   const { data: templates } = useQuery<TaskTemplate[]>({
     queryKey: ["/api/task-templates"],
@@ -51,18 +49,29 @@ export default function TaskList({ plantId }: TaskListProps) {
 
   const { mutate: deleteTask } = useMutation({
     mutationFn: async (taskId: number) => {
-      await apiRequest("DELETE", `/api/tasks/${taskId}`);
+      try {
+        const response = await apiRequest("DELETE", `/api/tasks/${taskId}`);
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || "Failed to delete task");
+        }
+      } catch (error) {
+        throw error;
+      }
     },
     onSuccess: () => {
+      refetchTasks(); // Explicitly refetch to ensure our list is up to date
       queryClient.invalidateQueries({ queryKey: ["/api/tasks", plantId] });
       toast({ title: "Task deleted successfully" });
     },
     onError: (error) => {
       toast({
         title: "Failed to delete task",
-        description: error instanceof Error ? error.message : "Unknown error",
+        description: error instanceof Error ? error.message : "The task may have already been deleted",
         variant: "destructive",
       });
+      // Refetch to ensure our list is in sync with the server
+      refetchTasks();
     },
   });
 
@@ -160,14 +169,31 @@ export default function TaskList({ plantId }: TaskListProps) {
                   <Edit2 className="h-4 w-4" />
                 </Button>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteTask(task.id)}
-                  className="text-destructive hover:text-destructive/90"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive/90"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Task</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete this task? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => deleteTask(task.id)}>
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           </Card>

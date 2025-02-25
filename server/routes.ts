@@ -174,14 +174,14 @@ export function registerRoutes(app: Express): Server {
             })
           )
         );
-        res.status(201).json({ 
+        res.status(201).json({
           tasks,
-          appliedToAll: true 
+          appliedToAll: true
         });
       } else {
         // Otherwise, create task only for the specified plant
         const task = await storage.createCareTask(result.data);
-        res.status(201).json({ 
+        res.status(201).json({
           tasks: [task],
           appliedToAll: false
         });
@@ -233,16 +233,19 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
+      // First check if the task exists
+      const task = await storage.getCareTask(taskId);
+      if (!task) {
+        return res.status(404).json({
+          message: "Task not found",
+          code: "NOT_FOUND"
+        });
+      }
+
       await storage.deleteCareTask(taskId);
       res.status(204).end();
     } catch (error) {
       console.error('Error in delete task route:', error);
-      if (error instanceof Error && error.message.includes('not found')) {
-        return res.status(404).json({
-          message: error.message,
-          code: "NOT_FOUND"
-        });
-      }
       res.status(500).json({
         message: error instanceof Error ? error.message : "Failed to delete task",
         code: "SERVER_ERROR"
