@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ChecklistItem } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface ChecklistItemsConfigProps {
   templateId: number;
@@ -18,68 +19,58 @@ export default function ChecklistItemsConfig({ templateId, setLocalItems }: Chec
     queryKey: [`/api/task-templates/${templateId}/checklist`],
   });
 
-  useEffect(() => {
-    if (checklistItems.length > 0) {
-      setInternalItems(checklistItems);
-      setLocalItems(checklistItems.map(item => ({
-        text: item.text,
-        required: true,
-        order: item.order
-      })));
-    }
-  }, [checklistItems, setLocalItems]);
-
-  const handleAdd = () => {
-    const newItem = {
-      templateId,
-      text: "",
-      order: internalItems.length,
-    };
-    const newInternalItems = [...internalItems, { ...newItem, id: Date.now() } as ChecklistItem];
-    setInternalItems(newInternalItems);
-    setLocalItems(newInternalItems.map(item => ({
-      text: item.text,
-      required: true,
-      order: item.order
-    })));
-  };
-
   const { mutate: deleteChecklistItem } = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/checklist-items/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/task-templates/${templateId}/checklist`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
     },
   });
 
+  useEffect(() => {
+    setInternalItems(checklistItems);
+    setLocalItems(checklistItems.map(item => ({
+      text: item.text,
+      required: true,
+      order: item.order
+    })));
+  }, [checklistItems, setLocalItems]);
+
+  const handleAdd = () => {
+    const newItem = {
+      id: Date.now(),
+      templateId,
+      text: "",
+      order: internalItems.length,
+      required: true
+    } as ChecklistItem;
+    
+    setInternalItems(prev => [...prev, newItem]);
+    setLocalItems(prev => [...prev, {
+      text: newItem.text,
+      required: true,
+      order: newItem.order
+    }]);
+  };
+
   const handleDelete = (index: number) => {
     const item = internalItems[index];
-    if (item.id) {
-      deleteChecklistItem(item.id);
+    if (item.id && !isNaN(Number(item.id))) {
+      deleteChecklistItem(Number(item.id));
     }
-    setInternalItems(items => {
-      const newItems = items.filter((_, i) => i !== index);
-      setLocalItems(newItems.map(item => ({
-        text: item.text,
-        required: true,
-        order: item.order
-      })));
-      return newItems;
-    });
+    
+    setInternalItems(prev => prev.filter((_, i) => i !== index));
+    setLocalItems(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleTextChange = (index: number, text: string) => {
-    setInternalItems(items => {
-      const newItems = items.map((item, i) => (i === index ? { ...item, text } : item));
-      setLocalItems(newItems.map(item => ({
-        text: item.text,
-        required: true,
-        order: item.order
-      })));
-      return newItems;
-    });
+    setInternalItems(prev => 
+      prev.map((item, i) => i === index ? { ...item, text } : item)
+    );
+    setLocalItems(prev =>
+      prev.map((item, i) => i === index ? { ...item, text } : item)
+    );
   };
 
   return (
