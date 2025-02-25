@@ -87,14 +87,20 @@ export function registerRoutes(app: Express): Server {
 
   // Checklist Items routes
   app.get("/api/task-templates/checklist-items", async (req, res) => {
-    const templates = await storage.getTaskTemplates();
-    const checklistItemsByTemplate: Record<number, ChecklistItem[]> = {};
-    
-    for (const template of templates) {
-      checklistItemsByTemplate[template.id] = await storage.getChecklistItems(template.id);
+    try {
+      const templates = await storage.getTaskTemplates();
+      const checklistItemsByTemplate: Record<number, ChecklistItem[]> = {};
+      
+      await Promise.all(templates.map(async (template) => {
+        const items = await storage.getChecklistItems(template.id);
+        checklistItemsByTemplate[template.id] = items;
+      }));
+      
+      res.json(checklistItemsByTemplate);
+    } catch (error) {
+      console.error('Error fetching checklist items:', error);
+      res.status(500).json({ message: "Failed to fetch checklist items" });
     }
-    
-    res.json(checklistItemsByTemplate);
   });
 
   app.get("/api/task-templates/:templateId/checklist", async (req, res) => {
