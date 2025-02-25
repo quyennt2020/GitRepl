@@ -95,7 +95,7 @@ export default function ChecklistItemsPage() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center gap-4">
-        <Link href="/templates">
+        <Link href="/settings">
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
