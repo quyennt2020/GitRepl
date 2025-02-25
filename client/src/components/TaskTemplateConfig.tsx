@@ -143,14 +143,20 @@ export default function TaskTemplateConfig() {
           <DialogHeader>
             <DialogTitle>{editingTemplate ? "Edit Task Template" : "New Task Template"}</DialogTitle>
           </DialogHeader>
-          <CreateTemplateForm editingTemplate={editingTemplate} onSuccess={() => setIsDialogOpen(false)} />
+          <CreateTemplateForm editingTemplate={editingTemplate} allChecklistItems={allChecklistItems} onSuccess={() => setIsDialogOpen(false)} />
         </DialogContent>
       </Dialog>
     </div>
   );
 }
 
-function CreateTemplateForm({ editingTemplate, onSuccess }: { editingTemplate: TaskTemplate | null; onSuccess: () => void }) {
+interface CreateTemplateFormProps {
+  template: TaskTemplate | null;
+  allChecklistItems: Record<number, ChecklistItem[]>;
+  onSuccess: () => void;
+}
+
+function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: CreateTemplateFormProps) {
   const { toast } = useToast();
 
   const form = useForm({
