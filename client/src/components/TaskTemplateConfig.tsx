@@ -180,25 +180,44 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
     mutationFn: async (template: z.infer<typeof insertTaskTemplateSchema>) => {
       if (editingTemplate?.id) {
         // Update template first
-        const updatedTemplate = await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, template);
-        if (!updatedTemplate.ok) {
-          throw new Error("Failed to update template");
-        }
-
+        await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, template);
+        
         // Get current checklist items
         const currentItems = allChecklistItems?.[editingTemplate.id] || [];
         
-        try {
-          // First delete all existing checklist items
-          await Promise.all(currentItems.map(item => 
-            apiRequest("DELETE", `/api/checklist-items/${item.id}`, {})
+        // First delete all existing checklist items
+        await Promise.all(currentItems.map(item => 
+          apiRequest("DELETE", `/api/checklist-items/${item.id}`)
+        ));
+        
+        // Add new checklist items
+        if (localItems.length > 0) {
+          await Promise.all(localItems.map((item, index) => 
+            apiRequest("POST", "/api/checklist-items", {
+              templateId: editingTemplate.id,
+              text: item.text,
+              required: item.required,
+              order: index
+            })
           ));
-
-          // Verify deletion
-          const checklistResponse = await apiRequest("GET", `/api/task-templates/${editingTemplate.id}/checklist`);
-          if (!checklistResponse.ok) {
-            throw new Error("Failed to verify checklist items deletion");
-          }
+        }
+      } else {
+        // Create new template
+        const response = await apiRequest("POST", "/api/task-templates", template);
+        const newTemplate = await response.json();
+        
+        // Add checklist items to new template
+        if (localItems.length > 0) {
+          await Promise.all(localItems.map((item, index) => 
+            apiRequest("POST", "/api/checklist-items", {
+              templateId: newTemplate.id,
+              text: item.text,
+              required: item.required,
+              order: index
+            })
+          ));
+        }
+      }
 
         // Then create new checklist items
           const results = await Promise.all(localItems.map((item, index) => 
