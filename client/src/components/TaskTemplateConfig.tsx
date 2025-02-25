@@ -165,20 +165,27 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
   const { toast } = useToast();
 
   const { mutate: updateTemplate } = useMutation({
-    mutationFn: async (template: Partial<TaskTemplate>) => {
+    mutationFn: async (template: z.infer<typeof insertTaskTemplateSchema>) => {
       if (editingTemplate?.id) {
         await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, template);
-        queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-        queryClient.invalidateQueries({ queryKey: [`/api/task-templates/${editingTemplate.id}/checklist`] });
-        toast({ title: "Template updated successfully" });
-        onSuccess?.();
+        // Also update checklist items
+        const checklistItems = allChecklistItems?.[editingTemplate.id] || [];
+        await Promise.all(checklistItems.map(item => 
+          apiRequest("PATCH", `/api/checklist-items/${item.id}`, { text: item.text })
+        ));
       }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/task-templates/checklist-items"] });
+      toast({ title: "Template updated successfully" });
+      onSuccess?.();
     },
     onError: (error) => {
       toast({ 
-        title: "Failed to update template", 
+        title: "Failed to update template",
         variant: "destructive",
-        description: error instanceof Error ? error.message : "Unknown error"
+        description: error instanceof Error ? error.message : "Unknown error occurred"
       });
     }
   });
