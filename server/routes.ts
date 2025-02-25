@@ -167,7 +167,7 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
-      // Check if template is public
+      // Check if template is public - this is required for task creation
       if (!template.public) {
         return res.status(403).json({
           message: "This template is not public and cannot be used to create tasks",
@@ -175,29 +175,30 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
-      // If template is public but applyToAll is false or null, create single task
-      if (!template.applyToAll) {
-        const task = await storage.createCareTask(result.data);
+      // If applyToAll is true and this is marked as a bulk operation
+      if (template.applyToAll && req.query.bulkCreate === 'true') {
+        // Create tasks for all plants
+        const plants = await storage.getPlants();
+        const tasks = await Promise.all(
+          plants.map(plant =>
+            storage.createCareTask({
+              ...result.data,
+              plantId: plant.id
+            })
+          )
+        );
+
         return res.status(201).json({
-          tasks: [task],
-          appliedToAll: false
+          tasks,
+          appliedToAll: true
         });
-      }
+      } 
 
-      // If template is public and applyToAll is true, create tasks for all plants
-      const plants = await storage.getPlants();
-      const tasks = await Promise.all(
-        plants.map(plant =>
-          storage.createCareTask({
-            ...result.data,
-            plantId: plant.id
-          })
-        )
-      );
-
-      res.status(201).json({
-        tasks,
-        appliedToAll: true
+      // For single plant task creation
+      const task = await storage.createCareTask(result.data);
+      return res.status(201).json({
+        tasks: [task],
+        appliedToAll: false
       });
 
     } catch (error) {

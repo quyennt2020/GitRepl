@@ -46,7 +46,9 @@ export default function TaskForm({ plantId }: TaskFormProps) {
 
   const { mutate: createTask, isPending } = useMutation({
     mutationFn: async (data: InsertCareTask) => {
-      const response = await apiRequest("POST", "/api/tasks", data);
+      // If the template has applyToAll enabled, add the query parameter
+      const queryParam = selectedTemplate?.applyToAll ? '?bulkCreate=true' : '';
+      const response = await apiRequest("POST", `/api/tasks${queryParam}`, data);
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || "Failed to create task");
