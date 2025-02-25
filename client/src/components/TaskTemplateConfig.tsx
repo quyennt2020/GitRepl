@@ -168,12 +168,19 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
     mutationFn: async (template: Partial<TaskTemplate>) => {
       if (editingTemplate?.id) {
         await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, template);
+        queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
+        queryClient.invalidateQueries({ queryKey: [`/api/task-templates/${editingTemplate.id}/checklist`] });
+        toast({ title: "Template updated successfully" });
+        onSuccess?.();
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      onSuccess?.();
-    },
+    onError: (error) => {
+      toast({ 
+        title: "Failed to update template", 
+        variant: "destructive",
+        description: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
   });
 
   const form = useForm({
