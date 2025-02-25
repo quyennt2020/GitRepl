@@ -163,30 +163,33 @@ interface CreateTemplateFormProps {
 
 function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: CreateTemplateFormProps) {
   const { toast } = useToast();
+  const [localItems, setLocalItems] = useState<Array<{text: string, required: boolean, order: number}>[]>([]); // Added state for local items
 
   const { mutate: updateTemplate } = useMutation({
     mutationFn: async (template: z.infer<typeof insertTaskTemplateSchema>) => {
       if (editingTemplate?.id) {
         // Update template first
         await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, template);
-        
+
         // Get current checklist items
         const currentItems = allChecklistItems?.[editingTemplate.id] || [];
-        
+
         // First delete all existing checklist items
         await Promise.all(currentItems.map(item => 
           apiRequest("DELETE", `/api/checklist-items/${item.id}`, {})
         ));
-        
+
         // Then create new checklist items
         await Promise.all(localItems.map((item, index) => 
           apiRequest("POST", "/api/checklist-items", {
             templateId: editingTemplate.id,
             text: item.text,
             order: index,
-            required: true
+            required: item.required // Added required field
           })
         ));
+      } else {
+        await apiRequest("POST", "/api/task-templates", template);
       }
     },
     onSuccess: () => {
@@ -222,9 +225,11 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
     try {
       if (!editingTemplate?.id) {
         await apiRequest("POST", "/api/task-templates", data);
-        queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
+      } else {
+        await updateTemplate(data);
       }
       onSuccess?.();
+      
     } catch (error) {
       console.error("Failed to save template:", error);
     }
@@ -328,7 +333,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         </div>
 
         {editingTemplate?.id && (
-            <ChecklistItemsConfig templateId={editingTemplate.id} />
+            <ChecklistItemsConfig templateId={editingTemplate.id} setLocalItems={setLocalItems} /> {/* Pass setLocalItems */}
         )}
 
         <div className="flex items-center gap-2">
