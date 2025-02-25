@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { TaskTemplate, ChecklistItem, insertTaskTemplateSchema, insertChecklistItemSchema } from "@shared/schema";
+import { TaskTemplate, ChecklistItem, insertTaskTemplateSchema } from "@shared/schema";
 import ChecklistItemsConfig from "./ChecklistItemsConfig";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -89,15 +89,9 @@ export default function TaskTemplateConfig() {
                 <h3 className="font-medium">{template.name}</h3>
                 <p className="text-sm text-muted-foreground">{template.description}</p>
                 <div className="flex gap-2 mt-2">
-                  <Badge variant="outline">
-                    {template.category}
-                  </Badge>
-                  <Badge variant="outline">
-                    {template.priority} priority
-                  </Badge>
-                  <Badge variant="outline">
-                    {template.defaultInterval} days interval
-                  </Badge>
+                  <Badge variant="outline">{template.category}</Badge>
+                  <Badge variant="outline">{template.priority} priority</Badge>
+                  <Badge variant="outline">{template.defaultInterval} days interval</Badge>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -161,7 +155,12 @@ export default function TaskTemplateConfig() {
         ))}
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setEditingTemplate(null);
+        }
+        setIsDialogOpen(open);
+      }}>
         <DialogContent className="max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{editingTemplate ? "Edit Task Template" : "New Task Template"}</DialogTitle>
@@ -170,7 +169,10 @@ export default function TaskTemplateConfig() {
             <CreateTemplateForm 
               editingTemplate={editingTemplate} 
               allChecklistItems={allChecklistItems} 
-              onSuccess={() => setIsDialogOpen(false)} 
+              onSuccess={() => {
+                setIsDialogOpen(false);
+                setEditingTemplate(null);
+              }} 
             />
           </div>
         </DialogContent>
@@ -183,7 +185,21 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
   const { toast } = useToast();
   const [localItems, setLocalItems] = useState<Array<{text: string, required: boolean, order: number}>>([]);
 
-  const { mutate: saveTemplate } = useMutation({
+  const form = useForm<z.infer<typeof insertTaskTemplateSchema>>({
+    resolver: zodResolver(insertTaskTemplateSchema),
+    defaultValues: {
+      name: editingTemplate?.name ?? "",
+      category: editingTemplate?.category ?? "water",
+      description: editingTemplate?.description ?? "",
+      priority: editingTemplate?.priority ?? "medium",
+      defaultInterval: editingTemplate?.defaultInterval ?? 7,
+      applyToAll: editingTemplate?.applyToAll ?? false,
+      estimatedDuration: editingTemplate?.estimatedDuration ?? 15,
+      requiresExpertise: editingTemplate?.requiresExpertise ?? false,
+    },
+  });
+
+  const { mutate: saveTemplate, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
       let templateId: number;
 
@@ -233,20 +249,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         variant: "destructive",
         description: error instanceof Error ? error.message : "Unknown error occurred"
       });
-    }
-  });
-
-  const form = useForm({
-    resolver: zodResolver(insertTaskTemplateSchema),
-    defaultValues: editingTemplate || {
-      name: "",
-      category: "water",
-      description: "",
-      priority: "medium",
-      applyToAll: false,
-      defaultInterval: 7,
-      estimatedDuration: 15,
-      requiresExpertise: false,
     },
   });
 
@@ -347,7 +349,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
           />
         </div>
 
-        {/* Always show ChecklistItemsConfig regardless of new or edit */}
         <ChecklistItemsConfig 
           templateId={editingTemplate?.id ?? -1} 
           setLocalItems={setLocalItems} 
@@ -370,7 +371,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
           )}
         />
 
-        <Button type="submit" className="w-full">
+        <Button type="submit" className="w-full" disabled={isPending}>
           {editingTemplate ? "Update Template" : "Create Template"}
         </Button>
       </form>
