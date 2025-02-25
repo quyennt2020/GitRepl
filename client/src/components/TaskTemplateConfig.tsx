@@ -30,6 +30,7 @@ export default function TaskTemplateConfig() {
 
   const { data: allChecklistItems = {}, isLoading: checklistLoading } = useQuery<Record<number, ChecklistItem[]>>({
     queryKey: ["/api/task-templates/checklist-items"],
+    enabled: !!templates,
   });
 
   const { mutate: updateTemplate } = useMutation({
