@@ -23,9 +23,6 @@ export function registerRoutes(app: Express): Server {
     }
 
     const plant = await storage.createPlant(result.data);
-
-    // Do not automatically create any tasks for new plants
-    // Tasks will be created only when explicitly requested or when assigned through the UI
     res.status(201).json(plant);
   });
 
@@ -158,8 +155,38 @@ export function registerRoutes(app: Express): Server {
     if (!result.success) {
       return res.status(400).json({ message: result.error.message });
     }
-    const task = await storage.createCareTask(result.data);
-    res.status(201).json(task);
+
+    try {
+      // Get the template to check applyToAll setting
+      const template = await storage.getTaskTemplate(result.data.templateId);
+      if (!template) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+
+      if (template.applyToAll) {
+        // If applyToAll is true, create task for all plants
+        const plants = await storage.getPlants();
+        const tasks = await Promise.all(
+          plants.map(plant =>
+            storage.createCareTask({
+              ...result.data,
+              plantId: plant.id
+            })
+          )
+        );
+        res.status(201).json(tasks);
+      } else {
+        // If applyToAll is false, create task only for the specified plant
+        const task = await storage.createCareTask(result.data);
+        res.status(201).json(task);
+      }
+    } catch (error) {
+      console.error('Error creating task:', error);
+      res.status(500).json({
+        message: error instanceof Error ? error.message : "Failed to create task",
+        code: "SERVER_ERROR"
+      });
+    }
   });
 
   app.patch("/api/tasks/:id", async (req, res) => {

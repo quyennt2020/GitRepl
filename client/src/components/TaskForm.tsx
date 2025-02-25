@@ -6,9 +6,10 @@ import { TaskTemplate, insertCareTaskSchema, type InsertCareTask } from "@shared
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Plus, CalendarIcon } from "lucide-react";
+import { Plus, CalendarIcon, Info } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +24,7 @@ interface TaskFormProps {
 export default function TaskForm({ plantId }: TaskFormProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | null>(null);
 
   const form = useForm<InsertCareTask>({
     resolver: zodResolver(insertCareTaskSchema),
@@ -40,13 +42,19 @@ export default function TaskForm({ plantId }: TaskFormProps) {
 
   const { mutate: createTask, isPending } = useMutation({
     mutationFn: async (data: InsertCareTask) => {
-      await apiRequest("POST", "/api/tasks", data);
+      const response = await apiRequest("POST", "/api/tasks", data);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-      toast({ title: "Task created successfully" });
+      const applyToAll = selectedTemplate?.applyToAll;
+      toast({ 
+        title: "Task created successfully", 
+        description: applyToAll ? "Task has been created for all plants" : undefined
+      });
       setOpen(false);
       form.reset();
+      setSelectedTemplate(null);
     },
     onError: (error) => {
       toast({
@@ -55,6 +63,12 @@ export default function TaskForm({ plantId }: TaskFormProps) {
       });
     },
   });
+
+  const handleTemplateChange = (templateId: string) => {
+    const template = templates?.find(t => t.id === parseInt(templateId));
+    setSelectedTemplate(template || null);
+    form.setValue("templateId", parseInt(templateId));
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -76,9 +90,25 @@ export default function TaskForm({ plantId }: TaskFormProps) {
               name="templateId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Task Type</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Task Type</FormLabel>
+                    {selectedTemplate && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger className="cursor-help">
+                            <Info className="h-4 w-4 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {selectedTemplate.applyToAll 
+                              ? "This task will be created for all plants" 
+                              : "This task will only be created for the selected plant"}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={handleTemplateChange}
                     value={field.value?.toString() || ""}
                   >
                     <FormControl>
