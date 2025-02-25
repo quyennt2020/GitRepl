@@ -296,11 +296,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess, allChecklistItems }: C
         {editingTemplate?.id && (
             <ChecklistItemsConfig templateId={editingTemplate.id} />
         )}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Checklist Item
-          </Button>
-        </div>
 
         <div className="flex items-center gap-2">
           <FormField
