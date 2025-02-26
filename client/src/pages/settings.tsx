@@ -71,18 +71,34 @@ export default function Settings() {
 
   const handleDownloadBackup = async () => {
     try {
-      const response = await fetch('/api/backup');
+      console.log('Initiating backup download...');
+      const response = await fetch('/api/backup', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        }
+      });
+
       if (!response.ok) {
-        throw new Error('Failed to download backup');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to download backup');
       }
 
       const blob = await response.blob();
+      console.log(`Received blob of size: ${blob.size} bytes`);
+
+      if (blob.size === 0) {
+        throw new Error('Received empty file');
+      }
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `plant_care_backup_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
       document.body.appendChild(a);
       a.click();
+
+      // Cleanup
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
@@ -91,6 +107,7 @@ export default function Settings() {
         description: "Your plant care data has been exported to Excel"
       });
     } catch (error) {
+      console.error('Error downloading backup:', error);
       toast({
         title: "Download failed",
         description: error instanceof Error ? error.message : "Failed to download backup",

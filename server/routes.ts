@@ -336,11 +336,18 @@ export function registerRoutes(app: Express): Server {
   // Database backup route
   app.get("/api/backup", async (_req, res) => {
     try {
+      console.log('Starting database backup to Excel...');
       const buffer = await exportToExcel();
+      console.log(`Generated Excel buffer of size: ${buffer.length} bytes`);
 
+      // Set proper headers for Excel file download
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename=plant_care_backup.xlsx');
+      res.setHeader('Content-Disposition', `attachment; filename=plant_care_backup_${new Date().toISOString().split('T')[0]}.xlsx`);
+      res.setHeader('Content-Length', buffer.length);
+
+      // Send the buffer
       res.send(buffer);
+      console.log('Successfully sent Excel backup file');
     } catch (error) {
       console.error('Error in backup route:', error);
       res.status(500).json({ 
