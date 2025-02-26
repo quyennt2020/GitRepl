@@ -5,13 +5,18 @@ import { insertPlantSchema, insertCareTaskSchema, insertHealthRecordSchema, inse
 import type { ChecklistItem } from "@shared/schema";
 import { exportToExcel, importFromExcel } from './utils/excel';
 import multer from 'multer';
-import { db } from './db';
+import { getDb as db } from './db';
 import { sql } from "drizzle-orm";
 
 const EXCEL_INIT_ERROR = 'Failed to initialize Excel export';
 const BACKUP_ERROR = 'Failed to create backup';
 
+// Deferred operations flag to avoid heavy operations during startup
+let isDatabaseVerified = false;
+
 export function registerRoutes(app: Express): Server {
+  console.log('Starting route registration...');
+
   // Configure multer for file uploads
   const upload = multer({ 
     storage: multer.memoryStorage(),
@@ -372,19 +377,22 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-
-  // Database backup route
+  // Database backup route - Optimized to avoid blocking startup
   app.get("/api/backup", async (_req, res) => {
     try {
       console.log('Starting database backup to Excel...');
 
-      // Verify database connection first
-      try {
-        const result = await db.execute(sql`SELECT COUNT(*) FROM plants LIMIT 1`);
-        console.log('Database connection verified');
-      } catch (dbError) {
-        console.error('Database connection failed:', dbError);
-        throw new Error('Database connection failed');
+      // Only verify database connection once and cache the result
+      if (!isDatabaseVerified) {
+        try {
+          // Lightweight database check - just ensure connection works
+          await db().execute(sql`SELECT 1`);
+          console.log('Database connection verified');
+          isDatabaseVerified = true;
+        } catch (dbError) {
+          console.error('Database connection failed:', dbError);
+          throw new Error('Database connection failed');
+        }
       }
 
       const buffer = await exportToExcel();
@@ -429,9 +437,10 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Create HTTP server with improved error handling
   const httpServer = createServer(app);
 
-  // Add error handler for server startup
+  // Add error handler for server startup with more robust port handling
   httpServer.on('error', (error: Error & { code?: string }) => {
     if (error.code === 'EADDRINUSE') {
       console.error('Port 5000 is already in use. Please free up the port and try again.');
@@ -442,5 +451,23 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Ensure clean shutdown on process termination
+  process.on('SIGINT', () => {
+    console.log('SIGINT received. Shutting down gracefully...');
+    httpServer.close(() => {
+      console.log('Server closed. Exiting process.');
+      process.exit(0);
+    });
+  });
+
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received. Shutting down gracefully...');
+    httpServer.close(() => {
+      console.log('Server closed. Exiting process.');
+      process.exit(0);
+    });
+  });
+
+  console.log('Route registration complete.');
   return httpServer;
 }
