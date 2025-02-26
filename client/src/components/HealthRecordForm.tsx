@@ -74,7 +74,7 @@ export default function HealthRecordForm({ plantId, recordId, onSuccess }: Healt
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => mutate(data))} className="space-y-3 md:space-y-4">
+      <form onSubmit={form.handleSubmit((data) => mutate(data))} className="space-y-4">
         <FormField
           control={form.control}
           name="healthScore"

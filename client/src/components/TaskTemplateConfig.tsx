@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit2, Info, Plus, Trash2, List, Loader2 } from "lucide-react";
+import { Edit2, Info, Plus, Trash2, List } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
@@ -36,59 +36,30 @@ export default function TaskTemplateConfig() {
 
   const { mutate: updateTemplate } = useMutation({
     mutationFn: async ({ id, applyToAll }: { id: number; applyToAll: boolean }) => {
-      const response = await apiRequest("PATCH", `/api/task-templates/${id}`, { applyToAll });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to update template');
-      }
+      await apiRequest("PATCH", `/api/task-templates/${id}`, { applyToAll });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      toast({ 
-        title: "Template updated successfully",
-        description: "Changes have been saved" 
-      });
+      toast({ title: "Template updated successfully" });
     },
-    onError: (error) => {
-      toast({
-        title: "Failed to update template",
-        description: error instanceof Error ? error.message : "An error occurred",
-        variant: "destructive"
-      });
-    }
   });
 
   const { mutate: deleteTemplate } = useMutation({
     mutationFn: async (id: number) => {
-      const response = await apiRequest("DELETE", `/api/task-templates/${id}`);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to delete template');
-      }
+      await apiRequest("DELETE", `/api/task-templates/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      toast({ 
-        title: "Template deleted successfully",
-        description: "The template has been removed" 
-      });
+      toast({ title: "Template deleted successfully" });
     },
-    onError: (error) => {
-      toast({
-        title: "Failed to delete template",
-        description: error instanceof Error ? error.message : "An error occurred",
-        variant: "destructive"
-      });
-    }
   });
 
   if (isLoading) {
-    return <div className="flex items-center justify-center p-8">Loading...</div>;
+    return <div>Loading...</div>;
   }
 
-  // Fix Set iteration by converting to array first
-  const uniqueTemplateNames = Array.from(new Set(templates?.map(t => t.name) || []));
-  const sortedTemplates = templates?.filter(template => uniqueTemplateNames.includes(template.name))
+  const uniqueTemplates = [...new Set(templates?.map(t => t.name))];
+  const sortedTemplates = templates?.filter(template => uniqueTemplates.includes(template.name))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
@@ -132,7 +103,7 @@ export default function TaskTemplateConfig() {
                   </Tooltip>
                 </TooltipProvider>
                 <Switch
-                  checked={template.applyToAll || false}
+                  checked={template.applyToAll}
                   onCheckedChange={(checked) => {
                     updateTemplate({ id: template.id, applyToAll: checked });
                   }}
@@ -211,44 +182,30 @@ export default function TaskTemplateConfig() {
   );
 }
 
-export function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormProps) {
+function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormProps) {
   const { toast } = useToast();
 
-  const validationSchema = insertTaskTemplateSchema.extend({
-    defaultInterval: z.number().min(1, "Interval must be at least 1 day"),
-    estimatedDuration: z.number().min(5, "Duration must be at least 5 minutes"),
-  });
-
-  const form = useForm<z.infer<typeof validationSchema>>({
-    resolver: zodResolver(validationSchema),
-    defaultValues: {
-      name: editingTemplate?.name || "",
-      category: (editingTemplate?.category as "water" | "fertilize" | "prune" | "check" | "repot" | "clean") || "water",
-      description: editingTemplate?.description || "",
-      priority: (editingTemplate?.priority as "low" | "medium" | "high") || "medium",
-      defaultInterval: editingTemplate?.defaultInterval || 7,
-      applyToAll: editingTemplate?.applyToAll || false,
-      estimatedDuration: editingTemplate?.estimatedDuration || 15,
-      requiresExpertise: editingTemplate?.requiresExpertise || false,
-      public: editingTemplate?.public ?? true,
-      metadata: editingTemplate?.metadata || {}
+  const form = useForm<z.infer<typeof insertTaskTemplateSchema>>({
+    resolver: zodResolver(insertTaskTemplateSchema),
+    defaultValues: editingTemplate || {
+      name: "",
+      category: "water",
+      description: "",
+      priority: "medium",
+      defaultInterval: 7,
+      applyToAll: false,
+      estimatedDuration: 15,
+      requiresExpertise: false,
     },
   });
 
   const { mutate: saveTemplate, isPending } = useMutation({
-    mutationFn: async (data: z.infer<typeof validationSchema>) => {
-      const response = await apiRequest(
-        editingTemplate?.id ? "PATCH" : "POST",
-        editingTemplate?.id ? `/api/task-templates/${editingTemplate.id}` : "/api/task-templates",
-        data
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || `Failed to ${editingTemplate ? "update" : "create"} template`);
+    mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
+      if (editingTemplate?.id) {
+        await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, data);
+      } else {
+        await apiRequest("POST", "/api/task-templates", data);
       }
-
-      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
@@ -257,7 +214,6 @@ export function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplat
         description: "All changes have been saved to the database"
       });
       onSuccess?.();
-      form.reset();
     },
     onError: (error) => {
       toast({ 
@@ -317,12 +273,7 @@ export function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplat
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea 
-                  {...field} 
-                  placeholder="Template description" 
-                  value={field.value || ""}
-                  className="resize-none"
-                />
+                <Textarea {...field} placeholder="Template description" value={field.value || ""} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -387,25 +338,14 @@ export function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplat
                   onCheckedChange={field.onChange}
                 />
               </FormControl>
-              <div className="space-y-0.5">
-                <FormLabel className="!mt-0">Apply to all plants</FormLabel>
-                <p className="text-sm text-muted-foreground">
-                  When enabled, this task will be available for all plants
-                </p>
-              </div>
+              <FormLabel className="!mt-0">Apply to all plants</FormLabel>
+              <FormMessage />
             </FormItem>
           )}
         />
 
         <Button type="submit" className="w-full" disabled={isPending}>
-          {isPending ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {editingTemplate ? "Updating..." : "Creating..."}
-            </>
-          ) : (
-            editingTemplate ? "Update Template" : "Create Template"
-          )}
+          {editingTemplate ? "Update Template" : "Create Template"}
         </Button>
       </form>
     </Form>

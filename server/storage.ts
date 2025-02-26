@@ -38,8 +38,6 @@ export interface IStorage {
   getHealthRecord(id: number): Promise<HealthRecord | undefined>;
   createHealthRecord(record: InsertHealthRecord): Promise<HealthRecord>;
   updateHealthRecord(id: number, record: Partial<HealthRecord>): Promise<HealthRecord>;
-  getAllHealthRecords(): Promise<HealthRecord[]>;
-  getAllChecklistItems(): Promise<ChecklistItem[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -164,8 +162,8 @@ export class DatabaseStorage implements IStorage {
       notes: careTasks.notes,
       checklistProgress: careTasks.checklistProgress,
     })
-      .from(careTasks)
-      .leftJoin(taskTemplates, eq(careTasks.templateId, taskTemplates.id));
+    .from(careTasks)
+    .leftJoin(taskTemplates, eq(careTasks.templateId, taskTemplates.id));
 
     if (plantId) {
       return await query.where(eq(careTasks.plantId, plantId));
@@ -255,22 +253,6 @@ export class DatabaseStorage implements IStorage {
       .returning();
     if (!record) throw new Error("Health record not found");
     return record;
-  }
-
-  // Method for getting all health records (needed for export)
-  async getAllHealthRecords(): Promise<HealthRecord[]> {
-    return await db
-      .select()
-      .from(healthRecords)
-      .orderBy(desc(healthRecords.date));
-  }
-
-  // Method for getting all checklist items (needed for export)
-  async getAllChecklistItems(): Promise<ChecklistItem[]> {
-    return await db
-      .select()
-      .from(checklistItems)
-      .orderBy(checklistItems.templateId, checklistItems.order);
   }
 }
 

@@ -76,7 +76,7 @@ export default function HealthTrend({ plantId }: HealthTrendProps) {
           )}
         </CardHeader>
         <CardContent className="p-6">
-          <div className="h-[200px] md:h-[300px] w-full">
+          <div className="h-[300px] w-full">
             <ResponsiveContainer>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
