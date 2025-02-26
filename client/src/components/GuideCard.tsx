@@ -9,7 +9,7 @@ interface GuideCardProps {
 
 export default function GuideCard({ title, image, description }: GuideCardProps) {
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden w-full">
       <AspectRatio ratio={16/9}>
         <img 
           src={image} 

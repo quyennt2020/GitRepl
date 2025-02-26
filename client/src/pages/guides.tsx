@@ -25,9 +25,9 @@ const GUIDES = [
 
 export default function Guides() {
   return (
-    <div className="container py-6 space-y-6">
-      <h1 className="text-3xl font-bold">Plant Care Guides</h1>
-      <div className="grid gap-6">
+    <div className="container mobile-container space-y-4 md:space-y-6">
+      <h1 className="text-2xl md:text-3xl font-bold">Plant Care Guides</h1>
+      <div className="mobile-grid">
         {GUIDES.map(guide => (
           <GuideCard key={guide.title} {...guide} />
         ))}
