@@ -3,8 +3,26 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertPlantSchema, insertCareTaskSchema, insertHealthRecordSchema, insertTaskTemplateSchema, insertChecklistItemSchema } from "@shared/schema";
 import type { ChecklistItem } from "@shared/schema";
+import { exportToExcel, importFromExcel } from './utils/excel';
+import multer from 'multer';
 
 export function registerRoutes(app: Express): Server {
+  // Configure multer for file uploads
+  const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5MB limit
+    },
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+        cb(null, true);
+      } else {
+        cb(null, false);
+        cb(new Error('Only .xlsx files are allowed'));
+      }
+    }
+  });
+
   // Plants routes
   app.get("/api/plants", async (_req, res) => {
     const plants = await storage.getPlants();
@@ -313,6 +331,41 @@ export function registerRoutes(app: Express): Server {
     }
     const record = await storage.updateHealthRecord(Number(req.params.id), result.data);
     res.json(record);
+  });
+
+  // Database backup route
+  app.get("/api/backup", async (_req, res) => {
+    try {
+      const buffer = await exportToExcel();
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=plant_care_backup.xlsx');
+      res.send(buffer);
+    } catch (error) {
+      console.error('Error in backup route:', error);
+      res.status(500).json({ 
+        message: "Failed to create backup",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Database import route
+  app.post("/api/import", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const result = await importFromExcel(req.file.buffer);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in import route:', error);
+      res.status(500).json({ 
+        message: "Failed to import data",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
   });
 
   const httpServer = createServer(app);

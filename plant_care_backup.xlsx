@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <style data-vite-theme="" data-inject-first="">:root {
+      --background: 138 44% 97%;
+--foreground: 139 100% 1%;
+--muted: 139 44% 84%;
+--muted-foreground: 139 100% 1%;
+--popover: 138 44% 97%;
+--popover-foreground: 139 100% 1%;
+--card: 138 44% 97%;
+--card-foreground: 139 100% 1%;
+--border: 139 44% 84%;
+--input: 139 44% 84%;
+--primary: 142 23% 35%;
+--primary-foreground: 137 13% 98%;
+--secondary: 139 66% 89%;
+--secondary-foreground: 139 100% 1%;
+--accent: 139 66% 89%;
+--accent-foreground: 139 100% 1%;
+--destructive: 0 84.2% 60.2%;
+--destructive-foreground: 60 9.1% 97.8%;
+--ring: 142 23% 35%;
+--radius: 1rem;
+  }
+  .dark {
+      --background: 141 26% 8%;
+--foreground: 139 44% 84%;
+--muted: 152 100% 10%;
+--muted-foreground: 139 44% 84%;
+--popover: 141 26% 8%;
+--popover-foreground: 139 44% 84%;
+--card: 141 26% 8%;
+--card-foreground: 139 44% 84%;
+--border: 152 100% 10%;
+--input: 152 100% 10%;
+--primary: 140 20% 58%;
+--primary-foreground: 137 20% 99%;
+--secondary: 152 100% 10%;
+--secondary-foreground: 139 44% 84%;
+--accent: 152 100% 10%;
+--accent-foreground: 139 44% 84%;
+--destructive: 0 62.8% 30.6%;
+--destructive-foreground: 0 0% 98%;
+--ring: 140 20% 58%;
+--radius: 1rem;
+  }</style>
+
+    <script type="module">
+import { createHotContext } from "/@vite/client";
+const hot = createHotContext("/__dummy__runtime-error-plugin");
+
+function sendError(error) {
+  if (!(error instanceof Error)) {
+    error = new Error("(unknown runtime error)");
+  }
+  const serialized = {
+    message: error.message,
+    stack: error.stack,
+  };
+  hot.send("runtime-error-plugin:error", serialized);
+}
+
+window.addEventListener("error", (evt) => {
+  sendError(evt.error);
+});
+
+window.addEventListener("unhandledrejection", (evt) => {
+  sendError(evt.reason);
+});
+</script>
+
+    <script type="module">
+import RefreshRuntime from "/@react-refresh"
+RefreshRuntime.injectIntoGlobalHook(window)
+window.$RefreshReg$ = () => {}
+window.$RefreshSig$ = () => (type) => type
+window.__vite_plugin_react_preamble_installed__ = true
+</script>
+
+    <script type="module" src="/@vite/client"></script>
+
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx?v=OUMZBLJPR-WquYo3Gryht"></script>
+  </body>
+</html>
