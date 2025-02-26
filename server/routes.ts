@@ -340,6 +340,10 @@ export function registerRoutes(app: Express): Server {
       const buffer = await exportToExcel();
       console.log(`Generated Excel buffer of size: ${buffer.length} bytes`);
 
+      if (buffer.length === 0) {
+        throw new Error('Generated Excel file is empty');
+      }
+
       // Set proper headers for Excel file download
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=plant_care_backup_${new Date().toISOString().split('T')[0]}.xlsx`);

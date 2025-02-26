@@ -16,36 +16,96 @@ const TABLE_MAPPINGS = {
 export async function exportToExcel(): Promise<Buffer> {
   // Create a new workbook
   const workbook = XLSX.utils.book_new();
+  let hasData = false;
 
   try {
+    console.log('Starting Excel export...');
+
     // Export each table to its own sheet
     const allPlants = await storage.getPlants();
-    const plantsSheet = XLSX.utils.json_to_sheet(allPlants);
-    XLSX.utils.book_append_sheet(workbook, plantsSheet, 'Plants');
+    console.log(`Retrieved ${allPlants.length} plants`);
+    if (allPlants.length > 0) {
+      // Sanitize sunlight values
+      const sanitizedPlants = allPlants.map(plant => ({
+        ...plant,
+        sunlight: plant.sunlight.toLowerCase(),
+        lastWatered: plant.lastWatered ? new Date(plant.lastWatered).toISOString() : null,
+        lastFertilized: plant.lastFertilized ? new Date(plant.lastFertilized).toISOString() : null
+      }));
+      const plantsSheet = XLSX.utils.json_to_sheet(sanitizedPlants);
+      XLSX.utils.book_append_sheet(workbook, plantsSheet, 'Plants');
+      hasData = true;
+    }
 
     const allTemplates = await storage.getTaskTemplates();
-    const templatesSheet = XLSX.utils.json_to_sheet(allTemplates);
-    XLSX.utils.book_append_sheet(workbook, templatesSheet, 'Task Templates');
+    console.log(`Retrieved ${allTemplates.length} task templates`);
+    if (allTemplates.length > 0) {
+      // Sanitize category and priority values
+      const sanitizedTemplates = allTemplates.map(template => ({
+        ...template,
+        category: template.category.toLowerCase(),
+        priority: template.priority.toLowerCase(),
+        public: Boolean(template.public),
+        applyToAll: Boolean(template.applyToAll),
+        requiresExpertise: Boolean(template.requiresExpertise)
+      }));
+      const templatesSheet = XLSX.utils.json_to_sheet(sanitizedTemplates);
+      XLSX.utils.book_append_sheet(workbook, templatesSheet, 'Task Templates');
+      hasData = true;
+    }
 
     const allTasks = await storage.getCareTasks();
-    const tasksSheet = XLSX.utils.json_to_sheet(allTasks);
-    XLSX.utils.book_append_sheet(workbook, tasksSheet, 'Care Tasks');
+    console.log(`Retrieved ${allTasks.length} care tasks`);
+    if (allTasks.length > 0) {
+      // Sanitize task data
+      const sanitizedTasks = allTasks.map(task => ({
+        ...task,
+        dueDate: task.dueDate ? new Date(task.dueDate).toISOString() : null,
+        completed: Boolean(task.completed),
+        completedAt: task.completedAt ? new Date(task.completedAt).toISOString() : null,
+        checklistProgress: JSON.stringify(task.checklistProgress || {})
+      }));
+      const tasksSheet = XLSX.utils.json_to_sheet(sanitizedTasks);
+      XLSX.utils.book_append_sheet(workbook, tasksSheet, 'Care Tasks');
+      hasData = true;
+    }
 
     const allHealthRecords = await storage.getAllHealthRecords();
-    const healthSheet = XLSX.utils.json_to_sheet(allHealthRecords);
-    XLSX.utils.book_append_sheet(workbook, healthSheet, 'Health Records');
+    console.log(`Retrieved ${allHealthRecords.length} health records`);
+    if (allHealthRecords.length > 0) {
+      // Sanitize health record data
+      const sanitizedRecords = allHealthRecords.map(record => ({
+        ...record,
+        date: record.date ? new Date(record.date).toISOString() : null,
+        issues: Array.isArray(record.issues) ? record.issues : []
+      }));
+      const healthSheet = XLSX.utils.json_to_sheet(sanitizedRecords);
+      XLSX.utils.book_append_sheet(workbook, healthSheet, 'Health Records');
+      hasData = true;
+    }
 
     const allChecklistItems = await storage.getAllChecklistItems();
-    const checklistSheet = XLSX.utils.json_to_sheet(allChecklistItems);
-    XLSX.utils.book_append_sheet(workbook, checklistSheet, 'Checklist Items');
+    console.log(`Retrieved ${allChecklistItems.length} checklist items`);
+    if (allChecklistItems.length > 0) {
+      const checklistSheet = XLSX.utils.json_to_sheet(allChecklistItems);
+      XLSX.utils.book_append_sheet(workbook, checklistSheet, 'Checklist Items');
+      hasData = true;
+    }
 
+    if (!hasData) {
+      console.log('No data available to export');
+      throw new Error('No data available to export');
+    }
+
+    console.log('Writing workbook to buffer...');
     // Write to buffer
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    console.log(`Generated Excel buffer of size: ${buffer.length} bytes`);
     return buffer;
 
   } catch (error) {
     console.error('Error exporting to Excel:', error);
-    throw new Error('Failed to export data to Excel');
+    throw new Error(error instanceof Error ? error.message : 'Failed to export data to Excel');
   }
 }
 
@@ -60,6 +120,11 @@ function validateExcelRow<T>(schema: typeof insertPlantSchema | typeof insertTas
     // Convert data types if needed
     const processedRow = Object.fromEntries(
       Object.entries(row as Record<string, unknown>).map(([key, value]) => {
+        // Handle null values
+        if (value === null) {
+          return [key, null];
+        }
+
         // Special handling for each schema type
         if (schema === insertPlantSchema) {
           if (key === 'sunlight') {
