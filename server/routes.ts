@@ -41,8 +41,21 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/task-templates", async (_req, res) => {
     try {
       const templates = await storage.getTaskTemplates();
-      res.json(templates);
+
+      // Ensure all templates have the expected fields with defaults if missing
+      const sanitizedTemplates = templates.map(template => ({
+        ...template,
+        oneShot: template.oneShot ?? false,
+        public: template.public ?? false,
+        applyToAll: template.applyToAll ?? false,
+        priority: template.priority || 'medium',
+        estimatedDuration: template.estimatedDuration || 15,
+        requiresExpertise: template.requiresExpertise ?? false,
+      }));
+
+      res.json(sanitizedTemplates);
     } catch (error) {
+      console.error('Error fetching task templates:', error);
       res.status(500).json({ message: "Failed to fetch task templates" });
     }
   });
