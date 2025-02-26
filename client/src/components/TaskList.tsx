@@ -4,7 +4,7 @@ import { CareTask, TaskTemplate } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clipboard, Edit2, Trash2, CheckCircle, Flag, AlertCircle, Clock, PlayCircle, CheckCircle2, XCircle, CalendarClock } from "lucide-react";
+import { Clipboard, Edit2, Trash2, CheckCircle, Flag, AlertCircle, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import EditTaskDialog from "./EditTaskDialog";
 import TaskCompletionDialog from "./TaskCompletionDialog";
@@ -12,14 +12,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface TaskListProps {
   plantId: number;
 }
-
-type TaskStatus = "pending" | "in_progress" | "completed" | "cancelled";
 
 // Enhanced priority styles with more visual cues
 const priorityStyles = {
@@ -46,29 +42,7 @@ const priorityStyles = {
   }
 };
 
-// Add status styles after priority styles
-const statusStyles = {
-  pending: {
-    icon: <CalendarClock className="h-4 w-4" />,
-    text: "text-muted-foreground",
-    badge: "bg-muted text-muted-foreground"
-  },
-  in_progress: {
-    icon: <PlayCircle className="h-4 w-4 text-primary" />,
-    text: "text-primary",
-    badge: "bg-primary text-primary-foreground"
-  },
-  completed: {
-    icon: <CheckCircle2 className="h-4 w-4 text-success" />,
-    text: "text-success",
-    badge: "bg-success text-success-foreground"
-  },
-  cancelled: {
-    icon: <XCircle className="h-4 w-4 text-destructive" />,
-    text: "text-destructive",
-    badge: "bg-destructive text-destructive-foreground"
-  }
-};
+// Rest of the imports remain unchanged
 
 export default function TaskList({ plantId }: TaskListProps) {
   const [editingTask, setEditingTask] = useState<CareTask | null>(null);
@@ -104,8 +78,8 @@ export default function TaskList({ plantId }: TaskListProps) {
       }
     },
     onSuccess: () => {
-      refetchTasks(); 
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks", { plantId }] });
+      refetchTasks(); // Explicitly refetch to ensure our list is up to date
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", plantId] });
       toast({ title: "Task deleted successfully" });
     },
     onError: (error) => {
@@ -114,31 +88,20 @@ export default function TaskList({ plantId }: TaskListProps) {
         description: error instanceof Error ? error.message : "The task may have already been deleted",
         variant: "destructive",
       });
+      // Refetch to ensure our list is in sync with the server
       refetchTasks();
     },
   });
 
   const { mutate: updateTaskStatus } = useMutation({
-    mutationFn: async ({ 
-      taskId, 
-      completed, 
-      status,
-      progress,
-      checklistProgress 
-    }: { 
+    mutationFn: async ({ taskId, completed, checklistProgress }: { 
       taskId: number; 
       completed: boolean;
-      status: TaskStatus;
-      progress?: number;
       checklistProgress?: Record<string, boolean>;
     }) => {
       const response = await apiRequest("PATCH", `/api/tasks/${taskId}`, {
         completed,
         completedAt: completed ? new Date().toISOString() : null,
-        status,
-        progress: progress ?? (completed ? 100 : 0),
-        startedAt: status === "in_progress" ? new Date().toISOString() : undefined,
-        lastUpdated: new Date().toISOString(),
         checklistProgress
       });
 
@@ -158,6 +121,7 @@ export default function TaskList({ plantId }: TaskListProps) {
         description: error instanceof Error ? error.message : "Unknown error occurred",
         variant: "destructive",
       });
+      // Refetch to ensure our list is in sync with the server
       refetchTasks();
     },
   });
@@ -179,8 +143,6 @@ export default function TaskList({ plantId }: TaskListProps) {
         const isOverdue = new Date(task.dueDate) < new Date() && !task.completed;
         const priority = template?.priority || 'low';
         const priorityStyle = priorityStyles[priority as keyof typeof priorityStyles];
-        const currentStatus = (task.status ?? "pending") as TaskStatus;
-        const statusStyle = statusStyles[currentStatus];
 
         return (
           <Card 
@@ -206,9 +168,6 @@ export default function TaskList({ plantId }: TaskListProps) {
                   <Badge className={priorityStyle.badge}>
                     {priority.charAt(0).toUpperCase() + priority.slice(1)} Priority
                   </Badge>
-                  {template?.oneShot && (
-                    <Badge variant="outline">One-time Task</Badge>
-                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Due {formatDistanceToNow(new Date(task.dueDate), { addSuffix: true })}
@@ -216,46 +175,31 @@ export default function TaskList({ plantId }: TaskListProps) {
                 {task.notes && (
                   <p className="text-sm text-muted-foreground mt-2">{task.notes}</p>
                 )}
-
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {statusStyle.icon}
-                      <span className={cn("text-sm", statusStyle.text)}>
-                        {currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1).replace('_', ' ')}
-                      </span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      {task.progress ?? 0}%
-                    </span>
-                  </div>
-                  <Progress value={task.progress ?? 0} className="h-2" />
-                </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <Select
-                  value={currentStatus}
-                  onValueChange={(value: TaskStatus) => {
-                    const isComplete = value === "completed";
-                    updateTaskStatus({ 
-                      taskId: task.id,
-                      completed: isComplete,
-                      status: value,
-                      progress: isComplete ? 100 : task.progress ?? 0
-                    });
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    if (task.completed) {
+                      updateTaskStatus({ 
+                        taskId: task.id, 
+                        completed: false,
+                        checklistProgress: {} 
+                      });
+                    } else {
+                      setCompletingTask(task);
+                    }
                   }}
                 >
-                  <SelectTrigger className="w-[130px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <CheckCircle 
+                    className={cn(
+                      "h-4 w-4",
+                      task.completed && "text-primary fill-primary"
+                    )} 
+                  />
+                </Button>
 
                 <Button
                   variant="ghost"
@@ -313,8 +257,6 @@ export default function TaskList({ plantId }: TaskListProps) {
             updateTaskStatus({
               taskId: completingTask.id,
               completed: true,
-              status: "completed",
-              progress: 100,
               checklistProgress
             });
             setCompletingTask(null);

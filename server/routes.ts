@@ -41,21 +41,8 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/task-templates", async (_req, res) => {
     try {
       const templates = await storage.getTaskTemplates();
-
-      // Ensure all templates have the expected fields with defaults if missing
-      const sanitizedTemplates = templates.map(template => ({
-        ...template,
-        oneShot: template.oneShot ?? false,
-        public: template.public ?? false,
-        applyToAll: template.applyToAll ?? false,
-        priority: template.priority || 'medium',
-        estimatedDuration: template.estimatedDuration || 15,
-        requiresExpertise: template.requiresExpertise ?? false,
-      }));
-
-      res.json(sanitizedTemplates);
+      res.json(templates);
     } catch (error) {
-      console.error('Error fetching task templates:', error);
       res.status(500).json({ message: "Failed to fetch task templates" });
     }
   });
@@ -160,25 +147,15 @@ export function registerRoutes(app: Express): Server {
       console.log('Fetching tasks for plantId:', plantId);
 
       const tasks = await storage.getCareTasks(plantId);
+      console.log('Retrieved tasks:', tasks);
 
-      // Sanitize task data to ensure all fields have default values
-      const sanitizedTasks = tasks.map(task => ({
-        ...task,
-        progress: task.progress ?? 0,
-        status: task.status ?? 'pending',
-        checklistProgress: task.checklistProgress ?? {},
-      }));
-
-      console.log('Retrieved tasks:', sanitizedTasks);
-
-      res.json(sanitizedTasks);
+      res.json(tasks);
     } catch (error) {
       console.error('Error fetching tasks:', error);
       res.status(500).json({ message: "Failed to fetch tasks" });
     }
   });
 
-  // Task creation endpoint
   app.post("/api/tasks", async (req, res) => {
     const result = insertCareTaskSchema.safeParse(req.body);
     if (!result.success) {
@@ -189,19 +166,11 @@ export function registerRoutes(app: Express): Server {
       // Get the template to check settings
       const template = await storage.getTaskTemplate(result.data.templateId);
       if (!template) {
-        return res.status(404).json({
+        return res.status(404).json({ 
           message: "Template not found",
-          code: "TEMPLATE_NOT_FOUND"
+          code: "TEMPLATE_NOT_FOUND" 
         });
       }
-
-      // Log template details for debugging
-      console.log('Creating task from template:', {
-        templateId: template.id,
-        name: template.name,
-        oneShot: template.oneShot,
-        applyToAll: template.applyToAll
-      });
 
       // Check if template is public
       if (!template.public) {
@@ -227,9 +196,7 @@ export function registerRoutes(app: Express): Server {
           plants.map(plant =>
             storage.createCareTask({
               ...result.data,
-              plantId: plant.id,
-              status: "pending",
-              progress: 0
+              plantId: plant.id
             })
           )
         );
@@ -242,11 +209,7 @@ export function registerRoutes(app: Express): Server {
 
       // Single plant task creation
       console.log('Creating single task for plant:', result.data.plantId);
-      const task = await storage.createCareTask({
-        ...result.data,
-        status: "pending",
-        progress: 0
-      });
+      const task = await storage.createCareTask(result.data);
       return res.status(201).json({
         tasks: [task],
         appliedToAll: false
@@ -261,7 +224,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Task update endpoint with enhanced logging
   app.patch("/api/tasks/:id", async (req, res) => {
     try {
       const taskId = Number(req.params.id);
@@ -275,26 +237,10 @@ export function registerRoutes(app: Express): Server {
       // Convert completedAt to proper Date object if present
       const updateData = {
         ...req.body,
-        completedAt: req.body.completedAt ? new Date(req.body.completedAt) : null,
-        startedAt: req.body.startedAt ? new Date(req.body.startedAt) : null,
-        lastUpdated: new Date()
+        completedAt: req.body.completedAt ? new Date(req.body.completedAt) : null
       };
 
-      console.log('Updating task:', taskId, 'with data:', {
-        status: updateData.status,
-        progress: updateData.progress,
-        completed: updateData.completed,
-        startedAt: updateData.startedAt,
-        lastUpdated: updateData.lastUpdated
-      });
-
       const task = await storage.updateCareTask(taskId, updateData);
-      console.log('Task updated successfully:', {
-        id: task.id,
-        status: task.status,
-        progress: task.progress,
-        completed: task.completed
-      });
       res.json(task);
     } catch (error) {
       console.error('Error updating task:', error);

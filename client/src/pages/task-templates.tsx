@@ -191,7 +191,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
       defaultInterval: editingTemplate?.defaultInterval ?? 7,
       public: editingTemplate?.public ?? false,
       applyToAll: editingTemplate?.applyToAll ?? false,
-      oneShot: editingTemplate?.oneShot ?? false,
       estimatedDuration: editingTemplate?.estimatedDuration ?? 15,
       requiresExpertise: editingTemplate?.requiresExpertise ?? false,
     },
@@ -332,27 +331,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
 
           <FormField
             control={form.control}
-            name="oneShot"
-            render={({ field }) => (
-              <FormItem className="flex items-center gap-2">
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <div className="space-y-0.5">
-                  <FormLabel className="!mt-0">One-time Task</FormLabel>
-                  <p className="text-sm text-muted-foreground">
-                    This task will be completed once and won't recur
-                  </p>
-                </div>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
             name="public"
             render={({ field }) => (
               <FormItem className="flex items-center gap-2">
@@ -379,19 +357,17 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
               <FormItem className="flex items-center gap-2">
                 <FormControl>
                   <Switch
-                    disabled={!form.watch("public") || form.watch("oneShot")}
-                    checked={field.value && form.watch("public") && !form.watch("oneShot")}
+                    disabled={!form.watch("public")}
+                    checked={field.value && form.watch("public")}
                     onCheckedChange={field.onChange}
                   />
                 </FormControl>
                 <div className="space-y-0.5">
                   <FormLabel className="!mt-0">Apply to All Plants</FormLabel>
                   <p className="text-sm text-muted-foreground">
-                    {form.watch("oneShot")
-                      ? "One-time tasks can't be applied to all plants"
-                      : form.watch("public")
-                        ? "Automatically assign tasks to all plants when created"
-                        : "Make template public first to enable this option"}
+                    {form.watch("public")
+                      ? "Automatically assign tasks to all plants when created"
+                      : "Make template public first to enable this option"}
                   </p>
                 </div>
               </FormItem>
