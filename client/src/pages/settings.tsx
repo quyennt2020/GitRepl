@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from 'date-fns';
-import TaskTemplateConfig from "./task-templates";
+import TaskTemplateConfig from "@/components/TaskTemplateConfig";
 
 type SettingsTab = "database" | "templates";
 
@@ -116,6 +116,47 @@ export default function Settings() {
     }
   };
 
+  const handleDownloadJsonBackup = async () => {
+    try {
+      console.log('Initiating JSON backup download...');
+      const response = await fetch('/api/backup-json', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to download JSON backup');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `plant_care_backup_${format(new Date(), 'yyyy-MM-dd')}.json`;
+      document.body.appendChild(a);
+      a.click();
+
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "JSON backup downloaded successfully",
+        description: "Your plant care data has been exported to JSON"
+      });
+    } catch (error) {
+      console.error('Error downloading JSON backup:', error);
+      toast({
+        title: "Download failed",
+        description: error instanceof Error ? error.message : "Failed to download JSON backup",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-16">
       <div className="flex items-center gap-4 p-4 border-b bg-background sticky top-0 z-10">
@@ -155,28 +196,42 @@ export default function Settings() {
             <Card className="p-6">
               <h2 className="text-lg font-semibold mb-4">Database Management</h2>
               <p className="text-sm text-muted-foreground mb-6">
-                Backup your plant care data to Excel or restore from a previous backup.
+                Backup your plant care data to Excel or JSON format, or restore from a previous backup.
               </p>
               <div className="space-y-6">
-                <div>
+                <div className="space-y-4">
                   <h3 className="text-sm font-medium mb-2">Backup Data</h3>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button onClick={handleDownloadBackup}>
-                          <Download className="mr-2 h-4 w-4" />
-                          Download Backup
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Export all your plant care data to an Excel file</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <div className="flex gap-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button onClick={handleDownloadBackup}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Download Excel Backup
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Export all your plant care data to an Excel file</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button onClick={handleDownloadJsonBackup} variant="secondary">
+                            <Download className="mr-2 h-4 w-4" />
+                            Download JSON Backup
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Export all your plant care data to a JSON file</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </div>
-
                 <Separator />
-
                 <div>
                   <h3 className="text-sm font-medium mb-2">Import Data</h3>
                   <p className="text-sm text-muted-foreground mb-4">

@@ -25,7 +25,7 @@ export async function exportToExcel(): Promise<Buffer> {
     const allPlants = await storage.getPlants();
     console.log(`Retrieved ${allPlants.length} plants`);
     if (allPlants.length > 0) {
-      // Sanitize sunlight values
+      // Sanitize data
       const sanitizedPlants = allPlants.map(plant => ({
         ...plant,
         sunlight: plant.sunlight.toLowerCase(),
@@ -40,7 +40,7 @@ export async function exportToExcel(): Promise<Buffer> {
     const allTemplates = await storage.getTaskTemplates();
     console.log(`Retrieved ${allTemplates.length} task templates`);
     if (allTemplates.length > 0) {
-      // Sanitize category and priority values
+      // Sanitize data
       const sanitizedTemplates = allTemplates.map(template => ({
         ...template,
         category: template.category.toLowerCase(),
@@ -57,7 +57,7 @@ export async function exportToExcel(): Promise<Buffer> {
     const allTasks = await storage.getCareTasks();
     console.log(`Retrieved ${allTasks.length} care tasks`);
     if (allTasks.length > 0) {
-      // Sanitize task data
+      // Sanitize data
       const sanitizedTasks = allTasks.map(task => ({
         ...task,
         dueDate: task.dueDate ? new Date(task.dueDate).toISOString() : null,
@@ -73,7 +73,7 @@ export async function exportToExcel(): Promise<Buffer> {
     const allHealthRecords = await storage.getAllHealthRecords();
     console.log(`Retrieved ${allHealthRecords.length} health records`);
     if (allHealthRecords.length > 0) {
-      // Sanitize health record data
+      // Sanitize data
       const sanitizedRecords = allHealthRecords.map(record => ({
         ...record,
         date: record.date ? new Date(record.date).toISOString() : null,
@@ -97,10 +97,15 @@ export async function exportToExcel(): Promise<Buffer> {
       throw new Error('No data available to export');
     }
 
-    console.log('Writing workbook to buffer...');
     // Write to buffer
+    console.log('Writing workbook to buffer...');
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
     console.log(`Generated Excel buffer of size: ${buffer.length} bytes`);
+
+    if (buffer.length === 0) {
+      throw new Error('Generated Excel file is empty');
+    }
+
     return buffer;
 
   } catch (error) {

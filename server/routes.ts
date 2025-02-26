@@ -5,6 +5,11 @@ import { insertPlantSchema, insertCareTaskSchema, insertHealthRecordSchema, inse
 import type { ChecklistItem } from "@shared/schema";
 import { exportToExcel, importFromExcel } from './utils/excel';
 import multer from 'multer';
+import { db } from './db';
+import { sql } from "drizzle-orm";
+
+const EXCEL_INIT_ERROR = 'Failed to initialize Excel export';
+const BACKUP_ERROR = 'Failed to create backup';
 
 export function registerRoutes(app: Express): Server {
   // Configure multer for file uploads
@@ -333,10 +338,55 @@ export function registerRoutes(app: Express): Server {
     res.json(record);
   });
 
+  // Add JSON backup endpoint
+  app.get("/api/backup-json", async (_req, res) => {
+    try {
+      console.log('Starting JSON backup export...');
+
+      const [plants, templates, tasks, healthRecords, checklistItems] = await Promise.all([
+        storage.getPlants(),
+        storage.getTaskTemplates(),
+        storage.getCareTasks(),
+        storage.getAllHealthRecords(),
+        storage.getAllChecklistItems()
+      ]);
+
+      const backup = {
+        plants,
+        templates,
+        tasks,
+        healthRecords,
+        checklistItems,
+        exportDate: new Date().toISOString()
+      };
+
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename=plant_care_backup_${new Date().toISOString().split('T')[0]}.json`);
+      res.json(backup);
+    } catch (error) {
+      console.error('Error creating JSON backup:', error);
+      res.status(500).json({
+        message: error instanceof Error ? error.message : 'Failed to create JSON backup',
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+
   // Database backup route
   app.get("/api/backup", async (_req, res) => {
     try {
       console.log('Starting database backup to Excel...');
+
+      // Verify database connection first
+      try {
+        const result = await db.execute(sql`SELECT COUNT(*) FROM plants LIMIT 1`);
+        console.log('Database connection verified');
+      } catch (dbError) {
+        console.error('Database connection failed:', dbError);
+        throw new Error('Database connection failed');
+      }
+
       const buffer = await exportToExcel();
       console.log(`Generated Excel buffer of size: ${buffer.length} bytes`);
 
@@ -355,7 +405,7 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error('Error in backup route:', error);
       res.status(500).json({ 
-        message: "Failed to create backup",
+        message: error instanceof Error ? error.message : BACKUP_ERROR,
         error: error instanceof Error ? error.message : "Unknown error"
       });
     }
@@ -380,5 +430,17 @@ export function registerRoutes(app: Express): Server {
   });
 
   const httpServer = createServer(app);
+
+  // Add error handler for server startup
+  httpServer.on('error', (error: Error & { code?: string }) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error('Port 5000 is already in use. Please free up the port and try again.');
+      process.exit(1);
+    } else {
+      console.error('Server startup error:', error);
+      process.exit(1);
+    }
+  });
+
   return httpServer;
 }

@@ -58,8 +58,9 @@ export default function TaskTemplateConfig() {
     return <div>Loading...</div>;
   }
 
-  const uniqueTemplates = [...new Set(templates?.map(t => t.name))];
-  const sortedTemplates = templates?.filter(template => uniqueTemplates.includes(template.name))
+  // Fix Set iteration by converting to array first
+  const uniqueTemplateNames = Array.from(new Set(templates?.map(t => t.name) || []));
+  const sortedTemplates = templates?.filter(template => uniqueTemplateNames.includes(template.name))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
@@ -103,7 +104,7 @@ export default function TaskTemplateConfig() {
                   </Tooltip>
                 </TooltipProvider>
                 <Switch
-                  checked={template.applyToAll}
+                  checked={template.applyToAll || false}
                   onCheckedChange={(checked) => {
                     updateTemplate({ id: template.id, applyToAll: checked });
                   }}
@@ -187,15 +188,17 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
 
   const form = useForm<z.infer<typeof insertTaskTemplateSchema>>({
     resolver: zodResolver(insertTaskTemplateSchema),
-    defaultValues: editingTemplate || {
-      name: "",
-      category: "water",
-      description: "",
-      priority: "medium",
-      defaultInterval: 7,
-      applyToAll: false,
-      estimatedDuration: 15,
-      requiresExpertise: false,
+    defaultValues: {
+      name: editingTemplate?.name || "",
+      category: (editingTemplate?.category as "water" | "fertilize" | "prune" | "check" | "repot" | "clean") || "water",
+      description: editingTemplate?.description || "",
+      priority: (editingTemplate?.priority as "low" | "medium" | "high") || "medium",
+      defaultInterval: editingTemplate?.defaultInterval || 7,
+      applyToAll: editingTemplate?.applyToAll || false,
+      estimatedDuration: editingTemplate?.estimatedDuration || 15,
+      requiresExpertise: editingTemplate?.requiresExpertise || false,
+      public: editingTemplate?.public || true,
+      metadata: editingTemplate?.metadata || {}
     },
   });
 
