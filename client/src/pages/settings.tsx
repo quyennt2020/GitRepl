@@ -3,17 +3,21 @@ import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Loader2, Download, Upload, ArrowLeft, Settings as SettingsIcon } from "lucide-react";
+import { Loader2, Download, Upload, ArrowLeft, Settings as SettingsIcon, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { format } from 'date-fns'
+import { format } from 'date-fns';
+import TaskTemplateConfig from "./task-templates";
+
+type SettingsTab = "database" | "templates";
 
 export default function Settings() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [activeTab, setActiveTab] = useState<SettingsTab>("database");
   const { toast } = useToast();
 
   const { mutate: importData, isPending: isImporting } = useMutation({
@@ -109,75 +113,98 @@ export default function Settings() {
         </h1>
       </div>
 
-      <ScrollArea className="h-[calc(100vh-4rem)]">
-        <div className="p-4 space-y-4">
-          <Card className="p-6">
-            <h2 className="text-lg font-semibold mb-4">Database Management</h2>
-            <p className="text-sm text-muted-foreground mb-6">
-              Backup your plant care data to Excel or restore from a previous backup.
-            </p>
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-sm font-medium mb-2">Backup Data</h3>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button onClick={handleDownloadBackup}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Download Backup
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Export all your plant care data to an Excel file</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
+      <div className="flex border-b px-4">
+        <Button
+          variant={activeTab === "database" ? "default" : "ghost"}
+          className="relative h-9"
+          onClick={() => setActiveTab("database")}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Database Management
+        </Button>
+        <Button
+          variant={activeTab === "templates" ? "default" : "ghost"}
+          className="relative h-9"
+          onClick={() => setActiveTab("templates")}
+        >
+          <FileText className="mr-2 h-4 w-4" />
+          Task Templates
+        </Button>
+      </div>
 
-              <Separator />
-
-              <div>
-                <h3 className="text-sm font-medium mb-2">Import Data</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Import data from a backup file (.xlsx format)
-                </p>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="file"
-                    accept=".xlsx"
-                    onChange={handleFileSelect}
-                    className="max-w-sm"
-                  />
+      <ScrollArea className="h-[calc(100vh-8rem)]">
+        {activeTab === "database" ? (
+          <div className="p-4 space-y-4">
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold mb-4">Database Management</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Backup your plant care data to Excel or restore from a previous backup.
+              </p>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Backup Data</h3>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button
-                          onClick={() => importData()}
-                          disabled={!selectedFile || isImporting}
-                        >
-                          {isImporting ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Upload className="mr-2 h-4 w-4" />
-                          )}
-                          Import Data
+                        <Button onClick={handleDownloadBackup}>
+                          <Download className="mr-2 h-4 w-4" />
+                          Download Backup
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Import plant care data from an Excel backup file</p>
+                        <p>Export all your plant care data to an Excel file</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
-                {selectedFile && (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Selected file: {selectedFile.name}
+
+                <Separator />
+
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Import Data</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Import data from a backup file (.xlsx format)
                   </p>
-                )}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      accept=".xlsx"
+                      onChange={handleFileSelect}
+                      className="max-w-sm"
+                    />
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={() => importData()}
+                            disabled={!selectedFile || isImporting}
+                          >
+                            {isImporting ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Upload className="mr-2 h-4 w-4" />
+                            )}
+                            Import Data
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Import plant care data from an Excel backup file</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  {selectedFile && (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Selected file: {selectedFile.name}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          </Card>
-        </div>
+            </Card>
+          </div>
+        ) : (
+          <TaskTemplateConfig />
+        )}
       </ScrollArea>
     </div>
   );
