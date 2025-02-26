@@ -160,9 +160,18 @@ export function registerRoutes(app: Express): Server {
       console.log('Fetching tasks for plantId:', plantId);
 
       const tasks = await storage.getCareTasks(plantId);
-      console.log('Retrieved tasks:', tasks);
 
-      res.json(tasks);
+      // Sanitize task data to ensure all fields have default values
+      const sanitizedTasks = tasks.map(task => ({
+        ...task,
+        progress: task.progress ?? 0,
+        status: task.status ?? 'pending',
+        checklistProgress: task.checklistProgress ?? {},
+      }));
+
+      console.log('Retrieved tasks:', sanitizedTasks);
+
+      res.json(sanitizedTasks);
     } catch (error) {
       console.error('Error fetching tasks:', error);
       res.status(500).json({ message: "Failed to fetch tasks" });
