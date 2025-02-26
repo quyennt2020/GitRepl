@@ -13,6 +13,47 @@ const TABLE_MAPPINGS = {
   'Checklist Items': checklistItems
 };
 
+// Excel has a character limit of 32,767 per cell
+const EXCEL_CELL_CHAR_LIMIT = 32000; // Setting slightly below limit for safety
+
+// Helper function to safely truncate string values for Excel
+function truncateForExcel(value: any): any {
+  if (typeof value === 'string' && value.length > EXCEL_CELL_CHAR_LIMIT) {
+    return value.substring(0, EXCEL_CELL_CHAR_LIMIT) + '... [truncated]';
+  }
+  return value;
+}
+
+// Helper function to sanitize object properties for Excel
+function sanitizeForExcel(obj: Record<string, any>): Record<string, any> {
+  const result: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(obj)) {
+    // Handle different data types appropriately
+    if (value === null || value === undefined) {
+      result[key] = null;
+    } else if (typeof value === 'object' && !Array.isArray(value)) {
+      // Convert objects to strings (like checklistProgress)
+      const stringified = JSON.stringify(value);
+      result[key] = truncateForExcel(stringified);
+    } else if (Array.isArray(value)) {
+      // Handle arrays (like issues)
+      result[key] = truncateForExcel(JSON.stringify(value));
+    } else if (value instanceof Date) {
+      // Format dates consistently
+      result[key] = value.toISOString();
+    } else if (typeof value === 'string') {
+      // Truncate long strings
+      result[key] = truncateForExcel(value);
+    } else {
+      // Keep numbers, booleans as is
+      result[key] = value;
+    }
+  }
+
+  return result;
+}
+
 export async function exportToExcel(): Promise<Buffer> {
   // Create a new workbook
   const workbook = XLSX.utils.book_new();
@@ -26,12 +67,13 @@ export async function exportToExcel(): Promise<Buffer> {
     console.log(`Retrieved ${allPlants.length} plants`);
     if (allPlants.length > 0) {
       // Sanitize data
-      const sanitizedPlants = allPlants.map(plant => ({
-        ...plant,
-        sunlight: plant.sunlight.toLowerCase(),
-        lastWatered: plant.lastWatered ? new Date(plant.lastWatered).toISOString() : null,
-        lastFertilized: plant.lastFertilized ? new Date(plant.lastFertilized).toISOString() : null
-      }));
+      const sanitizedPlants = allPlants.map(plant => {
+        const sanitized = sanitizeForExcel({
+          ...plant,
+          sunlight: plant.sunlight.toLowerCase(),
+        });
+        return sanitized;
+      });
       const plantsSheet = XLSX.utils.json_to_sheet(sanitizedPlants);
       XLSX.utils.book_append_sheet(workbook, plantsSheet, 'Plants');
       hasData = true;
@@ -41,14 +83,17 @@ export async function exportToExcel(): Promise<Buffer> {
     console.log(`Retrieved ${allTemplates.length} task templates`);
     if (allTemplates.length > 0) {
       // Sanitize data
-      const sanitizedTemplates = allTemplates.map(template => ({
-        ...template,
-        category: template.category.toLowerCase(),
-        priority: template.priority.toLowerCase(),
-        public: Boolean(template.public),
-        applyToAll: Boolean(template.applyToAll),
-        requiresExpertise: Boolean(template.requiresExpertise)
-      }));
+      const sanitizedTemplates = allTemplates.map(template => {
+        const sanitized = sanitizeForExcel({
+          ...template,
+          category: template.category.toLowerCase(),
+          priority: template.priority.toLowerCase(),
+          public: Boolean(template.public),
+          applyToAll: Boolean(template.applyToAll),
+          requiresExpertise: Boolean(template.requiresExpertise)
+        });
+        return sanitized;
+      });
       const templatesSheet = XLSX.utils.json_to_sheet(sanitizedTemplates);
       XLSX.utils.book_append_sheet(workbook, templatesSheet, 'Task Templates');
       hasData = true;
@@ -58,13 +103,14 @@ export async function exportToExcel(): Promise<Buffer> {
     console.log(`Retrieved ${allTasks.length} care tasks`);
     if (allTasks.length > 0) {
       // Sanitize data
-      const sanitizedTasks = allTasks.map(task => ({
-        ...task,
-        dueDate: task.dueDate ? new Date(task.dueDate).toISOString() : null,
-        completed: Boolean(task.completed),
-        completedAt: task.completedAt ? new Date(task.completedAt).toISOString() : null,
-        checklistProgress: JSON.stringify(task.checklistProgress || {})
-      }));
+      const sanitizedTasks = allTasks.map(task => {
+        const sanitized = sanitizeForExcel({
+          ...task,
+          completed: Boolean(task.completed),
+          // For objects like checklistProgress, we'll stringify them in sanitizeForExcel
+        });
+        return sanitized;
+      });
       const tasksSheet = XLSX.utils.json_to_sheet(sanitizedTasks);
       XLSX.utils.book_append_sheet(workbook, tasksSheet, 'Care Tasks');
       hasData = true;
@@ -74,11 +120,13 @@ export async function exportToExcel(): Promise<Buffer> {
     console.log(`Retrieved ${allHealthRecords.length} health records`);
     if (allHealthRecords.length > 0) {
       // Sanitize data
-      const sanitizedRecords = allHealthRecords.map(record => ({
-        ...record,
-        date: record.date ? new Date(record.date).toISOString() : null,
-        issues: Array.isArray(record.issues) ? record.issues : []
-      }));
+      const sanitizedRecords = allHealthRecords.map(record => {
+        const sanitized = sanitizeForExcel({
+          ...record,
+          issues: Array.isArray(record.issues) ? record.issues : []
+        });
+        return sanitized;
+      });
       const healthSheet = XLSX.utils.json_to_sheet(sanitizedRecords);
       XLSX.utils.book_append_sheet(workbook, healthSheet, 'Health Records');
       hasData = true;
@@ -87,7 +135,8 @@ export async function exportToExcel(): Promise<Buffer> {
     const allChecklistItems = await storage.getAllChecklistItems();
     console.log(`Retrieved ${allChecklistItems.length} checklist items`);
     if (allChecklistItems.length > 0) {
-      const checklistSheet = XLSX.utils.json_to_sheet(allChecklistItems);
+      const sanitizedChecklistItems = allChecklistItems.map(item => sanitizeForExcel(item));
+      const checklistSheet = XLSX.utils.json_to_sheet(sanitizedChecklistItems);
       XLSX.utils.book_append_sheet(workbook, checklistSheet, 'Checklist Items');
       hasData = true;
     }
@@ -133,7 +182,7 @@ function validateExcelRow<T>(schema: typeof insertPlantSchema | typeof insertTas
         // Special handling for each schema type
         if (schema === insertPlantSchema) {
           if (key === 'sunlight') {
-            const sunlight = String(value).toLowerCase();
+            const sunlight = String(value).toLowerCase() as "low" | "medium" | "high";
             if (!['low', 'medium', 'high'].includes(sunlight)) {
               throw new Error('Invalid sunlight value. Must be low, medium, or high.');
             }
@@ -142,14 +191,14 @@ function validateExcelRow<T>(schema: typeof insertPlantSchema | typeof insertTas
         }
         if (schema === insertTaskTemplateSchema) {
           if (key === 'category') {
-            const category = String(value).toLowerCase();
+            const category = String(value).toLowerCase() as "water" | "fertilize" | "prune" | "check" | "repot" | "clean";
             if (!['water', 'fertilize', 'prune', 'check', 'repot', 'clean'].includes(category)) {
               throw new Error('Invalid category value.');
             }
             return [key, category];
           }
           if (key === 'priority') {
-            const priority = String(value).toLowerCase();
+            const priority = String(value).toLowerCase() as "low" | "medium" | "high";
             if (!['low', 'medium', 'high'].includes(priority)) {
               throw new Error('Invalid priority value. Must be low, medium, or high.');
             }
@@ -167,7 +216,7 @@ function validateExcelRow<T>(schema: typeof insertPlantSchema | typeof insertTas
                 if (typeof parsed === 'object' && parsed !== null) {
                   return [key, Object.fromEntries(
                     Object.entries(parsed).map(([k, v]) => [k, Boolean(v)])
-                  )];
+                  ) as Record<string, boolean>];
                 }
               } catch {
                 return [key, {}];
@@ -189,7 +238,7 @@ function validateExcelRow<T>(schema: typeof insertPlantSchema | typeof insertTas
           if (typeof value === 'string') {
             return [key, value.split(',').map(i => i.trim()).filter(Boolean)];
           }
-          return [key, []];
+          return [key, [] as string[]];
         }
         return [key, value];
       })
@@ -228,7 +277,9 @@ export async function importFromExcel(buffer: Buffer): Promise<{
               const validation = validateExcelRow<Plant>(insertPlantSchema, row);
               if (validation.valid && validation.data) {
                 try {
-                  await storage.createPlant(validation.data);
+                  // Remove id and other auto-generated fields for insertion
+                  const { id, ...insertData } = validation.data as any;
+                  await storage.createPlant(insertData);
                   result[sheetName].processed++;
                 } catch (err) {
                   result[sheetName].errors.push(`Error processing plant: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -244,7 +295,9 @@ export async function importFromExcel(buffer: Buffer): Promise<{
               const validation = validateExcelRow<TaskTemplate>(insertTaskTemplateSchema, row);
               if (validation.valid && validation.data) {
                 try {
-                  await storage.createTaskTemplate(validation.data);
+                  // Remove id and other auto-generated fields for insertion
+                  const { id, ...insertData } = validation.data as any;
+                  await storage.createTaskTemplate(insertData);
                   result[sheetName].processed++;
                 } catch (err) {
                   result[sheetName].errors.push(`Error processing template: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -260,7 +313,9 @@ export async function importFromExcel(buffer: Buffer): Promise<{
               const validation = validateExcelRow<CareTask>(insertCareTaskSchema, row);
               if (validation.valid && validation.data) {
                 try {
-                  await storage.createCareTask(validation.data);
+                  // Remove id and other auto-generated fields for insertion
+                  const { id, ...insertData } = validation.data as any;
+                  await storage.createCareTask(insertData);
                   result[sheetName].processed++;
                 } catch (err) {
                   result[sheetName].errors.push(`Error processing task: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -276,7 +331,9 @@ export async function importFromExcel(buffer: Buffer): Promise<{
               const validation = validateExcelRow<HealthRecord>(insertHealthRecordSchema, row);
               if (validation.valid && validation.data) {
                 try {
-                  await storage.createHealthRecord(validation.data);
+                  // Remove id and other auto-generated fields for insertion
+                  const { id, ...insertData } = validation.data as any;
+                  await storage.createHealthRecord(insertData);
                   result[sheetName].processed++;
                 } catch (err) {
                   result[sheetName].errors.push(`Error processing health record: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -292,7 +349,9 @@ export async function importFromExcel(buffer: Buffer): Promise<{
               const validation = validateExcelRow<ChecklistItem>(insertChecklistItemSchema, row);
               if (validation.valid && validation.data) {
                 try {
-                  await storage.createChecklistItem(validation.data);
+                  // Remove id and other auto-generated fields for insertion
+                  const { id, ...insertData } = validation.data as any;
+                  await storage.createChecklistItem(insertData);
                   result[sheetName].processed++;
                 } catch (err) {
                   result[sheetName].errors.push(`Error processing checklist item: ${err instanceof Error ? err.message : 'Unknown error'}`);
