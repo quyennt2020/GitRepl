@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import PlantMoodSelector, { type Mood } from "./PlantMoodSelector";
 
 const COMMON_ISSUES = [
   { value: "yellow_leaves", label: "Yellow Leaves" },
@@ -37,11 +38,13 @@ export default function HealthRecordForm({ plantId, recordId, onSuccess }: Healt
     defaultValues: existingRecord ? {
       plantId: existingRecord.plantId,
       healthScore: existingRecord.healthScore,
+      mood: existingRecord.mood,
       issues: existingRecord.issues || [],
       notes: existingRecord.notes || "",
     } : {
       plantId,
       healthScore: 5,
+      mood: 'happy',
       issues: [],
       notes: "",
     },
@@ -75,6 +78,23 @@ export default function HealthRecordForm({ plantId, recordId, onSuccess }: Healt
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit((data) => mutate(data))} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="mood"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Plant Mood</FormLabel>
+              <FormControl>
+                <PlantMoodSelector 
+                  value={field.value as Mood} 
+                  onChange={(value) => field.onChange(value)} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <FormField
           control={form.control}
           name="healthScore"

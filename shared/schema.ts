@@ -57,6 +57,7 @@ export const healthRecords = pgTable("health_records", {
   plantId: integer("plant_id").notNull(),
   date: timestamp("date").notNull().defaultNow(),
   healthScore: integer("health_score").notNull(), // 1-5 scale
+  mood: text("mood").notNull(), // Add mood field for emoji
   issues: text("issues").array(), // Array of issues like ["yellow_leaves", "drooping"]
   notes: text("notes"),
 });
@@ -107,6 +108,7 @@ export const insertHealthRecordSchema = createInsertSchema(healthRecords)
   .omit({ id: true })
   .extend({
     healthScore: z.number().min(1).max(5),
+    mood: z.enum(['thriving', 'happy', 'okay', 'struggling', 'critical']),
     issues: z.array(z.string()),
   });
 
