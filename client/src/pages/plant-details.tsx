@@ -4,7 +4,9 @@ import { Plant } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import WateringAnimation from "@/components/WateringAnimation";
 import HealthTrend from "@/components/HealthTrend";
+import TaskHistory from "@/components/TaskHistory";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, ClipboardList, ChevronLeft } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -95,11 +97,22 @@ export default function PlantDetails() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <HealthTrend plantId={parseInt(id)} />
-          </CardContent>
-        </Card>
+        <Tabs defaultValue="health" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="health">Health Trend</TabsTrigger>
+            <TabsTrigger value="history">Task History</TabsTrigger>
+          </TabsList>
+          <TabsContent value="health">
+            <Card>
+              <CardContent className="p-4">
+                <HealthTrend plantId={parseInt(id)} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="history">
+            <TaskHistory plantId={parseInt(id)} />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
