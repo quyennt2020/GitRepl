@@ -38,13 +38,13 @@ export default function HealthRecordForm({ plantId, recordId, onSuccess }: Healt
     defaultValues: existingRecord ? {
       plantId: existingRecord.plantId,
       healthScore: existingRecord.healthScore,
-      mood: existingRecord.mood,
+      mood: existingRecord.mood as Mood,
       issues: existingRecord.issues || [],
       notes: existingRecord.notes || "",
     } : {
       plantId,
       healthScore: 5,
-      mood: 'happy',
+      mood: 'happy' as const,
       issues: [],
       notes: "",
     },
@@ -86,7 +86,7 @@ export default function HealthRecordForm({ plantId, recordId, onSuccess }: Healt
               <FormLabel>Plant Mood</FormLabel>
               <FormControl>
                 <PlantMoodSelector 
-                  value={field.value as Mood} 
+                  value={field.value} 
                   onChange={(value) => field.onChange(value)} 
                 />
               </FormControl>
