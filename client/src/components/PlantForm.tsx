@@ -50,7 +50,8 @@ export default function PlantForm({ plant }: PlantFormProps) {
       toast({ title: `Plant ${plant ? 'updated' : 'added'} successfully` });
       form.reset();
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Error adding/updating plant:", error);
       toast({ 
         title: `Failed to ${plant ? 'update' : 'add'} plant`,
         variant: "destructive"
