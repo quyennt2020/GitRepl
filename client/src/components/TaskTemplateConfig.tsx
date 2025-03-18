@@ -177,13 +177,11 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
                 <FormLabel>Default Interval (days)</FormLabel>
                 <FormControl>
                   <Input
-                    type="tel"
+                    type="number"
+                    min={0}
+                    placeholder="Enter interval (0 for one-time)"
                     {...field}
-                    value={field.value || "0"}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '');
-                      field.onChange(val === '' ? 0 : parseInt(val, 10));
-                    }}
+                    onChange={(e) => field.onChange(Number(e.target.value))}
                   />
                 </FormControl>
                 <p className="text-sm text-muted-foreground">
