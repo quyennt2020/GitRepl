@@ -70,6 +70,8 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
     },
   });
 
+  // Track if this is a one-time task
+  const [isOneTime, setIsOneTime] = useState(false);
 
   return (
     <Form {...form}>
@@ -158,15 +160,29 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
             name="defaultInterval"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Default Interval (days)</FormLabel>
-                <FormControl>
-                  <Input 
-                    {...field}
-                    type="number" 
-                    placeholder="Days between tasks"
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                  />
-                </FormControl>
+                <FormLabel>Task Type</FormLabel>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={isOneTime}
+                      onCheckedChange={(checked) => {
+                        setIsOneTime(checked);
+                        // Set interval to 1 for one-time tasks (to satisfy schema)
+                        field.onChange(checked ? 1 : form.getValues("defaultInterval") ?? 7);
+                      }}
+                    />
+                    <label>One-time task</label>
+                  </div>
+                  {!isOneTime && (
+                    <Input
+                      type="number"
+                      placeholder="Days between tasks"
+                      {...field}
+                      disabled={isOneTime}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
+                  )}
+                </div>
                 <FormMessage />
               </FormItem>
             )}
@@ -287,9 +303,7 @@ export default function TaskTemplateConfig() {
                   <Badge variant="outline">{template.category}</Badge>
                   <Badge variant="outline">{template.priority} priority</Badge>
                   <Badge variant="outline">
-                    {template.defaultInterval === 0
-                      ? "One-time task"
-                      : `${template.defaultInterval} days interval`}
+                    {template.defaultInterval === 1 ? "One-time task" : `${template.defaultInterval} days interval`}
                   </Badge>
                 </div>
               </div>
