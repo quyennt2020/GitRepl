@@ -323,8 +323,11 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
                     min={0}
                     step={1}
                     {...field}
-                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                    value={field.value || 0}
+                    onChange={(e) => {
+                      const value = e.target.value === "" ? 0 : parseInt(e.target.value);
+                      field.onChange(value);
+                    }}
+                    value={field.value}
                   />
                 </FormControl>
                 <p className="text-sm text-muted-foreground">
