@@ -35,30 +35,13 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
       category: editingTemplate?.category ?? "water",
       description: editingTemplate?.description ?? "",
       priority: editingTemplate?.priority ?? "medium",
-      defaultInterval: editingTemplate?.defaultInterval ?? 0,
+      defaultInterval: editingTemplate?.defaultInterval ?? 7,
       public: editingTemplate?.public ?? false,
       applyToAll: editingTemplate?.applyToAll ?? false,
       estimatedDuration: editingTemplate?.estimatedDuration ?? 15,
       requiresExpertise: editingTemplate?.requiresExpertise ?? false,
     },
   });
-
-  // Reset form when editing template changes
-  useEffect(() => {
-    if (editingTemplate) {
-      form.reset({
-        name: editingTemplate.name,
-        category: editingTemplate.category,
-        description: editingTemplate.description ?? "",
-        priority: editingTemplate.priority,
-        defaultInterval: editingTemplate.defaultInterval,
-        public: editingTemplate.public,
-        applyToAll: editingTemplate.applyToAll,
-        estimatedDuration: editingTemplate.estimatedDuration ?? 15,
-        requiresExpertise: editingTemplate.requiresExpertise,
-      });
-    }
-  }, [editingTemplate, form]);
 
   const { mutate: saveTemplate, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
@@ -86,6 +69,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
       });
     },
   });
+
 
   return (
     <Form {...form}>
@@ -176,17 +160,13 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
               <FormItem>
                 <FormLabel>Default Interval (days)</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
-                    min={0}
-                    placeholder="Enter interval (0 for one-time)"
+                  <Input 
                     {...field}
+                    type="number" 
+                    placeholder="Days between tasks"
                     onChange={(e) => field.onChange(Number(e.target.value))}
                   />
                 </FormControl>
-                <p className="text-sm text-muted-foreground">
-                  Enter 0 for one-time tasks
-                </p>
                 <FormMessage />
               </FormItem>
             )}
