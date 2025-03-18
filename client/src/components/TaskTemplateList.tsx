@@ -1,5 +1,7 @@
+
 import { TaskTemplate } from "@shared/schema";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 interface TaskTemplateListProps {
   templates: TaskTemplate[];
@@ -16,11 +18,11 @@ export default function TaskTemplateList({ templates, onEdit }: TaskTemplateList
               <h3 className="font-medium">{template.name}</h3>
               <p className="text-sm text-muted-foreground">{template.description}</p>
               <div className="flex gap-2 mt-2">
-                <span className="text-sm bg-secondary px-2 py-1 rounded-md">{template.category}</span>
-                <span className="text-sm bg-secondary px-2 py-1 rounded-md">{template.priority} priority</span>
-                <span className="text-sm bg-secondary px-2 py-1 rounded-md">
-                  {template.isOneTime ? "One-time task" : `${template.defaultInterval} days interval`}
-                </span>
+                <Badge variant="outline">{template.category}</Badge>
+                <Badge variant="outline">{template.priority} priority</Badge>
+                <Badge variant="outline">{template.isOneTime ? "One-time task" : `${template.defaultInterval} days interval`}</Badge>
+                {template.public && <Badge variant="outline">Public</Badge>}
+                {template.applyToAll && <Badge variant="outline">Apply to all</Badge>}
               </div>
             </div>
             <Button
