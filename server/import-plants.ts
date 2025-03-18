@@ -2,7 +2,6 @@ import { parse } from 'csv-parse';
 import fs from 'fs/promises';
 import { db } from './db';
 import { plants, type InsertPlant } from '@shared/schema';
-import { format } from 'date-fns';
 
 export async function importPlantsFromCSV(filepath: string) {
   try {
@@ -30,7 +29,9 @@ export async function importPlantsFromCSV(filepath: string) {
       errors: [] as string[],
     };
 
-    for (const [index, record] of records.entries()) {
+    // Use standard for loop instead of entries() to avoid TypeScript issues
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
       try {
         // Transform CSV data to match our schema
         const plantData: InsertPlant = {
@@ -45,6 +46,11 @@ export async function importPlantsFromCSV(filepath: string) {
           position: record.position || null,
         };
 
+        // Validate required fields
+        if (!plantData.name || !plantData.species || !record.wateringInterval) {
+          throw new Error('Missing required fields: name, species, or wateringInterval');
+        }
+
         // Insert into database
         await db.insert(plants).values(plantData);
         results.success++;
@@ -53,7 +59,7 @@ export async function importPlantsFromCSV(filepath: string) {
       } catch (error) {
         results.failed++;
         results.errors.push(
-          `Row ${index + 1} (${record.name}): ${error instanceof Error ? error.message : String(error)}`
+          `Row ${i + 1} (${record.name || 'Unknown'}): ${error instanceof Error ? error.message : String(error)}`
         );
       }
     }
@@ -68,12 +74,5 @@ export async function importPlantsFromCSV(filepath: string) {
   } catch (error) {
     console.error('Import failed:', error);
     throw error;
-  } finally {
-    // Clean up the temporary file
-    try {
-      await fs.unlink(filepath);
-    } catch (error) {
-      console.error('Failed to clean up temporary file:', error);
-    }
   }
 }
