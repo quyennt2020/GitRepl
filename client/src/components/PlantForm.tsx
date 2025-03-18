@@ -23,17 +23,23 @@ export default function PlantForm({ plant }: PlantFormProps) {
     defaultValues: plant ? {
       name: plant.name,
       species: plant.species,
-      location: plant.location,
+      location: plant.location ?? "",
       image: plant.image,
+      wateringInterval: plant.wateringInterval,
+      fertilizingInterval: plant.fertilizingInterval,
       sunlight: plant.sunlight,
-      notes: plant.notes
+      notes: plant.notes ?? "",
+      position: plant.position ?? ""
     } : {
       name: "",
       species: "",
       location: "",
-      image: "",
+      image: "https://placehold.co/400x400?text=Plant",
+      wateringInterval: 7,
+      fertilizingInterval: 30,
       sunlight: "medium",
-      notes: ""
+      notes: "",
+      position: ""
     }
   });
 
@@ -106,6 +112,44 @@ export default function PlantForm({ plant }: PlantFormProps) {
 
         <FormField
           control={form.control}
+          name="wateringInterval"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Watering Interval (days)</FormLabel>
+              <FormControl>
+                <Input 
+                  type="number" 
+                  placeholder="Days between watering"
+                  {...field}
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="fertilizingInterval"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Fertilizing Interval (days)</FormLabel>
+              <FormControl>
+                <Input 
+                  type="number" 
+                  placeholder="Days between fertilizing"
+                  {...field}
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="image"
           render={({ field }) => (
             <FormItem>
@@ -127,7 +171,7 @@ export default function PlantForm({ plant }: PlantFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Sunlight Needs</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select sunlight needs" />
