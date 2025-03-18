@@ -85,7 +85,11 @@ export default function TaskTemplateConfig() {
                 <div className="flex gap-2 mt-2">
                   <Badge variant="outline">{template.category}</Badge>
                   <Badge variant="outline">{template.priority} priority</Badge>
-                  <Badge variant="outline">{template.defaultInterval} days interval</Badge>
+                  <Badge variant="outline">
+                    {template.defaultInterval === 0
+                      ? "One-time task"
+                      : `${template.defaultInterval} days interval`}
+                  </Badge>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -154,8 +158,8 @@ export default function TaskTemplateConfig() {
         ))}
       </div>
 
-      <Dialog 
-        open={isDialogOpen} 
+      <Dialog
+        open={isDialogOpen}
         onOpenChange={(open) => {
           if (!open) {
             setEditingTemplate(null);
@@ -168,7 +172,7 @@ export default function TaskTemplateConfig() {
             <DialogTitle>{editingTemplate ? "Edit Task Template" : "New Task Template"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-2">
-            <CreateTemplateForm 
+            <CreateTemplateForm
               editingTemplate={editingTemplate}
               onSuccess={() => {
                 setIsDialogOpen(false);
@@ -187,15 +191,16 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
 
   const form = useForm<z.infer<typeof insertTaskTemplateSchema>>({
     resolver: zodResolver(insertTaskTemplateSchema),
-    defaultValues: editingTemplate || {
-      name: "",
-      category: "water",
-      description: "",
-      priority: "medium",
-      defaultInterval: 7,
-      applyToAll: false,
-      estimatedDuration: 15,
-      requiresExpertise: false,
+    defaultValues: {
+      name: editingTemplate?.name ?? "",
+      category: editingTemplate?.category ?? "water",
+      description: editingTemplate?.description ?? "",
+      priority: editingTemplate?.priority ?? "medium",
+      defaultInterval: editingTemplate?.defaultInterval ?? 0,
+      public: editingTemplate?.public ?? false,
+      applyToAll: editingTemplate?.applyToAll ?? false,
+      estimatedDuration: editingTemplate?.estimatedDuration ?? 15,
+      requiresExpertise: editingTemplate?.requiresExpertise ?? false,
     },
   });
 
@@ -209,14 +214,14 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      toast({ 
+      toast({
         title: `Template ${editingTemplate ? "updated" : "created"} successfully`,
         description: "All changes have been saved to the database"
       });
       onSuccess?.();
     },
     onError: (error) => {
-      toast({ 
+      toast({
         title: `Failed to ${editingTemplate ? "update" : "create"} template`,
         variant: "destructive",
         description: error instanceof Error ? error.message : "Unknown error occurred"
@@ -313,14 +318,18 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
               <FormItem>
                 <FormLabel>Default Interval (days)</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="number" 
-                    min={1}
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
                     {...field}
-                    onChange={(e) => field.onChange(parseInt(e.target.value) || 7)}
-                    value={field.value || ""}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                    value={field.value || 0}
                   />
                 </FormControl>
+                <p className="text-sm text-muted-foreground">
+                  Set to 0 for one-time tasks, or specify days between recurring tasks
+                </p>
                 <FormMessage />
               </FormItem>
             )}
@@ -343,7 +352,22 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
             </FormItem>
           )}
         />
-
+        <FormField
+          control={form.control}
+          name="public"
+          render={({ field }) => (
+            <FormItem className="flex items-center gap-2">
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+              <FormLabel className="!mt-0">Public</FormLabel>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <Button type="submit" className="w-full" disabled={isPending}>
           {editingTemplate ? "Update Template" : "Create Template"}
         </Button>

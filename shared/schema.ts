@@ -23,12 +23,12 @@ export const taskTemplates = pgTable("task_templates", {
   name: text("name").notNull(),
   category: text("category").notNull(), // water, fertilize, prune, check, etc.
   description: text("description"),
-  defaultInterval: integer("default_interval"), // Default interval in days
+  defaultInterval: integer("default_interval").notNull().default(0), // Default interval in days, 0 for one-time tasks
   priority: text("priority").notNull(), // high, medium, low
   estimatedDuration: integer("estimated_duration"), // in minutes
   requiresExpertise: boolean("requires_expertise").default(false),
-  public: boolean("public").default(false), // New field: controls if template can be applied to plants
-  applyToAll: boolean("apply_to_all").default(false), // Now only works if public is true
+  public: boolean("public").default(false),
+  applyToAll: boolean("apply_to_all").default(false),
   metadata: jsonb("metadata"), // For flexible additional fields
 });
 
@@ -68,6 +68,7 @@ export const insertTaskTemplateSchema = createInsertSchema(taskTemplates)
   .extend({
     category: z.enum(["water", "fertilize", "prune", "check", "repot", "clean"]),
     priority: z.enum(["high", "medium", "low"]),
+    defaultInterval: z.number().min(0, "Interval must be 0 or greater").default(0),
     metadata: z.record(z.unknown()).optional(),
     public: z.boolean().default(false),
     applyToAll: z.boolean().default(false),
