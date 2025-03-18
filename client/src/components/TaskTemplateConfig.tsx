@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { TaskTemplate, insertTaskTemplateSchema } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -38,15 +38,22 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
   const { mutate: saveTemplate, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
       if (editingTemplate?.id) {
-        const response = await apiRequest("PATCH", `/api/task-templates/${editingTemplate.id}`, data);
+        const response = await fetch(`/api/task-templates/${editingTemplate.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
         return response.json();
       } else {
-        const response = await apiRequest("POST", "/api/task-templates", data);
+        const response = await fetch("/api/task-templates", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
         return response.json();
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
       toast({
         title: `Template ${editingTemplate ? "updated" : "created"} successfully`,
         description: "All changes have been saved to the database"
@@ -62,7 +69,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
     },
   });
 
-  // Watch isOneTime to conditionally show/hide interval input
+  // Watch isOneTime to conditionally show interval
   const isOneTime = form.watch("isOneTime");
 
   return (
@@ -146,26 +153,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="isOneTime"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Task Type</FormLabel>
-              <div className="flex items-center space-x-2">
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <span className="text-sm">One-time task</span>
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
         {!isOneTime && (
           <FormField
             control={form.control}
@@ -190,6 +177,27 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
 
         <div className="space-y-4 rounded-lg border p-4">
           <h3 className="font-medium">Template Settings</h3>
+
+          <FormField
+            control={form.control}
+            name="isOneTime"
+            render={({ field }) => (
+              <FormItem className="flex items-center gap-2">
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <div className="space-y-0.5">
+                  <FormLabel className="!mt-0">One-time task</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    Make this template for one-time tasks instead of recurring tasks
+                  </p>
+                </div>
+              </FormItem>
+            )}
+          />
 
           <FormField
             control={form.control}
@@ -227,9 +235,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
                 <div className="space-y-0.5">
                   <FormLabel className="!mt-0">Apply to All Plants</FormLabel>
                   <p className="text-sm text-muted-foreground">
-                    {form.watch("public")
-                      ? "Make template public first to enable this option"
-                      : "Make template public first to enable this option"}
+                    Make template public first to enable this option
                   </p>
                 </div>
               </FormItem>
@@ -238,7 +244,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
         </div>
 
         <Button type="submit" className="w-full" disabled={isPending}>
-          {editingTemplate ? "Update Template" : "Create Template"}
+          {editingTemplate ? "Update" : "Create"} Template
         </Button>
       </form>
     </Form>
@@ -277,11 +283,11 @@ export default function TaskTemplateConfig() {
                 <h3 className="font-medium">{template.name}</h3>
                 <p className="text-sm text-muted-foreground">{template.description}</p>
                 <div className="flex gap-2 mt-2">
-                  <Badge variant="outline">{template.category}</Badge>
-                  <Badge variant="outline">{template.priority} priority</Badge>
-                  <Badge variant="outline">
-                    {template.isOneTime ? "One-time task" : `Repeat every ${template.defaultInterval} days`}
-                  </Badge>
+                  <span className="text-sm bg-secondary px-2 py-1 rounded-md">{template.category}</span>
+                  <span className="text-sm bg-secondary px-2 py-1 rounded-md">{template.priority} priority</span>
+                  <span className="text-sm bg-secondary px-2 py-1 rounded-md">
+                    {template.isOneTime ? "One-time task" : `${template.defaultInterval} days interval`}
+                  </span>
                 </div>
               </div>
               <Button
