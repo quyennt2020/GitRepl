@@ -43,6 +43,23 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
     },
   });
 
+  // Reset form when editing template changes
+  useEffect(() => {
+    if (editingTemplate) {
+      form.reset({
+        name: editingTemplate.name,
+        category: editingTemplate.category,
+        description: editingTemplate.description ?? "",
+        priority: editingTemplate.priority,
+        defaultInterval: editingTemplate.defaultInterval,
+        public: editingTemplate.public,
+        applyToAll: editingTemplate.applyToAll,
+        estimatedDuration: editingTemplate.estimatedDuration ?? 15,
+        requiresExpertise: editingTemplate.requiresExpertise,
+      });
+    }
+  }, [editingTemplate, form]);
+
   const { mutate: saveTemplate, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
       if (editingTemplate?.id) {
@@ -69,23 +86,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
       });
     },
   });
-
-  // Reset form when editing template changes
-  useEffect(() => {
-    if (editingTemplate) {
-      form.reset({
-        name: editingTemplate.name,
-        category: editingTemplate.category,
-        description: editingTemplate.description ?? "",
-        priority: editingTemplate.priority,
-        defaultInterval: editingTemplate.defaultInterval,
-        public: editingTemplate.public,
-        applyToAll: editingTemplate.applyToAll,
-        estimatedDuration: editingTemplate.estimatedDuration ?? 15,
-        requiresExpertise: editingTemplate.requiresExpertise,
-      });
-    }
-  }, [editingTemplate, form]);
 
   return (
     <Form {...form}>
@@ -177,21 +177,17 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
                 <FormLabel>Default Interval (days)</FormLabel>
                 <FormControl>
                   <Input
-                    type="number"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    min={0}
-                    step={1}
+                    type="tel"
                     {...field}
-                    value={field.value}
+                    value={field.value || "0"}
                     onChange={(e) => {
-                      const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                      field.onChange(value);
+                      const val = e.target.value.replace(/\D/g, '');
+                      field.onChange(val === '' ? 0 : parseInt(val, 10));
                     }}
                   />
                 </FormControl>
                 <p className="text-sm text-muted-foreground">
-                  Set to 0 for one-time tasks, or specify days between recurring tasks
+                  Enter 0 for one-time tasks
                 </p>
                 <FormMessage />
               </FormItem>
