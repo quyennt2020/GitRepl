@@ -1,3 +1,4 @@
+
 import { useMutation } from "@tanstack/react-query";
 import { TaskTemplate, insertTaskTemplateSchema } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -10,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from 'zod';
+import * as React from 'react';
 
 interface TaskTemplateFormProps {
   editingTemplate: TaskTemplate | null;
@@ -25,7 +27,7 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
       name: editingTemplate?.name ?? "",
       category: editingTemplate?.category ?? "water",
       description: editingTemplate?.description ?? "",
-      priority: editingTemplate?.priority ?? "medium", 
+      priority: editingTemplate?.priority ?? "medium",
       defaultInterval: editingTemplate?.defaultInterval ?? 7,
       isOneTime: editingTemplate?.isOneTime ?? false,
       public: editingTemplate?.public ?? false,
@@ -34,15 +36,24 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
     mode: "onChange"
   });
 
-  const isOneTime = form.watch("isOneTime");
+  const isOneTime = form.watch("isOneTime", false);
+  const isPublic = form.watch("public", false);
 
+  // Handle defaultInterval and isOneTime relationship
   React.useEffect(() => {
     if (isOneTime) {
-      form.setValue("defaultInterval", 0);
-    } else if (form.getValues("defaultInterval") === 0) {
-      form.setValue("defaultInterval", 7);
+      form.setValue("defaultInterval", 0, { shouldValidate: true });
+    } else if (!form.getValues("defaultInterval")) {
+      form.setValue("defaultInterval", 7, { shouldValidate: true });
     }
   }, [isOneTime, form]);
+
+  // Handle public and applyToAll relationship
+  React.useEffect(() => {
+    if (!isPublic) {
+      form.setValue("applyToAll", false, { shouldValidate: true });
+    }
+  }, [isPublic, form]);
 
   const { mutate: saveTemplate, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
@@ -168,14 +179,7 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
                 <FormControl>
                   <Switch
                     checked={field.value}
-                    onCheckedChange={(checked) => {
-                      field.onChange(checked);
-                      if (checked) {
-                        form.setValue("defaultInterval", 0);
-                      } else {
-                        form.setValue("defaultInterval", 7);
-                      }
-                    }}
+                    onCheckedChange={field.onChange}
                   />
                 </FormControl>
                 <span className="text-sm">One-time task</span>
@@ -239,8 +243,8 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
               <FormItem className="flex items-center gap-2">
                 <FormControl>
                   <Switch
-                    disabled={!form.watch("public")}
-                    checked={field.value && form.watch("public")}
+                    disabled={!isPublic}
+                    checked={field.value && isPublic}
                     onCheckedChange={field.onChange}
                   />
                 </FormControl>
