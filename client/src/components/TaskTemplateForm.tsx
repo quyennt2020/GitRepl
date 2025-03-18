@@ -69,9 +69,6 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
     },
   });
 
-  // Watch isOneTime to conditionally show interval
-  const isOneTime = form.watch("isOneTime");
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit((data) => saveTemplate(data))} className="space-y-8">
