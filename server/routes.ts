@@ -8,26 +8,55 @@ import multer from "multer";
 import { importPlantsFromCSV } from "./import-plants";
 import path from "path";
 import os from "os";
+import fs from 'fs/promises'; // Import fs/promises for asynchronous file operations
+
 
 export function registerRoutes(app: Express): Server {
-  // Configure multer for file uploads
-  const upload = multer({ dest: os.tmpdir() });
+  // Configure multer for file uploads with specific file filter
+  const upload = multer({
+    dest: os.tmpdir(),
+    fileFilter: (_req, file, cb) => {
+      // Only accept CSV files
+      if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only CSV files are allowed'));
+      }
+    }
+  });
 
   // Register backup routes
   app.use(backupRouter);
 
-  // Plants import route
+  // Plants import route with proper error handling
   app.post("/api/plants/import", upload.single("file"), async (req, res) => {
     try {
       if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
+        return res.status(400).json({ 
+          success: false,
+          message: "No file uploaded" 
+        });
       }
 
       const results = await importPlantsFromCSV(req.file.path);
-      res.json(results);
+
+      // Clean up the temporary file
+      await fs.unlink(req.file.path).catch(console.error);
+
+      res.json({
+        success: true,
+        data: results
+      });
     } catch (error) {
       console.error("Import error:", error);
+
+      // Clean up the temporary file in case of error
+      if (req.file) {
+        await fs.unlink(req.file.path).catch(console.error);
+      }
+
       res.status(500).json({ 
+        success: false,
         message: error instanceof Error ? error.message : "Failed to import plants" 
       });
     }

@@ -42,9 +42,13 @@ export default function ImportPlantsDialog() {
       }
 
       const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.message || "Failed to import plants");
+      }
+
       toast({
         title: "Import successful",
-        description: `Successfully imported ${result.success} plants`,
+        description: `Successfully imported ${result.data.success} plants`,
       });
 
       // Refresh the plants list
