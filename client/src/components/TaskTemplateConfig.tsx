@@ -36,6 +36,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
       description: editingTemplate?.description ?? "",
       priority: editingTemplate?.priority ?? "medium",
       defaultInterval: editingTemplate?.defaultInterval ?? 7,
+      isOneTime: editingTemplate?.isOneTime ?? false,
       public: editingTemplate?.public ?? false,
       applyToAll: editingTemplate?.applyToAll ?? false,
       estimatedDuration: editingTemplate?.estimatedDuration ?? 15,
@@ -70,8 +71,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
     },
   });
 
-  // Track if this is a one-time task
-  const [isOneTime, setIsOneTime] = useState(false);
+  const isOneTimeValue = form.watch("isOneTime");
 
   return (
     <Form {...form}>
@@ -155,38 +155,46 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="defaultInterval"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Task Type</FormLabel>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
+          <div className="space-y-4">
+            <FormField
+              control={form.control}
+              name="isOneTime"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-2 pt-7">
+                  <FormControl>
                     <Switch
-                      checked={isOneTime}
-                      onCheckedChange={(checked) => {
-                        setIsOneTime(checked);
-                        // Set interval to 1 for one-time tasks (to satisfy schema)
-                        field.onChange(checked ? 1 : form.getValues("defaultInterval") ?? 7);
-                      }}
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
                     />
-                    <label>One-time task</label>
+                  </FormControl>
+                  <div className="leading-none">
+                    <label className="text-sm font-medium">One-time task</label>
                   </div>
-                  {!isOneTime && (
-                    <Input
-                      type="number"
-                      placeholder="Days between tasks"
-                      {...field}
-                      disabled={isOneTime}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                    />
-                  )}
-                </div>
-                <FormMessage />
-              </FormItem>
+                </FormItem>
+              )}
+            />
+
+            {!isOneTimeValue && (
+              <FormField
+                control={form.control}
+                name="defaultInterval"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Repeat every (days)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        {...field}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
-          />
+          </div>
         </div>
 
         <div className="space-y-4 rounded-lg border p-4">
@@ -303,7 +311,7 @@ export default function TaskTemplateConfig() {
                   <Badge variant="outline">{template.category}</Badge>
                   <Badge variant="outline">{template.priority} priority</Badge>
                   <Badge variant="outline">
-                    {template.defaultInterval === 1 ? "One-time task" : `${template.defaultInterval} days interval`}
+                    {template.isOneTime ? "One-time task" : `${template.defaultInterval} days interval`}
                   </Badge>
                 </div>
               </div>
