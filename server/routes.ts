@@ -4,10 +4,34 @@ import { storage } from "./storage";
 import { insertPlantSchema, insertCareTaskSchema, insertHealthRecordSchema, insertTaskTemplateSchema, insertChecklistItemSchema } from "@shared/schema";
 import type { ChecklistItem } from "@shared/schema";
 import backupRouter from "./routes/backup";
+import multer from "multer";
+import { importPlantsFromCSV } from "./import-plants";
+import path from "path";
+import os from "os";
 
 export function registerRoutes(app: Express): Server {
+  // Configure multer for file uploads
+  const upload = multer({ dest: os.tmpdir() });
+
   // Register backup routes
   app.use(backupRouter);
+
+  // Plants import route
+  app.post("/api/plants/import", upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const results = await importPlantsFromCSV(req.file.path);
+      res.json(results);
+    } catch (error) {
+      console.error("Import error:", error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to import plants" 
+      });
+    }
+  });
 
   // Plants routes
   app.get("/api/plants", async (_req, res) => {

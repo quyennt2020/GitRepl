@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, LayoutGrid, List, Search } from "lucide-react";
 import PlantForm from "@/components/PlantForm";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import ImportPlantsDialog from "@/components/ImportPlantsDialog";
 
 type ViewMode = "grid" | "list";
 
@@ -42,6 +43,7 @@ export default function Plants() {
     <div className="container py-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">My Plants</h1>
+        <ImportPlantsDialog />
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
