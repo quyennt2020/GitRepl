@@ -20,7 +20,9 @@ export default function TaskTemplateList({ templates, onEdit }: TaskTemplateList
               <div className="flex gap-2 mt-2">
                 <Badge variant="outline">{template.category}</Badge>
                 <Badge variant="outline">{template.priority} priority</Badge>
-                <Badge variant="outline">{template.isOneTime ? "One-time task" : `${template.defaultInterval} days interval`}</Badge>
+                <Badge variant="outline" className={template.isOneTime ? "bg-blue-100" : ""}>
+                  {template.isOneTime ? "One-time task" : `${template.defaultInterval} days interval`}
+                </Badge>
                 {template.public && <Badge variant="outline">Public</Badge>}
                 {template.applyToAll && <Badge variant="outline">Apply to all</Badge>}
               </div>
