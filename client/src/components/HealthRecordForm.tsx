@@ -87,7 +87,7 @@ export default function HealthRecordForm({ plantId, recordId, onSuccess }: Healt
               <FormControl>
                 <PlantMoodSelector 
                   value={field.value} 
-                  onChange={(value) => field.onChange(value)} 
+                  onChange={field.onChange} 
                 />
               </FormControl>
               <FormMessage />
