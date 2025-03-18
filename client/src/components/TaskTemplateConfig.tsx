@@ -7,18 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit2, Info, Plus, Trash2, List } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import * as z from 'zod';
-import { Link } from "wouter";
 
 interface CreateTemplateFormProps {
   editingTemplate: TaskTemplate | null;
@@ -39,8 +32,6 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
       isOneTime: editingTemplate?.isOneTime ?? false,
       public: editingTemplate?.public ?? false,
       applyToAll: editingTemplate?.applyToAll ?? false,
-      estimatedDuration: editingTemplate?.estimatedDuration ?? 15,
-      requiresExpertise: editingTemplate?.requiresExpertise ?? false,
     },
   });
 
@@ -76,7 +67,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => saveTemplate(data))} className="space-y-4">
+      <form onSubmit={form.handleSubmit((data) => saveTemplate(data))} className="space-y-8">
         <FormField
           control={form.control}
           name="name"
@@ -130,75 +121,72 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <FormField
+          control={form.control}
+          name="priority"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Priority</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {["low", "medium", "high"].map((priority) => (
+                    <SelectItem key={priority} value={priority}>
+                      {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="isOneTime"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Task Type</FormLabel>
+              <div className="flex items-center space-x-2">
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <span className="text-sm">One-time task</span>
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {!isOneTime && (
           <FormField
             control={form.control}
-            name="priority"
+            name="defaultInterval"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Priority</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {["low", "medium", "high"].map((priority) => (
-                      <SelectItem key={priority} value={priority}>
-                        {priority.charAt(0).toUpperCase() + priority.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormLabel>Default Interval (days)</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number"
+                    min={1}
+                    placeholder="Days between tasks"
+                    {...field}
+                    onChange={(e) => field.onChange(Number(e.target.value))}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-
-          <div className="space-y-4">
-            <FormField
-              control={form.control}
-              name="isOneTime"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Task Type</FormLabel>
-                  <div className="flex items-center space-x-2">
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <span className="text-sm">One-time task</span>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {!isOneTime && (
-              <FormField
-                control={form.control}
-                name="defaultInterval"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Repeat every (days)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={1}
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-          </div>
-        </div>
+        )}
 
         <div className="space-y-4 rounded-lg border p-4">
           <h3 className="font-medium">Template Settings</h3>
@@ -240,7 +228,7 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
                   <FormLabel className="!mt-0">Apply to All Plants</FormLabel>
                   <p className="text-sm text-muted-foreground">
                     {form.watch("public")
-                      ? "Automatically assign tasks to all plants when created"
+                      ? "Make template public first to enable this option"
                       : "Make template public first to enable this option"}
                   </p>
                 </div>
@@ -260,30 +248,9 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
 export default function TaskTemplateConfig() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<TaskTemplate | null>(null);
-  const { toast } = useToast();
 
   const { data: templates, isLoading } = useQuery<TaskTemplate[]>({
     queryKey: ["/api/task-templates"],
-  });
-
-  const { mutate: updateTemplate } = useMutation({
-    mutationFn: async ({ id, applyToAll }: { id: number; applyToAll: boolean }) => {
-      await apiRequest("PATCH", `/api/task-templates/${id}`, { applyToAll });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      toast({ title: "Template updated successfully" });
-    },
-  });
-
-  const { mutate: deleteTemplate } = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/task-templates/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      toast({ title: "Template deleted successfully" });
-    },
   });
 
   if (isLoading) {
@@ -298,14 +265,13 @@ export default function TaskTemplateConfig() {
           setEditingTemplate(null);
           setIsDialogOpen(true);
         }}>
-          <Plus className="mr-2 h-4 w-4" />
           New Template
         </Button>
       </div>
 
       <div className="grid gap-4">
         {templates?.map((template) => (
-          <Card key={template.id} className="p-4">
+          <div key={template.id} className="p-4 rounded-lg border">
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="font-medium">{template.name}</h3>
@@ -314,73 +280,22 @@ export default function TaskTemplateConfig() {
                   <Badge variant="outline">{template.category}</Badge>
                   <Badge variant="outline">{template.priority} priority</Badge>
                   <Badge variant="outline">
-                    {template.isOneTime ? "One-time task" : `${template.defaultInterval} days interval`}
+                    {template.isOneTime ? "One-time task" : `Repeat every ${template.defaultInterval} days`}
                   </Badge>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">Apply to all plants</span>
-                        <Info className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>When enabled, this task template will be automatically available for all plants in your collection.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <Switch
-                  checked={template.applyToAll ?? false}
-                  onCheckedChange={(checked) => {
-                    updateTemplate({ id: template.id, applyToAll: checked });
-                  }}
-                />
-                <Link href={`/templates/${template.id}/checklist`}>
-                  <Button variant="ghost" size="icon">
-                    <List className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setEditingTemplate(template);
-                    setIsDialogOpen(true);
-                  }}
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:text-destructive/90"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Template</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to delete this template? This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => deleteTemplate(template.id)}>
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditingTemplate(template);
+                  setIsDialogOpen(true);
+                }}
+              >
+                Edit
+              </Button>
             </div>
-          </Card>
+          </div>
         ))}
       </div>
 
@@ -393,19 +308,19 @@ export default function TaskTemplateConfig() {
           setIsDialogOpen(open);
         }}
       >
-        <DialogContent className="max-h-[90vh] flex flex-col">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingTemplate ? "Edit Task Template" : "New Task Template"}</DialogTitle>
+            <DialogTitle>
+              {editingTemplate ? "Edit Task Template" : "New Task Template"}
+            </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto pr-2">
-            <CreateTemplateForm
-              editingTemplate={editingTemplate}
-              onSuccess={() => {
-                setIsDialogOpen(false);
-                setEditingTemplate(null);
-              }}
-            />
-          </div>
+          <CreateTemplateForm
+            editingTemplate={editingTemplate}
+            onSuccess={() => {
+              setIsDialogOpen(false);
+              setEditingTemplate(null);
+            }}
+          />
         </DialogContent>
       </Dialog>
     </div>
