@@ -170,27 +170,26 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
           )}
         />
 
-        {!isOneTime && (
-          <FormField
-            control={form.control}
-            name="defaultInterval"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Default Interval (days)</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number"
-                    min={1}
-                    placeholder="Days between tasks"
-                    {...field}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
+        <FormField
+          control={form.control}
+          name="defaultInterval"
+          render={({ field }) => (
+            <FormItem className={isOneTime ? "hidden" : ""}>
+              <FormLabel>Default Interval (days)</FormLabel>
+              <FormControl>
+                <Input 
+                  type="number"
+                  min={1}
+                  placeholder="Days between tasks"
+                  {...field}
+                  value={field.value || ""}
+                  onChange={(e) => field.onChange(parseInt(e.target.value) || 7)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <div className="space-y-4 rounded-lg border p-4">
           <h3 className="font-medium">Template Settings</h3>
