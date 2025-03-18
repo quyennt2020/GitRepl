@@ -37,7 +37,7 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
     mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
       const response = await fetch(
         editingTemplate?.id 
-          ? `/api/task-templates/${editingTemplate.id}`
+          ? `/api/task-templates/${editingTemplate.id}` 
           : "/api/task-templates",
         {
           method: editingTemplate?.id ? 'PATCH' : 'POST',
@@ -150,6 +150,26 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
           )}
         />
 
+        <FormField
+          control={form.control}
+          name="isOneTime"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Task Type</FormLabel>
+              <div className="flex items-center space-x-2">
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <span className="text-sm">One-time task</span>
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         {!isOneTime && (
           <FormField
             control={form.control}
@@ -159,7 +179,8 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
                 <FormLabel>Default Interval (days)</FormLabel>
                 <FormControl>
                   <Input 
-                    type="number" 
+                    type="number"
+                    min={1}
                     placeholder="Days between tasks"
                     {...field}
                     onChange={(e) => field.onChange(Number(e.target.value))}
@@ -173,27 +194,6 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
 
         <div className="space-y-4 rounded-lg border p-4">
           <h3 className="font-medium">Template Settings</h3>
-
-          <FormField
-            control={form.control}
-            name="isOneTime"
-            render={({ field }) => (
-              <FormItem className="flex items-center gap-2">
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <div className="space-y-0.5">
-                  <FormLabel className="!mt-0">One-time task</FormLabel>
-                  <p className="text-sm text-muted-foreground">
-                    Make this template for one-time tasks instead of recurring tasks
-                  </p>
-                </div>
-              </FormItem>
-            )}
-          />
 
           <FormField
             control={form.control}
