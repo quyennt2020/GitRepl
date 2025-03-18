@@ -31,9 +31,18 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
       public: editingTemplate?.public ?? false,
       applyToAll: editingTemplate?.applyToAll ?? false,
     },
+    mode: "onChange"
   });
 
-  const isOneTime = form.watch("isOneTime", false);
+  const isOneTime = form.watch("isOneTime");
+
+  React.useEffect(() => {
+    if (isOneTime) {
+      form.setValue("defaultInterval", 0);
+    } else if (form.getValues("defaultInterval") === 0) {
+      form.setValue("defaultInterval", 7);
+    }
+  }, [isOneTime, form]);
 
   const { mutate: saveTemplate, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
