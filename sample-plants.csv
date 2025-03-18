@@ -1,0 +1,4 @@
+name,species,image,location,wateringInterval,fertilizingInterval,sunlight,notes
+Snake Plant,Sansevieria trifasciata,https://example.com/snake-plant.jpg,Living Room,7,30,low,Drought tolerant plant
+Monstera,Monstera deliciosa,https://example.com/monstera.jpg,Study,5,14,medium,Likes humidity
+Peace Lily,Spathiphyllum,https://example.com/peace-lily.jpg,Bedroom,3,21,low,Good air purifier

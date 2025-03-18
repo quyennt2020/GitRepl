@@ -1,0 +1,39 @@
+Import Report (2025-03-18-10-04-11)
+Total records processed: 3
+Successfully imported: 0
+Failed to import: 3
+
+Errors:
+Row 1: [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "position"
+    ],
+    "message": "Expected string, received null"
+  }
+]
+Row 2: [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "position"
+    ],
+    "message": "Expected string, received null"
+  }
+]
+Row 3: [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "position"
+    ],
+    "message": "Expected string, received null"
+  }
+]

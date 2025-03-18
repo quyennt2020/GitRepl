@@ -44,7 +44,7 @@ app.use((req, res, next) => {
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
+    console.error('Server error:', err);
   });
 
   if (app.get("env") === "development") {
@@ -53,8 +53,23 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  const PORT = 5000;
-  server.listen(PORT, "0.0.0.0", () => {
-    log(`serving on port ${PORT}`);
-  });
+  const PORT = process.env.PORT || 5000;
+  let retries = 5;
+
+  while (retries > 0) {
+    try {
+      server.listen(PORT, () => {
+        log(`Server listening on port ${PORT}`);
+      });
+      break;
+    } catch (err) {
+      if (retries === 1) {
+        console.error(`Failed to start server after 5 attempts: ${err}`);
+        process.exit(1);
+      }
+      console.log(`Port ${PORT} in use, retrying...`);
+      retries--;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
 })();
