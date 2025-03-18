@@ -81,7 +81,7 @@ export default function TaskTemplateConfig() {
                 <div className="flex gap-2 mt-2">
                   <Badge variant="outline">{template.category}</Badge>
                   <Badge variant="outline">{template.priority} priority</Badge>
-                  <Badge variant="outline">{template.isOneTime ? "One-time task" : `${template.defaultInterval} days interval`}</Badge>
+                  <Badge variant="outline">{template.defaultInterval} days interval</Badge>
                 </div>
               </div>
               <div className="flex items-center gap-2">
