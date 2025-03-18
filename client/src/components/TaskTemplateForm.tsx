@@ -25,13 +25,16 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
       name: editingTemplate?.name ?? "",
       category: editingTemplate?.category ?? "water",
       description: editingTemplate?.description ?? "",
-      priority: editingTemplate?.priority ?? "medium",
+      priority: editingTemplate?.priority ?? "medium", 
       defaultInterval: editingTemplate?.defaultInterval ?? 7,
       isOneTime: editingTemplate?.isOneTime ?? false,
       public: editingTemplate?.public ?? false,
       applyToAll: editingTemplate?.applyToAll ?? false,
     },
+    mode: "onChange"
   });
+
+  const isOneTime = form.watch("isOneTime");
 
   const { mutate: saveTemplate, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
@@ -177,26 +180,28 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="defaultInterval"
-          render={({ field }) => (
-            <FormItem className={form.watch("isOneTime") ? "hidden" : ""}>
-              <FormLabel>Default Interval (days)</FormLabel>
-              <FormControl>
-                <Input 
-                  type="number"
-                  min={1}
-                  placeholder="Days between tasks"
-                  {...field}
-                  value={field.value || ""}
-                  onChange={(e) => field.onChange(parseInt(e.target.value) || 7)}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {!isOneTime && (
+          <FormField
+            control={form.control}
+            name="defaultInterval"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Default Interval (days)</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number"
+                    min={1}
+                    placeholder="Days between tasks"
+                    {...field}
+                    value={field.value || ""}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 7)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <div className="space-y-4 rounded-lg border p-4">
           <h3 className="font-medium">Template Settings</h3>
