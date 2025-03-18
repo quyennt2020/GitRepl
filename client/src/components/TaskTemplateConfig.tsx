@@ -71,7 +71,8 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
     },
   });
 
-  const isOneTimeValue = form.watch("isOneTime");
+  // Watch isOneTime to conditionally show/hide interval input
+  const isOneTime = form.watch("isOneTime");
 
   return (
     <Form {...form}>
@@ -160,21 +161,23 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
               control={form.control}
               name="isOneTime"
               render={({ field }) => (
-                <FormItem className="flex items-center gap-2 pt-7">
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="leading-none">
-                    <label className="text-sm font-medium">One-time task</label>
+                <FormItem className="flex flex-col">
+                  <FormLabel>Task Type</FormLabel>
+                  <div className="flex items-center space-x-2">
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <span className="text-sm">One-time task</span>
                   </div>
+                  <FormMessage />
                 </FormItem>
               )}
             />
 
-            {!isOneTimeValue && (
+            {!isOneTime && (
               <FormField
                 control={form.control}
                 name="defaultInterval"
