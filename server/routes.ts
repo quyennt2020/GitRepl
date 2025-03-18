@@ -3,8 +3,12 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertPlantSchema, insertCareTaskSchema, insertHealthRecordSchema, insertTaskTemplateSchema, insertChecklistItemSchema } from "@shared/schema";
 import type { ChecklistItem } from "@shared/schema";
+import backupRouter from "./routes/backup";
 
 export function registerRoutes(app: Express): Server {
+  // Register backup routes
+  app.use(backupRouter);
+
   // Plants routes
   app.get("/api/plants", async (_req, res) => {
     const plants = await storage.getPlants();
