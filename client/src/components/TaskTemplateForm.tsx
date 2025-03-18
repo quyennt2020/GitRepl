@@ -31,10 +31,9 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
       public: editingTemplate?.public ?? false,
       applyToAll: editingTemplate?.applyToAll ?? false,
     },
-    mode: "onChange"
   });
 
-  const isOneTime = form.watch("isOneTime");
+  const isOneTime = form.watch("isOneTime", false);
 
   const { mutate: saveTemplate, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
