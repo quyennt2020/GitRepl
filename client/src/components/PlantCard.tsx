@@ -28,15 +28,38 @@ export default function PlantCard({ plant }: PlantCardProps) {
     mutationFn: async () => {
       await apiRequest("DELETE", `/api/plants/${plant.id}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/plants"] });
-      toast({ title: "Plant deleted successfully" });
+    onMutate: async () => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/plants"] });
+
+      // Snapshot the previous value
+      const previousPlants = queryClient.getQueryData<Plant[]>(["/api/plants"]);
+
+      // Optimistically remove the plant from the cache
+      queryClient.setQueryData<Plant[]>(["/api/plants"], (old) => 
+        old?.filter(p => p.id !== plant.id) ?? []
+      );
+
+      // Return a context object with the snapshotted value
+      return { previousPlants };
     },
-    onError: () => {
+    onError: (err, _variables, context) => {
+      // If the mutation fails, restore the previous plants
+      if (context?.previousPlants) {
+        queryClient.setQueryData(["/api/plants"], context.previousPlants);
+      }
       toast({
         title: "Failed to delete plant",
+        description: err instanceof Error ? err.message : "An error occurred",
         variant: "destructive",
       });
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure cache is in sync
+      queryClient.invalidateQueries({ queryKey: ["/api/plants"] });
+    },
+    onSuccess: () => {
+      toast({ title: "Plant deleted successfully" });
     },
   });
 
