@@ -19,172 +19,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import * as z from 'zod';
 import { Link } from "wouter";
-import React from 'react';
 
 interface CreateTemplateFormProps {
   editingTemplate: TaskTemplate | null;
   onSuccess?: () => void;
-}
-
-export default function TaskTemplateConfig() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<TaskTemplate | null>(null);
-  const { toast } = useToast();
-
-  const { data: templates, isLoading } = useQuery<TaskTemplate[]>({
-    queryKey: ["/api/task-templates"],
-  });
-
-  const { mutate: updateTemplate } = useMutation({
-    mutationFn: async ({ id, applyToAll }: { id: number; applyToAll: boolean }) => {
-      await apiRequest("PATCH", `/api/task-templates/${id}`, { applyToAll });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      toast({ title: "Template updated successfully" });
-    },
-  });
-
-  const { mutate: deleteTemplate } = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/task-templates/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
-      toast({ title: "Template deleted successfully" });
-    },
-  });
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  const uniqueTemplates = [...new Set(templates?.map(t => t.name))];
-  const sortedTemplates = templates?.filter(template => uniqueTemplates.includes(template.name))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  return (
-    <div className="space-y-4 p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-semibold tracking-tight">Task Templates</h2>
-        <Button onClick={() => {
-          setEditingTemplate(null);
-          setIsDialogOpen(true);
-        }}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Template
-        </Button>
-      </div>
-
-      <div className="grid gap-4">
-        {sortedTemplates?.map((template) => (
-          <Card key={template.id} className="p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-medium">{template.name}</h3>
-                <p className="text-sm text-muted-foreground">{template.description}</p>
-                <div className="flex gap-2 mt-2">
-                  <Badge variant="outline">{template.category}</Badge>
-                  <Badge variant="outline">{template.priority} priority</Badge>
-                  <Badge variant="outline">
-                    {template.defaultInterval === 0
-                      ? "One-time task"
-                      : `${template.defaultInterval} days interval`}
-                  </Badge>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">Apply to all plants</span>
-                        <Info className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>When enabled, this task template will be automatically available for all plants in your collection.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <Switch
-                  checked={template.applyToAll}
-                  onCheckedChange={(checked) => {
-                    updateTemplate({ id: template.id, applyToAll: checked });
-                  }}
-                />
-                <Link href={`/templates/${template.id}/checklist`}>
-                  <Button variant="ghost" size="icon">
-                    <List className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setEditingTemplate(template);
-                    setIsDialogOpen(true);
-                  }}
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:text-destructive/90"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Template</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to delete this template? This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => deleteTemplate(template.id)}>
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      <Dialog
-        open={isDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditingTemplate(null);
-          }
-          setIsDialogOpen(open);
-        }}
-      >
-        <DialogContent className="max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>{editingTemplate ? "Edit Task Template" : "New Task Template"}</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto pr-2">
-            <CreateTemplateForm
-              editingTemplate={editingTemplate}
-              onSuccess={() => {
-                setIsDialogOpen(false);
-                setEditingTemplate(null);
-              }}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
 }
 
 function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormProps) {
@@ -334,19 +172,22 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
           <FormField
             control={form.control}
             name="defaultInterval"
-            render={({ field: { onChange, ...field } }) => (
+            render={({ field }) => (
               <FormItem>
                 <FormLabel>Default Interval (days)</FormLabel>
                 <FormControl>
                   <Input
                     type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     min={0}
                     step={1}
-                    onChange={(e) => {
-                      const value = e.target.value === "" ? 0 : parseInt(e.target.value);
-                      onChange(value);
-                    }}
                     {...field}
+                    value={field.value}
+                    onChange={(e) => {
+                      const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                      field.onChange(value);
+                    }}
                   />
                 </FormControl>
                 <p className="text-sm text-muted-foreground">
@@ -412,5 +253,162 @@ function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormPr
         </Button>
       </form>
     </Form>
+  );
+}
+
+export default function TaskTemplateConfig() {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<TaskTemplate | null>(null);
+  const { toast } = useToast();
+
+  const { data: templates, isLoading } = useQuery<TaskTemplate[]>({
+    queryKey: ["/api/task-templates"],
+  });
+
+  const { mutate: updateTemplate } = useMutation({
+    mutationFn: async ({ id, applyToAll }: { id: number; applyToAll: boolean }) => {
+      await apiRequest("PATCH", `/api/task-templates/${id}`, { applyToAll });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
+      toast({ title: "Template updated successfully" });
+    },
+  });
+
+  const { mutate: deleteTemplate } = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/task-templates/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
+      toast({ title: "Template deleted successfully" });
+    },
+  });
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <div className="space-y-4 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-semibold tracking-tight">Task Templates</h2>
+        <Button onClick={() => {
+          setEditingTemplate(null);
+          setIsDialogOpen(true);
+        }}>
+          <Plus className="mr-2 h-4 w-4" />
+          New Template
+        </Button>
+      </div>
+
+      <div className="grid gap-4">
+        {templates?.map((template) => (
+          <Card key={template.id} className="p-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-medium">{template.name}</h3>
+                <p className="text-sm text-muted-foreground">{template.description}</p>
+                <div className="flex gap-2 mt-2">
+                  <Badge variant="outline">{template.category}</Badge>
+                  <Badge variant="outline">{template.priority} priority</Badge>
+                  <Badge variant="outline">
+                    {template.defaultInterval === 0
+                      ? "One-time task"
+                      : `${template.defaultInterval} days interval`}
+                  </Badge>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">Apply to all plants</span>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>When enabled, this task template will be automatically available for all plants in your collection.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <Switch
+                  checked={template.applyToAll ?? false}
+                  onCheckedChange={(checked) => {
+                    updateTemplate({ id: template.id, applyToAll: checked });
+                  }}
+                />
+                <Link href={`/templates/${template.id}/checklist`}>
+                  <Button variant="ghost" size="icon">
+                    <List className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setEditingTemplate(template);
+                    setIsDialogOpen(true);
+                  }}
+                >
+                  <Edit2 className="h-4 w-4" />
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive/90"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Template</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete this template? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => deleteTemplate(template.id)}>
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingTemplate(null);
+          }
+          setIsDialogOpen(open);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{editingTemplate ? "Edit Task Template" : "New Task Template"}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto pr-2">
+            <CreateTemplateForm
+              editingTemplate={editingTemplate}
+              onSuccess={() => {
+                setIsDialogOpen(false);
+                setEditingTemplate(null);
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
