@@ -160,7 +160,14 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
                 <FormControl>
                   <Switch
                     checked={field.value}
-                    onCheckedChange={field.onChange}
+                    onCheckedChange={(checked) => {
+                      field.onChange(checked);
+                      if (checked) {
+                        form.setValue("defaultInterval", 0);
+                      } else {
+                        form.setValue("defaultInterval", 7);
+                      }
+                    }}
                   />
                 </FormControl>
                 <span className="text-sm">One-time task</span>
@@ -174,7 +181,7 @@ export default function TaskTemplateForm({ editingTemplate, onSuccess }: TaskTem
           control={form.control}
           name="defaultInterval"
           render={({ field }) => (
-            <FormItem className={isOneTime ? "hidden" : ""}>
+            <FormItem className={form.watch("isOneTime") ? "hidden" : ""}>
               <FormLabel>Default Interval (days)</FormLabel>
               <FormControl>
                 <Input 
