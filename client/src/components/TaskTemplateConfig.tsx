@@ -1,255 +1,10 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { TaskTemplate, insertTaskTemplateSchema } from "@shared/schema";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useQuery } from "@tanstack/react-query";
+import { TaskTemplate } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from 'zod';
-
-interface CreateTemplateFormProps {
-  editingTemplate: TaskTemplate | null;
-  onSuccess?: () => void;
-}
-
-function CreateTemplateForm({ editingTemplate, onSuccess }: CreateTemplateFormProps) {
-  const { toast } = useToast();
-
-  const form = useForm<z.infer<typeof insertTaskTemplateSchema>>({
-    resolver: zodResolver(insertTaskTemplateSchema),
-    defaultValues: {
-      name: editingTemplate?.name ?? "",
-      category: editingTemplate?.category ?? "water",
-      description: editingTemplate?.description ?? "",
-      priority: editingTemplate?.priority ?? "medium",
-      defaultInterval: editingTemplate?.defaultInterval ?? 7,
-      isOneTime: editingTemplate?.isOneTime ?? false,
-      public: editingTemplate?.public ?? false,
-      applyToAll: editingTemplate?.applyToAll ?? false,
-    },
-  });
-
-  const { mutate: saveTemplate, isPending } = useMutation({
-    mutationFn: async (data: z.infer<typeof insertTaskTemplateSchema>) => {
-      if (editingTemplate?.id) {
-        const response = await fetch(`/api/task-templates/${editingTemplate.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        });
-        return response.json();
-      } else {
-        const response = await fetch("/api/task-templates", {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        });
-        return response.json();
-      }
-    },
-    onSuccess: () => {
-      toast({
-        title: `Template ${editingTemplate ? "updated" : "created"} successfully`,
-        description: "All changes have been saved to the database"
-      });
-      onSuccess?.();
-    },
-    onError: (error) => {
-      toast({
-        title: `Failed to ${editingTemplate ? "update" : "create"} template`,
-        variant: "destructive",
-        description: error instanceof Error ? error.message : "Unknown error occurred"
-      });
-    },
-  });
-
-  // Watch isOneTime to conditionally show interval
-  const isOneTime = form.watch("isOneTime");
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => saveTemplate(data))} className="space-y-8">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Name</FormLabel>
-              <FormControl>
-                <Input {...field} placeholder="Task template name" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="category"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Category</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {["water", "fertilize", "prune", "check", "repot", "clean"].map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category.charAt(0).toUpperCase() + category.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea {...field} placeholder="Template description" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="priority"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Priority</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select priority" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {["low", "medium", "high"].map((priority) => (
-                    <SelectItem key={priority} value={priority}>
-                      {priority.charAt(0).toUpperCase() + priority.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {!isOneTime && (
-          <FormField
-            control={form.control}
-            name="defaultInterval"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Default Interval (days)</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number"
-                    min={1}
-                    placeholder="Days between tasks"
-                    {...field}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-
-        <div className="space-y-4 rounded-lg border p-4">
-          <h3 className="font-medium">Template Settings</h3>
-
-          <FormField
-            control={form.control}
-            name="isOneTime"
-            render={({ field }) => (
-              <FormItem className="flex items-center gap-2">
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <div className="space-y-0.5">
-                  <FormLabel className="!mt-0">One-time task</FormLabel>
-                  <p className="text-sm text-muted-foreground">
-                    Make this template for one-time tasks instead of recurring tasks
-                  </p>
-                </div>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="public"
-            render={({ field }) => (
-              <FormItem className="flex items-center gap-2">
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <div className="space-y-0.5">
-                  <FormLabel className="!mt-0">Public Template</FormLabel>
-                  <p className="text-sm text-muted-foreground">
-                    Make this template available for assigning tasks to plants
-                  </p>
-                </div>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="applyToAll"
-            render={({ field }) => (
-              <FormItem className="flex items-center gap-2">
-                <FormControl>
-                  <Switch
-                    disabled={!form.watch("public")}
-                    checked={field.value && form.watch("public")}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <div className="space-y-0.5">
-                  <FormLabel className="!mt-0">Apply to All Plants</FormLabel>
-                  <p className="text-sm text-muted-foreground">
-                    Make template public first to enable this option
-                  </p>
-                </div>
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <Button type="submit" className="w-full" disabled={isPending}>
-          {editingTemplate ? "Update" : "Create"} Template
-        </Button>
-      </form>
-    </Form>
-  );
-}
+import TaskTemplateForm from "./TaskTemplateForm";
+import TaskTemplateList from "./TaskTemplateList";
 
 export default function TaskTemplateConfig() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -275,35 +30,13 @@ export default function TaskTemplateConfig() {
         </Button>
       </div>
 
-      <div className="grid gap-4">
-        {templates?.map((template) => (
-          <div key={template.id} className="p-4 rounded-lg border">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-medium">{template.name}</h3>
-                <p className="text-sm text-muted-foreground">{template.description}</p>
-                <div className="flex gap-2 mt-2">
-                  <span className="text-sm bg-secondary px-2 py-1 rounded-md">{template.category}</span>
-                  <span className="text-sm bg-secondary px-2 py-1 rounded-md">{template.priority} priority</span>
-                  <span className="text-sm bg-secondary px-2 py-1 rounded-md">
-                    {template.isOneTime ? "One-time task" : `${template.defaultInterval} days interval`}
-                  </span>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setEditingTemplate(template);
-                  setIsDialogOpen(true);
-                }}
-              >
-                Edit
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
+      <TaskTemplateList 
+        templates={templates || []} 
+        onEdit={(template) => {
+          setEditingTemplate(template);
+          setIsDialogOpen(true);
+        }}
+      />
 
       <Dialog
         open={isDialogOpen}
@@ -320,7 +53,7 @@ export default function TaskTemplateConfig() {
               {editingTemplate ? "Edit Task Template" : "New Task Template"}
             </DialogTitle>
           </DialogHeader>
-          <CreateTemplateForm
+          <TaskTemplateForm
             editingTemplate={editingTemplate}
             onSuccess={() => {
               setIsDialogOpen(false);
