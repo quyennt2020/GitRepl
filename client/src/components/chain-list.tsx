@@ -1,8 +1,8 @@
-import { TaskChain, ChainStep } from "@shared/schema";
+import { TaskChain, ChainStep, TaskTemplate } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Trash2 } from "lucide-react";
+import { Edit2, Trash2, Clock, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -15,7 +15,12 @@ interface ChainListProps {
 export default function ChainList({ chains, onEdit }: ChainListProps) {
   const { toast } = useToast();
 
-  // Load steps for each chain with proper query configuration
+  // Load templates first
+  const templatesQuery = useQuery<TaskTemplate[]>({
+    queryKey: ['/api/task-templates'],
+  });
+
+  // Load steps for each chain
   const stepsQueries = chains.map(chain => {
     const query = useQuery<ChainStep[]>({
       queryKey: ['/api/task-chains', chain.id, 'steps'],
@@ -51,8 +56,8 @@ export default function ChainList({ chains, onEdit }: ChainListProps) {
     },
   });
 
-  // Show loading state while any chain's steps are loading
-  if (stepsQueries.some(query => query.isLoading)) {
+  // Show loading states
+  if (templatesQuery.isLoading || stepsQueries.some(query => query.isLoading)) {
     return (
       <div className="text-center text-muted-foreground py-8">
         Loading task chains...
@@ -117,30 +122,40 @@ export default function ChainList({ chains, onEdit }: ChainListProps) {
                   </Badge>
                 </div>
                 {/* Display step details */}
-                {steps.length > 0 && (
+                {steps.length > 0 && templatesQuery.data && (
                   <div className="mt-3 space-y-2">
                     {steps
                       .sort((a, b) => a.order - b.order)
-                      .map((step, index) => (
-                        <div key={step.id} className="flex items-center gap-2 text-sm">
-                          <span className="min-w-[20px] text-center">{index + 1}.</span>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">Template ID: {step.templateId}</span>
-                              {step.waitDuration > 0 && (
-                                <Badge variant="outline" className="text-xs">
-                                  Wait {step.waitDuration}h
-                                </Badge>
-                              )}
-                              {step.requiresApproval && (
-                                <Badge variant="outline" className="text-xs">
-                                  Needs Approval
-                                </Badge>
+                      .map((step, index) => {
+                        const template = templatesQuery.data.find(t => t.id === step.templateId);
+                        return (
+                          <div key={step.id} className="flex items-center gap-2 text-sm">
+                            <span className="min-w-[20px] text-center">{index + 1}.</span>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{template?.name || `Template ${step.templateId}`}</span>
+                                {step.waitDuration > 0 && (
+                                  <Badge variant="outline" className="flex items-center gap-1 text-xs">
+                                    <Clock className="w-3 h-3" />
+                                    Wait {step.waitDuration}h
+                                  </Badge>
+                                )}
+                                {step.requiresApproval && (
+                                  <Badge variant="outline" className="flex items-center gap-1 text-xs">
+                                    <Shield className="w-3 h-3" />
+                                    Needs Approval
+                                  </Badge>
+                                )}
+                              </div>
+                              {template?.description && (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {template.description}
+                                </p>
                               )}
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 )}
               </div>
