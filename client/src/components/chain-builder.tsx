@@ -22,7 +22,7 @@ interface ChainBuilderProps {
   existingChain?: TaskChain;
 }
 
-interface ChainStepForm extends InsertChainStep {
+interface ChainStepForm extends Omit<InsertChainStep, 'chainId'> {
   templateName?: string;
 }
 
@@ -55,15 +55,17 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
   // Initialize steps when editing an existing chain
   useEffect(() => {
     if (chainSteps && existingChain) {
-      const formattedSteps: ChainStepForm[] = chainSteps
+      const formattedSteps = chainSteps
         .sort((a, b) => a.order - b.order)
-        .map(step => {
-          const template = templates.find(t => t.id === step.templateId);
-          return {
-            ...step,
-            templateName: template?.name,
-          };
-        });
+        .map(step => ({
+          templateId: step.templateId,
+          order: step.order,
+          isRequired: step.isRequired ?? true,
+          waitDuration: step.waitDuration ?? 0,
+          requiresApproval: step.requiresApproval ?? false,
+          approvalRoles: step.approvalRoles ?? [],
+          templateName: templates.find(t => t.id === step.templateId)?.name,
+        }));
       setSteps(formattedSteps);
     } else if (!existingChain) {
       setSteps([]);
@@ -126,6 +128,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
             throw new Error('Failed to create chain step');
           }
         }
+
+        return chainResponse.json();
       } else {
         // Create new chain
         const chainResponse = await fetch('/api/task-chains', {
@@ -156,6 +160,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
             throw new Error('Failed to create chain step');
           }
         }
+
+        return chain;
       }
     },
     onSuccess: () => {
@@ -192,13 +198,12 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     const template = templates[0];
     const newStep: ChainStepForm = {
       templateId: template.id,
-      templateName: template.name,
+      order: steps.length + 1,
       isRequired: true,
       waitDuration: 0,
       requiresApproval: template.requiresExpertise,
       approvalRoles: template.requiresExpertise ? ['expert'] : [],
-      chainId: existingChain?.id || 0,
-      order: steps.length + 1,
+      templateName: template.name,
     };
     setSteps([...steps, newStep]);
     setSelectedStep(steps.length);
