@@ -37,6 +37,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
       name: existingChain?.name ?? "",
       description: existingChain?.description ?? "",
       category: existingChain?.category ?? "water",
+      isActive: existingChain?.isActive ?? true,
     },
   });
 
@@ -69,6 +70,25 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     }
   }, [chainSteps, existingChain, templates]);
 
+  // Reset form when chain changes
+  useEffect(() => {
+    if (existingChain) {
+      form.reset({
+        name: existingChain.name,
+        description: existingChain.description,
+        category: existingChain.category,
+        isActive: existingChain.isActive,
+      });
+    } else {
+      form.reset({
+        name: "",
+        description: "",
+        category: "water",
+        isActive: true,
+      });
+    }
+  }, [existingChain, form]);
+
   const selectedTemplate = selectedStep !== null ? templates.find(t => t.id === steps[selectedStep]?.templateId) : null;
 
   const createChainMutation = useMutation({
@@ -89,13 +109,16 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
         await fetch(`/api/chain-steps/${existingChain.id}`, {
           method: 'DELETE'
         });
+
+        // Create steps for the chain
         for (const step of steps) {
           const stepResponse = await fetch('/api/chain-steps', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               ...step,
-              chainId: existingChain.id
+              chainId: existingChain.id,
+              order: steps.indexOf(step) + 1,
             })
           });
 
@@ -124,7 +147,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               ...step,
-              chainId: chain.id
+              chainId: chain.id,
+              order: steps.indexOf(step) + 1,
             })
           });
 
@@ -222,6 +246,62 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* Chain Information Section */}
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Chain name</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Chain name" className="min-h-[40px]" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Describe the purpose of this chain" className="min-h-[40px]" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={(value: InsertTaskChain["category"]) => field.onChange(value)}
+                  >
+                    <SelectTrigger className="min-h-[40px]">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="water">Water</SelectItem>
+                      <SelectItem value="fertilize">Fertilize</SelectItem>
+                      <SelectItem value="prune">Prune</SelectItem>
+                      <SelectItem value="check">Check</SelectItem>
+                      <SelectItem value="repot">Repot</SelectItem>
+                      <SelectItem value="clean">Clean</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {/* Task Configuration Section */}
             {selectedStep !== null && selectedTemplate ? (
               <div className="space-y-4">
@@ -281,64 +361,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
                   </div>
                 </div>
               </div>
-            ) : (
-              <>
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Chain name</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Chain name" className="min-h-[40px]" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Describe the purpose of this chain" className="min-h-[40px]" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={(value: InsertTaskChain["category"]) => field.onChange(value)}
-                      >
-                        <SelectTrigger className="min-h-[40px]">
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="water">Water</SelectItem>
-                          <SelectItem value="fertilize">Fertilize</SelectItem>
-                          <SelectItem value="prune">Prune</SelectItem>
-                          <SelectItem value="check">Check</SelectItem>
-                          <SelectItem value="repot">Repot</SelectItem>
-                          <SelectItem value="clean">Clean</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
+            ) : null}
 
             {/* Chain Steps Section */}
             <div className="space-y-4">
