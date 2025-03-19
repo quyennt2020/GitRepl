@@ -44,13 +44,13 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     queryKey: ["/api/task-templates"],
   });
 
-  // Load existing chain steps if editing
+  // Load chain steps when editing
   const { data: chainSteps = [], isLoading: stepsLoading } = useQuery<ChainStep[]>({
     queryKey: ["/api/task-chains", existingChain?.id, "steps"],
     enabled: !!existingChain?.id,
   });
 
-  // Initialize form with existing chain data or defaults
+  // Initialize form
   const form = useForm<InsertTaskChain>({
     resolver: zodResolver(insertTaskChainSchema),
     defaultValues: existingChain ? {
@@ -66,9 +66,10 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     },
   });
 
-  // Load steps when editing existing chain
+  // Load steps when editing an existing chain
   useEffect(() => {
     if (existingChain && chainSteps.length > 0 && templates.length > 0) {
+      console.log('Loading chain steps:', { chainId: existingChain.id, steps: chainSteps });
       const sortedSteps = chainSteps
         .sort((a, b) => a.order - b.order)
         .map(step => {
@@ -89,7 +90,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
         })
         .filter((step): step is NonNullable<typeof step> => step !== null);
 
-      console.log("Setting sorted steps:", sortedSteps);
+      console.log('Setting steps:', sortedSteps);
       setSteps(sortedSteps);
     }
   }, [existingChain, chainSteps, templates]);
@@ -173,10 +174,9 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
         chainId = updatedChain.id;
 
         // Delete existing steps
-        const deletePromises = chainSteps.map(step =>
+        await Promise.all(chainSteps.map(step =>
           fetch(`/api/chain-steps/${step.id}`, { method: "DELETE" })
-        );
-        await Promise.all(deletePromises);
+        ));
       } else {
         // Create new chain
         const chainResponse = await fetch("/api/task-chains", {
@@ -191,7 +191,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
       }
 
       // Create steps
-      const createStepPromises = steps.map((step, index) =>
+      await Promise.all(steps.map((step, index) =>
         fetch("/api/chain-steps", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -201,9 +201,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
             order: index + 1,
           }),
         })
-      );
-
-      await Promise.all(createStepPromises);
+      ));
 
       return chainId;
     },
