@@ -56,29 +56,28 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
   const stepsQuery = useQuery<ChainStep[]>({
     queryKey: ["/api/task-chains", existingChain?.id, "steps"],
     enabled: !!existingChain?.id,
+    staleTime: 0,
+    refetchOnMount: true
   });
 
   // Initialize steps from existing chain
   useEffect(() => {
-    if (existingChain && stepsQuery.data?.length && templatesQuery.data?.length) {
-      const sortedSteps = stepsQuery.data
+    if (existingChain && stepsQuery.data) {
+      const sortedSteps = [...stepsQuery.data]
         .sort((a, b) => a.order - b.order)
-        .map(step => {
-          const template = templatesQuery.data.find(t => t.id === step.templateId);
-          return {
-            id: step.id,
-            chainId: step.chainId,
-            templateId: step.templateId,
-            order: step.order,
-            isRequired: step.isRequired ?? true,
-            waitDuration: step.waitDuration ?? 0,
-            requiresApproval: step.requiresApproval ?? false,
-            approvalRoles: step.approvalRoles ?? [],
-          };
-        });
+        .map(step => ({
+          id: step.id,
+          chainId: step.chainId,
+          templateId: step.templateId,
+          order: step.order,
+          isRequired: step.isRequired ?? true,
+          waitDuration: step.waitDuration ?? 0,
+          requiresApproval: step.requiresApproval ?? false,
+          approvalRoles: step.approvalRoles ?? [],
+        }));
       setSteps(sortedSteps);
     }
-  }, [existingChain, stepsQuery.data, templatesQuery.data]);
+  }, [existingChain, stepsQuery.data]);
 
   // Reset state when dialog closes
   useEffect(() => {
