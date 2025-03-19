@@ -31,7 +31,7 @@ const taskTemplates = [
       "Gently pull plant"
     ]
   }
-]
+];
 
 // These templates are referenced in chain steps
 const repottingChain = {
@@ -56,7 +56,7 @@ const repottingChain = {
       approvalRoles: ["expert", "manager"]
     }
   ]
-}
+};
 ```
 
 ### Database Schema
@@ -69,7 +69,7 @@ taskChains = pgTable("task_chains", {
   category: text("category").notNull(), // matches task template categories
   createdAt: timestamp("created_at").defaultNow(),
   isActive: boolean("is_active").default(true),
-})
+});
 
 // New table for chain steps
 chainSteps = pgTable("chain_steps", {
@@ -82,7 +82,7 @@ chainSteps = pgTable("chain_steps", {
   condition: jsonb("condition"), // Conditions for step to be active
   requiresApproval: boolean("requires_approval").default(false),
   approvalRoles: text("approval_roles").array(), // Roles that can approve this step
-})
+});
 
 // New table for chain assignments
 chainAssignments = pgTable("chain_assignments", {
@@ -93,7 +93,7 @@ chainAssignments = pgTable("chain_assignments", {
   completedAt: timestamp("completed_at"),
   currentStepId: integer("current_step_id"),
   status: text("status").notNull(), // active, completed, cancelled
-})
+});
 
 // New table for step approvals
 stepApprovals = pgTable("step_approvals", {
@@ -103,7 +103,7 @@ stepApprovals = pgTable("step_approvals", {
   approvedBy: integer("approved_by").notNull(), // Reference to user table
   approvedAt: timestamp("approved_at").defaultNow(),
   notes: text("notes"),
-})
+});
 ```
 
 ## Features
@@ -140,6 +140,154 @@ stepApprovals = pgTable("step_approvals", {
    - Notify eligible approvers
    - Record approval decisions
    - Track approval history
+
+   Example Approval Flow:
+   ```typescript
+   // Current step requires approval
+   const currentStep = {
+     id: 2,
+     templateId: "remove_plant",
+     requiresApproval: true,
+     approvalRoles: ["expert", "manager"]
+   };
+
+   // Approval workflow:
+   1. Task marked as "Pending Approval"
+   2. Eligible approvers notified
+   3. Approver reviews task details:
+      - Template checklist completion
+      - Photos/notes from task execution
+      - Plant condition after task
+   4. Approver decision:
+      - Approve: Chain proceeds to next step
+      - Reject: Task returned for correction
+      - Request Changes: Specific items to fix
+   5. All approval actions logged with:
+      - Timestamp
+      - Approver details
+      - Decision and notes
+   ```
+
+### Real-World Approval Examples
+
+1. Pruning Approval Chain:
+```typescript
+const pruningChain = {
+  name: "Major Pruning Procedure",
+  category: "prune",
+  steps: [
+    {
+      order: 1,
+      templateId: "assess_plant",
+      isRequired: true,
+      requiresApproval: true,
+      approvalRoles: ["expert"],
+      // Expert must approve pruning plan
+    },
+    {
+      order: 2,
+      templateId: "mark_cuts",
+      isRequired: true,
+      requiresApproval: true,
+      approvalRoles: ["expert", "manager"],
+      // Verify cut locations before proceeding
+    },
+    {
+      order: 3,
+      templateId: "make_cuts",
+      isRequired: true,
+      waitDuration: 0
+    },
+    {
+      order: 4,
+      templateId: "cleanup",
+      isRequired: true,
+      waitDuration: 0
+    },
+    {
+      order: 5,
+      templateId: "final_inspection",
+      isRequired: true,
+      requiresApproval: true,
+      approvalRoles: ["expert", "manager"],
+      // Final approval of pruning results
+    }
+  ]
+};
+```
+
+2. Disease Treatment Chain:
+```typescript
+const diseaseChain = {
+  name: "Disease Treatment Protocol",
+  category: "health",
+  steps: [
+    {
+      order: 1,
+      templateId: "diagnose",
+      isRequired: true,
+      requiresApproval: true,
+      approvalRoles: ["expert"],
+      // Expert confirms diagnosis
+    },
+    {
+      order: 2,
+      templateId: "isolate",
+      isRequired: true,
+      waitDuration: 0
+    },
+    {
+      order: 3,
+      templateId: "apply_treatment",
+      isRequired: true,
+      requiresApproval: true,
+      approvalRoles: ["expert"],
+      // Expert verifies treatment selection
+    },
+    {
+      order: 4,
+      templateId: "monitor",
+      isRequired: true,
+      waitDuration: 48, // Hours
+      requiresApproval: true,
+      approvalRoles: ["expert", "manager"],
+      // Verify treatment effectiveness
+    }
+  ]
+};
+```
+
+### Approval System Features
+
+1. Role-Based Access:
+   - Define roles (expert, manager, etc.)
+   - Assign approval permissions by role
+   - Multiple roles can have approval rights
+   - Role hierarchy for approval delegation
+
+2. Approval Notifications:
+   - Email/in-app notifications to approvers
+   - Pending approval dashboard
+   - Reminder system for overdue approvals
+   - Bulk approval capabilities for managers
+
+3. Approval Documentation:
+   - Required photos/notes for approval
+   - Standardized approval forms
+   - Approval history tracking
+   - Audit trail for compliance
+
+4. Approval Workflows:
+   - Sequential approvals (if needed)
+   - Parallel approvals
+   - Conditional approval paths
+   - Emergency override protocols
+
+5. Mobile Approval Support:
+   - Mobile-friendly approval interface
+   - Photo upload from mobile
+   - Quick approve/reject actions
+   - Offline approval queueing
 
 ### UI Components
 
