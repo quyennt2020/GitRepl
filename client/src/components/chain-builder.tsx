@@ -42,27 +42,25 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
   // Fetch chain steps for existing chain
   const { data: chainSteps = [], isLoading: stepsLoading } = useQuery<ChainStep[]>({
     queryKey: ['/api/task-chains', existingChain?.id, 'steps'],
-    enabled: !!existingChain?.id,
+    enabled: !!existingChain?.id && templates.length > 0,
     onSuccess: (data) => {
       console.log('Fetched chain steps:', data);
-      if (data.length && templates.length) {
-        const formattedSteps = data
-          .sort((a, b) => a.order - b.order)
-          .map(step => {
-            const template = templates.find(t => t.id === step.templateId);
-            return {
-              templateId: step.templateId,
-              order: step.order,
-              isRequired: step.isRequired ?? true,
-              waitDuration: step.waitDuration ?? 0,
-              requiresApproval: step.requiresApproval ?? false,
-              approvalRoles: step.approvalRoles ?? [],
-              templateName: template?.name
-            };
-          });
-        console.log('Setting formatted steps:', formattedSteps);
-        setSteps(formattedSteps);
-      }
+      const formattedSteps = data
+        .sort((a, b) => a.order - b.order)
+        .map(step => {
+          const template = templates.find(t => t.id === step.templateId);
+          return {
+            templateId: step.templateId,
+            order: step.order,
+            isRequired: step.isRequired ?? true,
+            waitDuration: step.waitDuration ?? 0,
+            requiresApproval: step.requiresApproval ?? false,
+            approvalRoles: step.approvalRoles ?? [],
+            templateName: template?.name
+          };
+        });
+      console.log('Setting formatted steps:', formattedSteps);
+      setSteps(formattedSteps);
     },
     onError: (error) => {
       console.error('Error fetching chain steps:', error);
