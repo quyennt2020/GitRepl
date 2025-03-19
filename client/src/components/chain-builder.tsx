@@ -42,41 +42,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
   // Fetch chain steps when editing
   const { data: chainSteps = [], isLoading: stepsLoading } = useQuery<ChainStep[]>({
     queryKey: ['/api/task-chains', existingChain?.id, 'steps'],
-    queryFn: async () => {
-      if (!existingChain?.id) return [];
-      const response = await fetch(`/api/task-chains/${existingChain.id}/steps`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch chain steps');
-      }
-      const data = await response.json();
-      console.log('Fetched chain steps:', data);
-      return data;
-    },
     enabled: !!existingChain?.id,
   });
-
-  // Initialize steps when editing an existing chain
-  useEffect(() => {
-    console.log('Effect triggered with chain steps:', chainSteps, 'existing chain:', existingChain);
-    if (existingChain && chainSteps.length > 0) {
-      const formattedSteps = chainSteps
-        .sort((a, b) => a.order - b.order)
-        .map(step => ({
-          templateId: step.templateId,
-          order: step.order,
-          isRequired: step.isRequired ?? true,
-          waitDuration: step.waitDuration ?? 0,
-          requiresApproval: step.requiresApproval ?? false,
-          approvalRoles: step.approvalRoles ?? [],
-          templateName: templates.find(t => t.id === step.templateId)?.name,
-        }));
-      console.log('Setting formatted steps:', formattedSteps);
-      setSteps(formattedSteps);
-    } else if (!existingChain) {
-      console.log('Resetting steps to empty array');
-      setSteps([]);
-    }
-  }, [chainSteps, existingChain, templates]);
 
   // Initialize form
   const form = useForm<InsertTaskChain>({
@@ -89,7 +56,110 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     },
   });
 
-  const selectedTemplate = selectedStep !== null ? templates.find(t => t.id === steps[selectedStep]?.templateId) : null;
+  // Initialize steps when editing an existing chain
+  useEffect(() => {
+    if (existingChain && chainSteps.length > 0) {
+      const formattedSteps = chainSteps
+        .sort((a, b) => a.order - b.order)
+        .map(step => ({
+          templateId: step.templateId,
+          order: step.order,
+          isRequired: step.isRequired ?? true,
+          waitDuration: step.waitDuration ?? 0,
+          requiresApproval: step.requiresApproval ?? false,
+          approvalRoles: step.approvalRoles ?? [],
+          templateName: templates.find(t => t.id === step.templateId)?.name,
+        }));
+      setSteps(formattedSteps);
+    } else {
+      setSteps([]);
+    }
+  }, [chainSteps, existingChain, templates]);
+
+  const addStep = () => {
+    if (templatesLoading) {
+      toast({
+        title: "Loading templates",
+        description: "Please wait while templates are being loaded.",
+        variant: "default",
+      });
+      return;
+    }
+
+    if (!templates || templates.length === 0) {
+      toast({
+        title: "Cannot add step",
+        description: "No task templates are available. Please create a task template first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const defaultTemplate = templates[0];
+    if (!defaultTemplate) {
+      toast({
+        title: "Error adding step",
+        description: "Could not find a default template to use.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newStep: ChainStepForm = {
+      templateId: defaultTemplate.id,
+      order: steps.length + 1,
+      isRequired: true,
+      waitDuration: 0,
+      requiresApproval: defaultTemplate.requiresExpertise,
+      approvalRoles: defaultTemplate.requiresExpertise ? ['expert'] : [],
+      templateName: defaultTemplate.name,
+    };
+
+    const newSteps = [...steps, newStep];
+    setSteps(newSteps);
+    setSelectedStep(newSteps.length - 1);
+  };
+
+  const updateStep = (index: number, updates: Partial<ChainStepForm>) => {
+    if (index < 0 || index >= steps.length) return;
+    const newSteps = [...steps];
+    newSteps[index] = { ...newSteps[index], ...updates };
+    setSteps(newSteps);
+  };
+
+  const removeStep = (index: number) => {
+    if (index < 0 || index >= steps.length) return;
+    const newSteps = steps.filter((_, i) => i !== index);
+    setSteps(newSteps);
+    if (selectedStep === index) {
+      setSelectedStep(null);
+    } else if (selectedStep && selectedStep > index) {
+      setSelectedStep(selectedStep - 1);
+    }
+  };
+
+  const handleDragEnd = (result: any) => {
+    if (!result.destination) return;
+    const items = Array.from(steps);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    setSteps(items);
+    if (selectedStep === result.source.index) {
+      setSelectedStep(result.destination.index);
+    }
+  };
+
+  const onSubmit = (data: InsertTaskChain) => {
+    if (steps.length === 0) {
+      toast({
+        title: "Please add at least one step",
+        description: "A chain must contain at least one step",
+        variant: "destructive",
+      });
+      return;
+    }
+    createChainMutation.mutate(data);
+  };
 
   const createChainMutation = useMutation({
     mutationFn: async (data: InsertTaskChain) => {
@@ -181,65 +251,18 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     },
   });
 
-  const handleDragEnd = (result: any) => {
-    if (!result.destination) return;
-    const items = Array.from(steps);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-    setSteps(items);
-    if (selectedStep === result.source.index) {
-      setSelectedStep(result.destination.index);
-    }
-  };
-
-  const addStep = () => {
-    if (templates.length === 0) return;
-
-    const template = templates[0];
-    const newStep: ChainStepForm = {
-      templateId: template.id,
-      order: steps.length + 1,
-      isRequired: true,
-      waitDuration: 0,
-      requiresApproval: template.requiresExpertise,
-      approvalRoles: template.requiresExpertise ? ['expert'] : [],
-      templateName: template.name,
-    };
-    setSteps([...steps, newStep]);
-    setSelectedStep(steps.length);
-  };
-
-  const removeStep = (index: number) => {
-    const newSteps = [...steps];
-    newSteps.splice(index, 1);
-    setSteps(newSteps);
-    if (selectedStep === index) {
-      setSelectedStep(null);
-    } else if (selectedStep && selectedStep > index) {
-      setSelectedStep(selectedStep - 1);
-    }
-  };
-
-  const updateStep = (index: number, updates: Partial<ChainStepForm>) => {
-    const newSteps = [...steps];
-    newSteps[index] = { ...newSteps[index], ...updates };
-    setSteps(newSteps);
-  };
-
-  const onSubmit = (data: InsertTaskChain) => {
-    if (steps.length === 0) {
-      toast({
-        title: "Please add at least one step",
-        description: "A chain must contain at least one step",
-        variant: "destructive",
-      });
-      return;
-    }
-    createChainMutation.mutate(data);
-  };
+  const selectedTemplate = selectedStep !== null ? templates.find(t => t.id === steps[selectedStep]?.templateId) : null;
 
   if (templatesLoading || stepsLoading) {
-    return null;
+    return (
+      <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="sm:max-w-[500px] overflow-y-auto max-h-[85vh]">
+          <div className="flex items-center justify-center min-h-[200px]">
+            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
   }
 
   return (
