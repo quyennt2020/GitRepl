@@ -52,58 +52,119 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
   const stepsQuery = useQuery<ChainStep[]>({
     queryKey: ["/api/task-chains", existingChain?.id, "steps"],
     enabled: !!existingChain?.id,
-    staleTime: 0, // Always refetch when query is enabled
-    onSuccess: (data) => {
-      if (data.length > 0) {
-        console.log("Loading chain steps:", data);
-        const sortedSteps = data
-          .sort((a, b) => a.order - b.order)
-          .map((step) => ({
+  });
+
+  // Initialize steps from existing chain
+  useEffect(() => {
+    if (existingChain && stepsQuery.data?.length && templatesQuery.data?.length) {
+      const sortedSteps = stepsQuery.data
+        .sort((a, b) => a.order - b.order)
+        .map(step => {
+          const template = templatesQuery.data.find(t => t.id === step.templateId);
+          return {
             id: step.id,
-            chainId: step.chainId,
             templateId: step.templateId,
             order: step.order,
             isRequired: step.isRequired ?? true,
             waitDuration: step.waitDuration ?? 0,
             requiresApproval: step.requiresApproval ?? false,
             approvalRoles: step.approvalRoles ?? [],
-          }));
-        console.log("Setting sorted steps:", sortedSteps);
-        setSteps(sortedSteps);
-      } else {
-        // Reset steps if no data
-        setSteps([]);
-      }
-    },
-  });
+          };
+        });
+      setSteps(sortedSteps);
+    }
+  }, [existingChain, stepsQuery.data, templatesQuery.data]);
 
-  // Reset state on dialog close or chain change
+  // Reset state when dialog closes
   useEffect(() => {
-    if (!open || !existingChain) {
+    if (!open) {
       setSteps([]);
       setSelectedStep(null);
     }
-  }, [open, existingChain]);
+  }, [open]);
 
-  // Form handling
+  // Form setup
   const form = useForm<InsertTaskChain>({
     resolver: zodResolver(insertTaskChainSchema),
-    defaultValues: existingChain
-      ? {
-          name: existingChain.name,
-          description: existingChain.description ?? "",
-          category: existingChain.category,
-          isActive: existingChain.isActive ?? true,
-        }
-      : {
-          name: "",
-          description: "",
-          category: "water",
-          isActive: true,
-        },
+    defaultValues: existingChain ? {
+      name: existingChain.name,
+      description: existingChain.description ?? "",
+      category: existingChain.category,
+      isActive: existingChain.isActive ?? true,
+    } : {
+      name: "",
+      description: "",
+      category: "water",
+      isActive: true,
+    },
   });
 
-  // Step management
+  // Save chain mutation
+  const saveMutation = useMutation({
+    mutationFn: async (data: InsertTaskChain) => {
+      // Save the chain first
+      const chainResponse = await fetch(
+        existingChain ? `/api/task-chains/${existingChain.id}` : "/api/task-chains",
+        {
+          method: existingChain ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        }
+      );
+
+      if (!chainResponse.ok) {
+        throw new Error("Failed to save chain");
+      }
+
+      const chain = await chainResponse.json();
+
+      // If updating, delete old steps
+      if (existingChain) {
+        await Promise.all(
+          stepsQuery.data?.map(step => 
+            fetch(`/api/chain-steps/${step.id}`, { method: "DELETE" })
+          ) || []
+        );
+      }
+
+      // Create new steps
+      await Promise.all(
+        steps.map((step, index) => 
+          fetch("/api/chain-steps", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...step,
+              chainId: chain.id,
+              order: index + 1,
+            }),
+          })
+        )
+      );
+
+      return chain;
+    },
+    onSuccess: (chain) => {
+      // Invalidate both chains and steps queries
+      queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/task-chains", chain.id, "steps"]
+      });
+
+      toast({
+        title: `Chain ${existingChain ? "updated" : "created"} successfully`,
+      });
+      onClose();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error saving chain",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+
   const addStep = () => {
     const templates = templatesQuery.data;
     if (!templates?.length) {
@@ -154,86 +215,6 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     if (selectedStep === result.source.index) {
       setSelectedStep(result.destination.index);
     }
-  };
-
-  // Save chain
-  const saveMutation = useMutation({
-    mutationFn: async (data: InsertTaskChain) => {
-      // 1. Save chain
-      const chainResponse = await fetch(
-        existingChain ? `/api/task-chains/${existingChain.id}` : "/api/task-chains",
-        {
-          method: existingChain ? "PATCH" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        }
-      );
-
-      if (!chainResponse.ok) {
-        throw new Error("Failed to save chain");
-      }
-
-      const chain = await chainResponse.json();
-
-      // 2. Delete existing steps if updating
-      if (existingChain) {
-        await Promise.all(
-          (stepsQuery.data || []).map((step) =>
-            fetch(`/api/chain-steps/${step.id}`, { method: "DELETE" })
-          )
-        );
-      }
-
-      // 3. Create new steps
-      for (const step of steps) {
-        const stepResponse = await fetch("/api/chain-steps", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...step,
-            chainId: chain.id,
-          }),
-        });
-
-        if (!stepResponse.ok) {
-          throw new Error("Failed to create step");
-        }
-      }
-
-      return chain;
-    },
-    onSuccess: () => {
-      // Invalidate both chains and steps queries
-      queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
-      if (existingChain) {
-        queryClient.invalidateQueries({
-          queryKey: ["/api/task-chains", existingChain.id, "steps"],
-        });
-      }
-      toast({
-        title: `Chain ${existingChain ? "updated" : "created"} successfully`,
-      });
-      onClose();
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const onSubmit = (data: InsertTaskChain) => {
-    if (steps.length === 0) {
-      toast({
-        title: "Error",
-        description: "Please add at least one step",
-        variant: "destructive",
-      });
-      return;
-    }
-    saveMutation.mutate(data);
   };
 
   // Loading state
