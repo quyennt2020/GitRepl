@@ -1,7 +1,10 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { InsertTaskChain, TaskChain, TaskTemplate, insertTaskChainSchema, InsertChainStep, ChainStep } from "@shared/schema";
+import { 
+  InsertTaskChain, TaskChain, TaskTemplate, insertTaskChainSchema, 
+  InsertChainStep, ChainStep 
+} from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -31,30 +34,31 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
   const [steps, setSteps] = useState<ChainStepForm[]>([]);
   const [selectedStep, setSelectedStep] = useState<number | null>(null);
 
-  const form = useForm<InsertTaskChain>({
-    resolver: zodResolver(insertTaskChainSchema),
-    defaultValues: {
-      name: existingChain?.name ?? "",
-      description: existingChain?.description ?? "",
-      category: existingChain?.category ?? "water",
-      isActive: existingChain?.isActive ?? true,
-    },
-  });
-
   // Fetch task templates from API
   const { data: templates = [], isLoading: templatesLoading } = useQuery<TaskTemplate[]>({
     queryKey: ['/api/task-templates'],
   });
 
   // Fetch chain steps when editing
-  const { data: chainSteps, isLoading: stepsLoading } = useQuery<ChainStep[]>({
-    queryKey: ['/api/chain-steps', existingChain?.id],
+  const { data: chainSteps = [], isLoading: stepsLoading } = useQuery<ChainStep[]>({
+    queryKey: ['/api/task-chains', existingChain?.id, 'steps'],
+    queryFn: async () => {
+      if (!existingChain?.id) return [];
+      const response = await fetch(`/api/task-chains/${existingChain.id}/steps`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch chain steps');
+      }
+      const data = await response.json();
+      console.log('Fetched chain steps:', data);
+      return data;
+    },
     enabled: !!existingChain?.id,
   });
 
   // Initialize steps when editing an existing chain
   useEffect(() => {
-    if (chainSteps && existingChain) {
+    console.log('Effect triggered with chain steps:', chainSteps, 'existing chain:', existingChain);
+    if (existingChain && chainSteps.length > 0) {
       const formattedSteps = chainSteps
         .sort((a, b) => a.order - b.order)
         .map(step => ({
@@ -66,30 +70,24 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
           approvalRoles: step.approvalRoles ?? [],
           templateName: templates.find(t => t.id === step.templateId)?.name,
         }));
+      console.log('Setting formatted steps:', formattedSteps);
       setSteps(formattedSteps);
     } else if (!existingChain) {
+      console.log('Resetting steps to empty array');
       setSteps([]);
     }
   }, [chainSteps, existingChain, templates]);
 
-  // Reset form when chain changes
-  useEffect(() => {
-    if (existingChain) {
-      form.reset({
-        name: existingChain.name,
-        description: existingChain.description,
-        category: existingChain.category,
-        isActive: existingChain.isActive,
-      });
-    } else {
-      form.reset({
-        name: "",
-        description: "",
-        category: "water",
-        isActive: true,
-      });
-    }
-  }, [existingChain, form]);
+  // Initialize form
+  const form = useForm<InsertTaskChain>({
+    resolver: zodResolver(insertTaskChainSchema),
+    defaultValues: existingChain || {
+      name: "",
+      description: "",
+      category: "water",
+      isActive: true,
+    },
+  });
 
   const selectedTemplate = selectedStep !== null ? templates.find(t => t.id === steps[selectedStep]?.templateId) : null;
 
@@ -107,20 +105,22 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
           throw new Error('Failed to update chain');
         }
 
-        // Delete existing steps and create new ones
-        await fetch(`/api/chain-steps/${existingChain.id}`, {
-          method: 'DELETE'
-        });
+        // Delete existing steps
+        for (const step of chainSteps) {
+          await fetch(`/api/chain-steps/${step.id}`, {
+            method: 'DELETE'
+          });
+        }
 
-        // Create steps for the chain
-        for (const step of steps) {
+        // Create new steps
+        for (const [index, step] of steps.entries()) {
           const stepResponse = await fetch('/api/chain-steps', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               ...step,
               chainId: existingChain.id,
-              order: steps.indexOf(step) + 1,
+              order: index + 1,
             })
           });
 
@@ -145,14 +145,14 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
         const chain = await chainResponse.json();
 
         // Create steps for the chain
-        for (const step of steps) {
+        for (const [index, step] of steps.entries()) {
           const stepResponse = await fetch('/api/chain-steps', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               ...step,
               chainId: chain.id,
-              order: steps.indexOf(step) + 1,
+              order: index + 1,
             })
           });
 
@@ -345,7 +345,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
                       id={`required-${selectedStep}`}
                       checked={steps[selectedStep]?.isRequired}
                       onCheckedChange={(checked) =>
-                        updateStep(selectedStep, { isRequired: checked as boolean })
+                        updateStep(selectedStep, { isRequired: !!checked })
                       }
                     />
                     <label htmlFor={`required-${selectedStep}`}>Required</label>
@@ -357,7 +357,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
                       checked={steps[selectedStep]?.requiresApproval}
                       onCheckedChange={(checked) =>
                         updateStep(selectedStep, {
-                          requiresApproval: checked as boolean,
+                          requiresApproval: !!checked,
                           approvalRoles: checked ? ['expert'] : []
                         })
                       }
