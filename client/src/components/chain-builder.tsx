@@ -24,7 +24,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     defaultValues: {
       name: existingChain?.name ?? "",
       description: existingChain?.description ?? "",
-      category: existingChain?.category ?? "water",
+      category: existingChain?.category ?? "water" as const,
     },
   });
 
@@ -77,7 +77,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
                 <FormItem>
                   <FormLabel>Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Chain name" {...field} />
+                    <Input {...field} placeholder="Chain name" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -91,7 +91,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Input placeholder="Chain description" {...field} />
+                    <Input {...field} placeholder="Chain description" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

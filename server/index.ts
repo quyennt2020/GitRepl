@@ -37,6 +37,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  log("Starting server...");
   const server = registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -55,11 +56,26 @@ app.use((req, res, next) => {
 
   const PORT = process.env.PORT || 5000;
   let retries = 5;
+  let currentPort = Number(PORT);
 
   while (retries > 0) {
     try {
-      server.listen(PORT, () => {
-        log(`Server listening on port ${PORT}`);
+      log(`Attempting to start server on port ${currentPort}...`);
+      await new Promise((resolve, reject) => {
+        server.listen(currentPort, "0.0.0.0")
+          .once('listening', () => {
+            log(`Server listening on port ${currentPort}`);
+            resolve(undefined);
+          })
+          .once('error', (err) => {
+            if (err.code === 'EADDRINUSE') {
+              log(`Port ${currentPort} in use, trying next port...`);
+              reject(err);
+            } else {
+              console.error('Server error:', err);
+              reject(err);
+            }
+          });
       });
       break;
     } catch (err) {
@@ -67,9 +83,13 @@ app.use((req, res, next) => {
         console.error(`Failed to start server after 5 attempts: ${err}`);
         process.exit(1);
       }
-      console.log(`Port ${PORT} in use, retrying...`);
+      log(`Port ${currentPort} in use, trying next port...`);
       retries--;
+      currentPort++;
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
-})();
+})().catch(err => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
+});
