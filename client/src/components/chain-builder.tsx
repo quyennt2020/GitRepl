@@ -58,17 +58,26 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
   // Initialize steps when editing
   useEffect(() => {
     if (existingChain && chainSteps.length > 0 && templates.length > 0) {
+      console.log('Initializing steps for existing chain:', existingChain.id);
+      console.log('Chain steps:', chainSteps);
+      console.log('Available templates:', templates);
+
       const sortedSteps = chainSteps
         .sort((a, b) => a.order - b.order)
-        .map(step => ({
-          templateId: step.templateId,
-          order: step.order,
-          isRequired: step.isRequired ?? true,
-          waitDuration: step.waitDuration ?? 0,
-          requiresApproval: step.requiresApproval ?? false,
-          approvalRoles: step.approvalRoles ?? [],
-          templateName: templates.find(t => t.id === step.templateId)?.name
-        }));
+        .map(step => {
+          const template = templates.find(t => t.id === step.templateId);
+          return {
+            templateId: step.templateId,
+            order: step.order,
+            isRequired: step.isRequired ?? true,
+            waitDuration: step.waitDuration ?? 0,
+            requiresApproval: step.requiresApproval ?? false,
+            approvalRoles: step.approvalRoles ?? [],
+            templateName: template?.name
+          };
+        });
+
+      console.log('Setting sorted steps:', sortedSteps);
       setSteps(sortedSteps);
     }
   }, [existingChain, chainSteps, templates]);
@@ -81,7 +90,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     }
   }, [open]);
 
-  // Step management
+  // Add step
   const addStep = () => {
     if (!templates.length) {
       toast({
@@ -136,7 +145,6 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     }
   };
 
-  // Save chain
   const createChainMutation = useMutation({
     mutationFn: async (data: InsertTaskChain) => {
       let chainId: number;
@@ -223,6 +231,9 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
       </Dialog>
     );
   }
+
+  const selectedTemplate = selectedStepIndex !== null ? 
+    templates.find(t => t.id === steps[selectedStepIndex]?.templateId) : null;
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
@@ -394,7 +405,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
             </div>
 
             {/* Step Configuration */}
-            {selectedStepIndex !== null && templates.find(t => t.id === steps[selectedStepIndex]?.templateId) && (
+            {selectedStepIndex !== null && selectedTemplate && (
               <div className="space-y-4 border rounded-lg p-4">
                 <div>
                   <h4 className="font-medium flex items-center gap-2">
