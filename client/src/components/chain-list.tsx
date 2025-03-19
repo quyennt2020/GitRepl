@@ -2,11 +2,10 @@ import { TaskChain } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit2 } from "lucide-react";
+import { Edit2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { mockTaskChains } from "@/lib/mock-data";
 
 interface ChainListProps {
   chains: TaskChain[];
@@ -16,17 +15,21 @@ interface ChainListProps {
 export default function ChainList({ chains, onEdit }: ChainListProps) {
   const { toast } = useToast();
 
+  const { data: fetchedChains, isLoading } = useQuery<TaskChain[]>({
+    queryKey: ['/api/task-chains'],
+  });
+
   const deleteChainMutation = useMutation({
     mutationFn: async (chainId: number) => {
-      console.log("Mock deleting chain:", chainId);
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      // Filter out the deleted chain from mock data
-      const updatedChains = mockTaskChains.filter(chain => chain.id !== chainId);
-      return updatedChains;
+      const response = await fetch(`/api/task-chains/${chainId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete chain');
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
+      queryClient.invalidateQueries({ queryKey: ['/api/task-chains'] });
       toast({
         title: "Chain deleted successfully",
       });
@@ -41,7 +44,17 @@ export default function ChainList({ chains, onEdit }: ChainListProps) {
     },
   });
 
-  if (!chains.length) {
+  if (isLoading) {
+    return (
+      <div className="text-center text-muted-foreground py-8">
+        Loading task chains...
+      </div>
+    );
+  }
+
+  const displayChains = fetchedChains || chains;
+
+  if (!displayChains?.length) {
     return (
       <div className="text-center text-muted-foreground py-8">
         No task chains created yet
@@ -51,21 +64,32 @@ export default function ChainList({ chains, onEdit }: ChainListProps) {
 
   return (
     <div className="space-y-2">
-      {chains.map((chain) => (
+      {displayChains.map((chain) => (
         <Card key={chain.id} className="flex flex-col hover:bg-muted/50">
           <CardContent className="p-4 flex items-start justify-between">
             <div className="space-y-1 flex-1">
               <div className="flex items-center justify-between">
                 <h3 className="font-medium">{chain.name}</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onEdit(chain)}
-                  className="h-8 w-8"
-                >
-                  <Edit2 className="h-4 w-4" />
-                  <span className="sr-only">Edit</span>
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEdit(chain)}
+                    className="h-8 w-8"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                    <span className="sr-only">Edit</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteChainMutation.mutate(chain.id)}
+                    className="h-8 w-8"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Delete</span>
+                  </Button>
+                </div>
               </div>
               <p className="text-sm text-muted-foreground">
                 {chain.description}
