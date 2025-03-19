@@ -1,9 +1,9 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { 
-  InsertTaskChain, TaskChain, TaskTemplate, insertTaskChainSchema, 
-  InsertChainStep, ChainStep 
+import {
+  InsertTaskChain, TaskChain, TaskTemplate, insertTaskChainSchema,
+  InsertChainStep, ChainStep
 } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -18,6 +18,7 @@ import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { Plus, Trash2, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
+import {ScrollArea} from "@/components/ui/scroll-area"; // Assuming this import is needed
 
 interface ChainBuilderProps {
   open: boolean;
@@ -244,261 +245,263 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{existingChain ? 'Edit Task Chain' : 'New Task Chain'}</DialogTitle>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Chain Information Section */}
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Chain name</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Chain name" className="min-h-[40px]" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <ScrollArea className="flex-1 -mr-6 pr-6">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {/* Chain Information Section */}
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Chain name</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Chain name" className="min-h-[40px]" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Describe the purpose of this chain" className="min-h-[40px]" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Describe the purpose of this chain" className="min-h-[40px]" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category</FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={(value: InsertTaskChain["category"]) => field.onChange(value)}
-                  >
-                    <SelectTrigger className="min-h-[40px]">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="water">Water</SelectItem>
-                      <SelectItem value="fertilize">Fertilize</SelectItem>
-                      <SelectItem value="prune">Prune</SelectItem>
-                      <SelectItem value="check">Check</SelectItem>
-                      <SelectItem value="repot">Repot</SelectItem>
-                      <SelectItem value="clean">Clean</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value: InsertTaskChain["category"]) => field.onChange(value)}
+                    >
+                      <SelectTrigger className="min-h-[40px]">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="water">Water</SelectItem>
+                        <SelectItem value="fertilize">Fertilize</SelectItem>
+                        <SelectItem value="prune">Prune</SelectItem>
+                        <SelectItem value="check">Check</SelectItem>
+                        <SelectItem value="repot">Repot</SelectItem>
+                        <SelectItem value="clean">Clean</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {/* Task Configuration Section */}
-            {selectedStep !== null && selectedTemplate ? (
+              {/* Task Configuration Section */}
+              {selectedStep !== null && selectedTemplate ? (
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium">Task: {selectedTemplate.name}</h4>
+                      <span className="text-sm text-muted-foreground">({selectedTemplate.estimatedDuration}min)</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">{selectedTemplate.description}</p>
+                  </div>
+
+                  <Badge variant={selectedTemplate.priority === 'high' ? 'destructive' : 'default'}>
+                    {selectedTemplate.priority} priority
+                  </Badge>
+
+                  <FormItem>
+                    <FormLabel>Wait Duration (hours)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={steps[selectedStep]?.waitDuration || 0}
+                        onChange={(e) =>
+                          updateStep(selectedStep, {
+                            waitDuration: parseInt(e.target.value) || 0,
+                          })
+                        }
+                        className="min-h-[40px]"
+                      />
+                    </FormControl>
+                  </FormItem>
+
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`required-${selectedStep}`}
+                        checked={steps[selectedStep]?.isRequired}
+                        onCheckedChange={(checked) =>
+                          updateStep(selectedStep, { isRequired: !!checked })
+                        }
+                      />
+                      <label htmlFor={`required-${selectedStep}`}>Required</label>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`approval-${selectedStep}`}
+                        checked={steps[selectedStep]?.requiresApproval}
+                        onCheckedChange={(checked) =>
+                          updateStep(selectedStep, {
+                            requiresApproval: !!checked,
+                            approvalRoles: checked ? ['expert'] : []
+                          })
+                        }
+                      />
+                      <label htmlFor={`approval-${selectedStep}`}>Needs Approval</label>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Chain Steps Section */}
               <div className="space-y-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-medium">Task: {selectedTemplate.name}</h4>
-                    <span className="text-sm text-muted-foreground">({selectedTemplate.estimatedDuration}min)</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">{selectedTemplate.description}</p>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium">Chain Steps</h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addStep}
+                    className="h-8"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Step
+                  </Button>
                 </div>
 
-                <Badge variant={selectedTemplate.priority === 'high' ? 'destructive' : 'default'}>
-                  {selectedTemplate.priority} priority
-                </Badge>
-
-                <FormItem>
-                  <FormLabel>Wait Duration (hours)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={steps[selectedStep]?.waitDuration || 0}
-                      onChange={(e) =>
-                        updateStep(selectedStep, {
-                          waitDuration: parseInt(e.target.value) || 0,
-                        })
-                      }
-                      className="min-h-[40px]"
-                    />
-                  </FormControl>
-                </FormItem>
-
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`required-${selectedStep}`}
-                      checked={steps[selectedStep]?.isRequired}
-                      onCheckedChange={(checked) =>
-                        updateStep(selectedStep, { isRequired: !!checked })
-                      }
-                    />
-                    <label htmlFor={`required-${selectedStep}`}>Required</label>
+                {steps.length === 0 && (
+                  <div className="flex items-center gap-2 text-muted-foreground border rounded-lg p-4">
+                    <AlertCircle className="w-4 h-4" />
+                    <p>Add steps to create a task chain</p>
                   </div>
+                )}
 
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`approval-${selectedStep}`}
-                      checked={steps[selectedStep]?.requiresApproval}
-                      onCheckedChange={(checked) =>
-                        updateStep(selectedStep, {
-                          requiresApproval: !!checked,
-                          approvalRoles: checked ? ['expert'] : []
-                        })
-                      }
-                    />
-                    <label htmlFor={`approval-${selectedStep}`}>Needs Approval</label>
-                  </div>
-                </div>
+                <DragDropContext onDragEnd={handleDragEnd}>
+                  <Droppable droppableId="steps">
+                    {(provided) => (
+                      <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
+                        {steps.map((step, index) => {
+                          const template = templates.find(t => t.id === step.templateId);
+                          const isSelected = selectedStep === index;
+
+                          return (
+                            <Draggable key={index} draggableId={`step-${index}`} index={index}>
+                              {(provided) => (
+                                <Card
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={`border cursor-pointer transition-colors ${isSelected ? 'bg-muted' : ''}`}
+                                  onClick={() => setSelectedStep(index)}
+                                >
+                                  <CardContent className="p-2">
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className="select-none min-w-[24px] h-6 flex items-center justify-center">
+                                        {index + 1}
+                                      </Badge>
+
+                                      <Select
+                                        value={String(step.templateId)}
+                                        onValueChange={(value) => {
+                                          const template = templates.find(t => t.id === Number(value));
+                                          if (template) {
+                                            updateStep(index, {
+                                              templateId: Number(value),
+                                              templateName: template.name,
+                                              requiresApproval: template.requiresExpertise,
+                                              approvalRoles: template.requiresExpertise ? ['expert'] : []
+                                            });
+                                            setSelectedStep(index);
+                                          }
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-8">
+                                          <SelectValue placeholder="Select task" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {templates.map((template) => (
+                                            <SelectItem
+                                              key={template.id}
+                                              value={String(template.id)}
+                                            >
+                                              {template.name}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+
+                                      {template && (
+                                        <Badge
+                                          variant={template.priority === 'high' ? 'destructive' : 'default'}
+                                          className="min-w-[45px] text-center"
+                                        >
+                                          {template.priority}
+                                        </Badge>
+                                      )}
+
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          removeStep(index);
+                                        }}
+                                        className="h-8 w-8 p-0 ml-auto"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                        <span className="sr-only">Remove step</span>
+                                      </Button>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              )}
+                            </Draggable>
+                          );
+                        })}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </DragDropContext>
               </div>
-            ) : null}
 
-            {/* Chain Steps Section */}
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium">Chain Steps</h3>
+              <div className="flex justify-end space-x-2 pt-4 sticky bottom-0 bg-background">
                 <Button
-                  type="button"
                   variant="outline"
-                  size="sm"
-                  onClick={addStep}
-                  className="h-8"
+                  type="button"
+                  onClick={onClose}
+                  className="min-h-[40px]"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Step
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createChainMutation.isPending}
+                  className="min-h-[40px]"
+                >
+                  {createChainMutation.isPending ? "Saving..." : "Save"}
                 </Button>
               </div>
-
-              {steps.length === 0 && (
-                <div className="flex items-center gap-2 text-muted-foreground border rounded-lg p-4">
-                  <AlertCircle className="w-4 h-4" />
-                  <p>Add steps to create a task chain</p>
-                </div>
-              )}
-
-              <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="steps">
-                  {(provided) => (
-                    <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
-                      {steps.map((step, index) => {
-                        const template = templates.find(t => t.id === step.templateId);
-                        const isSelected = selectedStep === index;
-
-                        return (
-                          <Draggable key={index} draggableId={`step-${index}`} index={index}>
-                            {(provided) => (
-                              <Card
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={`border cursor-pointer transition-colors ${isSelected ? 'bg-muted' : ''}`}
-                                onClick={() => setSelectedStep(index)}
-                              >
-                                <CardContent className="p-2">
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="select-none min-w-[24px] h-6 flex items-center justify-center">
-                                      {index + 1}
-                                    </Badge>
-
-                                    <Select
-                                      value={String(step.templateId)}
-                                      onValueChange={(value) => {
-                                        const template = templates.find(t => t.id === Number(value));
-                                        if (template) {
-                                          updateStep(index, {
-                                            templateId: Number(value),
-                                            templateName: template.name,
-                                            requiresApproval: template.requiresExpertise,
-                                            approvalRoles: template.requiresExpertise ? ['expert'] : []
-                                          });
-                                          setSelectedStep(index);
-                                        }
-                                      }}
-                                    >
-                                      <SelectTrigger className="h-8">
-                                        <SelectValue placeholder="Select task" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {templates.map((template) => (
-                                          <SelectItem
-                                            key={template.id}
-                                            value={String(template.id)}
-                                          >
-                                            {template.name}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-
-                                    {template && (
-                                      <Badge 
-                                        variant={template.priority === 'high' ? 'destructive' : 'default'}
-                                        className="min-w-[45px] text-center"
-                                      >
-                                        {template.priority}
-                                      </Badge>
-                                    )}
-
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        removeStep(index);
-                                      }}
-                                      className="h-8 w-8 p-0 ml-auto"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                      <span className="sr-only">Remove step</span>
-                                    </Button>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            )}
-                          </Draggable>
-                        );
-                      })}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              </DragDropContext>
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={onClose}
-                className="min-h-[40px]"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={createChainMutation.isPending}
-                className="min-h-[40px]"
-              >
-                {createChainMutation.isPending ? "Saving..." : "Save"}
-              </Button>
-            </div>
-          </form>
-        </Form>
+            </form>
+          </Form>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

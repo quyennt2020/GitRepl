@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import ChainBuilder from "@/components/chain-builder";
 import ChainList from "@/components/chain-list";
 import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function TaskChainsPage() {
   const { toast } = useToast();
@@ -36,8 +37,8 @@ export default function TaskChainsPage() {
   }
 
   return (
-    <div className="container py-4 px-4 md:py-6 md:px-6 space-y-4 md:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+    <div className="container min-h-screen flex flex-col py-4 px-4 md:py-6 md:px-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <h1 className="text-2xl md:text-3xl font-bold">Task Chains</h1>
         <Button 
           onClick={() => setIsBuilderOpen(true)}
@@ -48,13 +49,17 @@ export default function TaskChainsPage() {
         </Button>
       </div>
 
-      <ChainList
-        chains={chains || []}
-        onEdit={(chain) => {
-          setEditingChain(chain);
-          setIsBuilderOpen(true);
-        }}
-      />
+      <ScrollArea className="flex-1 -mx-4 px-4">
+        <div className="space-y-4 pb-6">
+          <ChainList
+            chains={chains || []}
+            onEdit={(chain) => {
+              setEditingChain(chain);
+              setIsBuilderOpen(true);
+            }}
+          />
+        </div>
+      </ScrollArea>
 
       <ChainBuilder
         open={isBuilderOpen}
