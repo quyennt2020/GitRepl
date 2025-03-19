@@ -67,6 +67,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
           const template = templatesQuery.data.find(t => t.id === step.templateId);
           return {
             id: step.id,
+            chainId: step.chainId,
             templateId: step.templateId,
             order: step.order,
             isRequired: step.isRequired ?? true,
@@ -93,7 +94,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     defaultValues: existingChain ? {
       name: existingChain.name,
       description: existingChain.description ?? "",
-      category: existingChain.category,
+      category: existingChain.category as "water" | "fertilize" | "prune" | "check" | "repot" | "clean",
       isActive: existingChain.isActive ?? true,
     } : {
       name: "",
@@ -180,14 +181,13 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       return;
     }
 
-    const template = templates[0];
     const newStep: StepData = {
-      templateId: template.id,
+      templateId: templates[0].id,
       order: steps.length + 1,
       isRequired: true,
       waitDuration: 0,
-      requiresApproval: template.requiresExpertise,
-      approvalRoles: template.requiresExpertise ? ["expert"] : [],
+      requiresApproval: false,
+      approvalRoles: [],
     };
 
     setSteps([...steps, newStep]);
@@ -247,11 +247,6 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     );
   }
 
-  const selectedTemplate =
-    selectedStep !== null && templatesQuery.data
-      ? templatesQuery.data.find((t) => t.id === steps[selectedStep]?.templateId)
-      : null;
-
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
@@ -272,7 +267,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                   <FormItem>
                     <FormLabel>Chain name</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Enter a descriptive name for this chain" />
+                      <Input {...field} placeholder="Enter chain name" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -286,12 +281,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                   <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Textarea 
-                        {...field} 
-                        placeholder="Describe the purpose and goals of this task chain"
-                        className="resize-none"
-                        rows={3}
-                      />
+                      <Textarea {...field} placeholder="Describe the chain's purpose" className="resize-none" rows={3} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -306,7 +296,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                     <FormLabel>Category</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
+                        <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="water">Water</SelectItem>
@@ -368,10 +358,10 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                                   onClick={() => setSelectedStep(index)}
                                 >
                                   <CardContent className="p-4">
-                                    <div className="flex items-start gap-3">
+                                    <div className="flex items-center gap-3">
                                       <div
                                         {...provided.dragHandleProps}
-                                        className="mt-1 cursor-grab"
+                                        className="cursor-grab"
                                       >
                                         <GripVertical className="w-4 h-4 text-muted-foreground" />
                                       </div>
@@ -380,63 +370,37 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                                         {index + 1}
                                       </div>
 
-                                      <div className="flex-1 space-y-2">
-                                        <Select
-                                          value={String(step.templateId)}
-                                          onValueChange={(value) => {
-                                            const template = templatesQuery.data?.find(
-                                              (t) => t.id === Number(value)
-                                            );
-                                            if (template) {
-                                              updateStep(index, {
-                                                templateId: Number(value),
-                                                requiresApproval: template.requiresExpertise,
-                                                approvalRoles: template.requiresExpertise ? ["expert"] : [],
-                                              });
-                                            }
-                                          }}
-                                        >
-                                          <SelectTrigger>
-                                            <SelectValue placeholder="Select a task template" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {templatesQuery.data?.map((t) => (
-                                              <SelectItem key={t.id} value={String(t.id)}>
-                                                {t.name}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-
-                                        {template && (
-                                          <div className="text-sm text-muted-foreground">
-                                            {template.description}
-                                          </div>
-                                        )}
-
-                                        <div className="flex flex-wrap gap-2 text-sm">
-                                          {step.waitDuration > 0 && (
-                                            <Badge variant="outline" className="flex items-center gap-1">
-                                              <Clock className="w-3 h-3" />
-                                              Wait {step.waitDuration}h
-                                            </Badge>
-                                          )}
-                                          {step.requiresApproval && (
-                                            <Badge variant="outline" className="flex items-center gap-1">
-                                              <Shield className="w-3 h-3" />
-                                              Needs Approval
-                                            </Badge>
-                                          )}
-                                        </div>
-                                      </div>
+                                      <Select
+                                        value={String(step.templateId)}
+                                        onValueChange={(value) => {
+                                          const template = templatesQuery.data?.find(
+                                            (t) => t.id === Number(value)
+                                          );
+                                          if (template) {
+                                            updateStep(index, {
+                                              templateId: Number(value),
+                                              requiresApproval: template.requiresExpertise,
+                                              approvalRoles: template.requiresExpertise ? ["expert"] : [],
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        <SelectTrigger className="flex-1">
+                                          <SelectValue placeholder="Select task" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {templatesQuery.data?.map((t) => (
+                                            <SelectItem key={t.id} value={String(t.id)}>
+                                              {t.name}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
 
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          removeStep(index);
-                                        }}
+                                        onClick={() => removeStep(index)}
                                         className="h-8 w-8 p-0"
                                       >
                                         <Trash2 className="w-4 h-4" />
