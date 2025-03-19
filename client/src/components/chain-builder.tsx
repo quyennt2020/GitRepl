@@ -222,17 +222,6 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     createChainMutation.mutate(data);
   };
 
-  if (templatesLoading || stepsLoading) {
-    return (
-      <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="sm:max-w-[500px]">
-          <div className="flex items-center justify-center p-8">
-            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
 
   useEffect(() => {
     if (existingChain && templates.length > 0) {
@@ -246,6 +235,29 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
 
   const selectedTemplate = selectedStepIndex !== null ?
     templates.find(t => t.id === steps[selectedStepIndex]?.templateId) : null;
+
+  if (!templates || templates.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center">
+          <h3 className="text-lg font-medium">No templates available</h3>
+          <p className="text-sm text-muted-foreground">Create some task templates first</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (templatesLoading || stepsLoading) {
+    return (
+      <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="sm:max-w-[500px]">
+          <div className="flex items-center justify-center p-8">
+            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
