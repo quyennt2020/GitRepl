@@ -1,20 +1,18 @@
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { TaskChain, TaskTemplate, insertTaskChainSchema } from "@shared/schema";
+import { TaskChain, TaskTemplate, InsertTaskChain, insertTaskChainSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { Plus, Trash2, AlertCircle, GripVertical } from "lucide-react";
-import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
+import { Plus, Trash2, AlertCircle } from "lucide-react";
 
 
 interface Props {
@@ -25,7 +23,6 @@ interface Props {
 
 interface StepData {
   id?: number;
-  chainId?: number;
   templateId: number;
   order: number;
   isRequired: boolean;
@@ -60,7 +57,6 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     },
   });
 
-  // Save chain mutation (retained from original, crucial for functionality)
   const saveMutation = useMutation({
     mutationFn: async (data: InsertTaskChain) => {
       const chainResponse = await fetch(
@@ -78,14 +74,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
 
       const chain = await chainResponse.json();
 
-      if (existingChain) {
-        await Promise.all(
-          steps.map(step =>
-            fetch(`/api/chain-steps/${step.id}`, { method: "DELETE" })
-          )
-        );
-      }
-
+      // Create steps
       await Promise.all(
         steps.map((step, index) =>
           fetch("/api/chain-steps", {
@@ -102,7 +91,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
 
       return chain;
     },
-    onSuccess: (chain) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
       toast({
         title: `Chain ${existingChain ? "updated" : "created"} successfully`,
@@ -151,25 +140,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     setSelectedStep(null);
   };
 
-  const handleDragEnd = (result: any) => {
-    if (!result.destination) return;
-
-    const items = Array.from(steps);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-
-    const reorderedSteps = items.map((step, index) => ({
-      ...step,
-      order: index + 1,
-    }));
-
-    setSteps(reorderedSteps);
-    if (selectedStep === result.source.index) {
-      setSelectedStep(result.destination.index);
-    }
-  };
-
-  const onSubmitForm = (data: InsertTaskChain) => {
+  const onSubmit = (data: InsertTaskChain) => {
     if (steps.length === 0) {
       toast({
         title: "Please add at least one step",
@@ -204,7 +175,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmitForm)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Basic Info */}
             <div className="space-y-4">
               <FormField
@@ -276,95 +247,68 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                   <p>Add steps to create a task chain</p>
                 </div>
               ) : (
-                <DragDropContext onDragEnd={handleDragEnd}>
-                  <Droppable droppableId="steps">
-                    {(provided) => (
-                      <div
-                        {...provided.droppableProps}
-                        ref={provided.innerRef}
-                        className="space-y-2"
+                <div className="space-y-2">
+                  {steps.map((step, index) => {
+                    const template = templatesQuery.data?.find(
+                      (t) => t.id === step.templateId
+                    );
+
+                    return (
+                      <Card
+                        key={index}
+                        className={`${
+                          selectedStep === index ? "ring-2 ring-primary" : ""
+                        }`}
+                        onClick={() => setSelectedStep(index)}
                       >
-                        {steps.map((step, index) => {
-                          const template = templatesQuery.data?.find(
-                            (t) => t.id === step.templateId
-                          );
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="min-w-[32px] h-8 flex items-center justify-center border rounded-md bg-muted">
+                              {index + 1}
+                            </div>
 
-                          return (
-                            <Draggable
-                              key={index}
-                              draggableId={`step-${index}`}
-                              index={index}
+                            <Select
+                              value={String(step.templateId)}
+                              onValueChange={(value) => {
+                                const template = templatesQuery.data?.find(
+                                  (t) => t.id === Number(value)
+                                );
+                                if (template) {
+                                  updateStep(index, {
+                                    templateId: Number(value),
+                                    requiresApproval: template.requiresExpertise,
+                                    approvalRoles: template.requiresExpertise ? ["expert"] : [],
+                                  });
+                                }
+                              }}
                             >
-                              {(provided) => (
-                                <Card
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  className={`${
-                                    selectedStep === index ? "ring-2 ring-primary" : ""
-                                  }`}
-                                  onClick={() => setSelectedStep(index)}
-                                >
-                                  <CardContent className="p-4">
-                                    <div className="flex items-center gap-3">
-                                      <div
-                                        {...provided.dragHandleProps}
-                                        className="cursor-grab"
-                                      >
-                                        <GripVertical className="w-4 h-4 text-muted-foreground" />
-                                      </div>
+                              <SelectTrigger className="flex-1">
+                                <SelectValue placeholder="Select task" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {templatesQuery.data?.map((t) => (
+                                  <SelectItem key={t.id} value={String(t.id)}>
+                                    {t.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
 
-                                      <div className="min-w-[32px] h-8 flex items-center justify-center border rounded-md bg-muted">
-                                        {index + 1}
-                                      </div>
-
-                                      <Select
-                                        value={String(step.templateId)}
-                                        onValueChange={(value) => {
-                                          const template = templatesQuery.data?.find(
-                                            (t) => t.id === Number(value)
-                                          );
-                                          if (template) {
-                                            updateStep(index, {
-                                              templateId: Number(value),
-                                              requiresApproval: template.requiresExpertise,
-                                              approvalRoles: template.requiresExpertise ? ["expert"] : [],
-                                            });
-                                          }
-                                        }}
-                                      >
-                                        <SelectTrigger className="flex-1">
-                                          <SelectValue placeholder="Select task" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {templatesQuery.data?.map((t) => (
-                                            <SelectItem key={t.id} value={String(t.id)}>
-                                              {t.name}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => removeStep(index)}
-                                        className="h-8 w-8 p-0"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                        <span className="sr-only">Remove step</span>
-                                      </Button>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              )}
-                            </Draggable>
-                          );
-                        })}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
-                </DragDropContext>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeStep(index)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span className="sr-only">Remove step</span>
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
