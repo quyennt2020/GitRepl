@@ -1,18 +1,19 @@
 import { Plant, InsertPlant, CareTask, InsertCareTask, HealthRecord, InsertHealthRecord,
   TaskTemplate, InsertTaskTemplate, ChecklistItem, InsertChecklistItem,
-  plants, careTasks, healthRecords, taskTemplates, checklistItems } from "@shared/schema";
+  TaskChain, InsertTaskChain, ChainStep, InsertChainStep,
+  ChainAssignment, InsertChainAssignment, StepApproval, InsertStepApproval,
+  plants, careTasks, healthRecords, taskTemplates, checklistItems,
+  taskChains, chainSteps, chainAssignments, stepApprovals } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or } from "drizzle-orm";
 
 export interface IStorage {
-  // Plants
   getPlants(): Promise<Plant[]>;
   getPlant(id: number): Promise<Plant | undefined>;
   createPlant(plant: InsertPlant): Promise<Plant>;
   updatePlant(id: number, plant: Partial<Plant>): Promise<Plant>;
   deletePlant(id: number): Promise<void>;
 
-  // Care Tasks
   getCareTasks(plantId?: number): Promise<CareTask[]>;
   getCareTask(id: number): Promise<CareTask | undefined>;
   createCareTask(task: InsertCareTask): Promise<CareTask>;
@@ -20,24 +21,42 @@ export interface IStorage {
   deleteCareTasks(plantId: number): Promise<void>;
   deleteCareTask(id: number): Promise<void>;
 
-  // Task Templates
   getTaskTemplates(): Promise<TaskTemplate[]>;
   getTaskTemplate(id: number): Promise<TaskTemplate | undefined>;
   createTaskTemplate(template: InsertTaskTemplate): Promise<TaskTemplate>;
   updateTaskTemplate(id: number, template: Partial<TaskTemplate>): Promise<TaskTemplate>;
   deleteTaskTemplate(id: number): Promise<void>;
 
-  // Checklist Items
   getChecklistItems(templateId: number): Promise<ChecklistItem[]>;
   createChecklistItem(item: InsertChecklistItem): Promise<ChecklistItem>;
   updateChecklistItem(id: number, item: Partial<ChecklistItem>): Promise<ChecklistItem>;
   deleteChecklistItem(id: number): Promise<void>;
 
-  // Health Records
   getHealthRecords(plantId: number): Promise<HealthRecord[]>;
   getHealthRecord(id: number): Promise<HealthRecord | undefined>;
   createHealthRecord(record: InsertHealthRecord): Promise<HealthRecord>;
   updateHealthRecord(id: number, record: Partial<HealthRecord>): Promise<HealthRecord>;
+
+  getTaskChains(): Promise<TaskChain[]>;
+  getTaskChain(id: number): Promise<TaskChain | undefined>;
+  createTaskChain(chain: InsertTaskChain): Promise<TaskChain>;
+  updateTaskChain(id: number, chain: Partial<TaskChain>): Promise<TaskChain>;
+  deleteTaskChain(id: number): Promise<void>;
+
+  getChainSteps(chainId: number): Promise<ChainStep[]>;
+  createChainStep(step: InsertChainStep): Promise<ChainStep>;
+  updateChainStep(id: number, step: Partial<ChainStep>): Promise<ChainStep>;
+  deleteChainStep(id: number): Promise<void>;
+
+  getChainAssignments(plantId?: number): Promise<ChainAssignment[]>;
+  getChainAssignment(id: number): Promise<ChainAssignment | undefined>;
+  createChainAssignment(assignment: InsertChainAssignment): Promise<ChainAssignment>;
+  updateChainAssignment(id: number, assignment: Partial<ChainAssignment>): Promise<ChainAssignment>;
+  deleteChainAssignment(id: number): Promise<void>;
+
+  getStepApprovals(assignmentId: number): Promise<StepApproval[]>;
+  createStepApproval(approval: InsertStepApproval): Promise<StepApproval>;
+  deleteStepApproval(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -78,7 +97,6 @@ export class DatabaseStorage implements IStorage {
     await this.deleteCareTasks(id);
   }
 
-  // Task Template methods
   async getTaskTemplates(): Promise<TaskTemplate[]> {
     return await db
       .select()
@@ -119,7 +137,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(taskTemplates).where(eq(taskTemplates.id, id));
   }
 
-  // Checklist Items methods
   async getChecklistItems(templateId: number): Promise<ChecklistItem[]> {
     return await db
       .select()
@@ -150,7 +167,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(checklistItems).where(eq(checklistItems.id, id));
   }
 
-  // Existing care tasks methods with template support
   async getCareTasks(plantId?: number): Promise<CareTask[]> {
     const query = db.select({
       id: careTasks.id,
@@ -223,7 +239,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Existing health records methods
   async getHealthRecords(plantId: number): Promise<HealthRecord[]> {
     return await db
       .select()
@@ -253,6 +268,136 @@ export class DatabaseStorage implements IStorage {
       .returning();
     if (!record) throw new Error("Health record not found");
     return record;
+  }
+
+  async getTaskChains(): Promise<TaskChain[]> {
+    return await db.select().from(taskChains).orderBy(taskChains.name);
+  }
+
+  async getTaskChain(id: number): Promise<TaskChain | undefined> {
+    const [chain] = await db.select().from(taskChains).where(eq(taskChains.id, id));
+    return chain;
+  }
+
+  async createTaskChain(chain: InsertTaskChain): Promise<TaskChain> {
+    const [newChain] = await db
+      .insert(taskChains)
+      .values(chain)
+      .returning();
+    return newChain;
+  }
+
+  async updateTaskChain(id: number, update: Partial<TaskChain>): Promise<TaskChain> {
+    const [chain] = await db
+      .update(taskChains)
+      .set(update)
+      .where(eq(taskChains.id, id))
+      .returning();
+    if (!chain) throw new Error("Task chain not found");
+    return chain;
+  }
+
+  async deleteTaskChain(id: number): Promise<void> {
+    await db.delete(stepApprovals).where(
+      eq(stepApprovals.assignmentId, 
+        db.select({ id: chainAssignments.id })
+          .from(chainAssignments)
+          .where(eq(chainAssignments.chainId, id))
+          .limit(1)
+      )
+    );
+    await db.delete(chainAssignments).where(eq(chainAssignments.chainId, id));
+    await db.delete(chainSteps).where(eq(chainSteps.chainId, id));
+    await db.delete(taskChains).where(eq(taskChains.id, id));
+  }
+
+  async getChainSteps(chainId: number): Promise<ChainStep[]> {
+    return await db
+      .select()
+      .from(chainSteps)
+      .where(eq(chainSteps.chainId, chainId))
+      .orderBy(chainSteps.order);
+  }
+
+  async createChainStep(step: InsertChainStep): Promise<ChainStep> {
+    const [newStep] = await db
+      .insert(chainSteps)
+      .values(step)
+      .returning();
+    return newStep;
+  }
+
+  async updateChainStep(id: number, update: Partial<ChainStep>): Promise<ChainStep> {
+    const [step] = await db
+      .update(chainSteps)
+      .set(update)
+      .where(eq(chainSteps.id, id))
+      .returning();
+    if (!step) throw new Error("Chain step not found");
+    return step;
+  }
+
+  async deleteChainStep(id: number): Promise<void> {
+    await db.delete(chainSteps).where(eq(chainSteps.id, id));
+  }
+
+  async getChainAssignments(plantId?: number): Promise<ChainAssignment[]> {
+    let query = db.select().from(chainAssignments);
+    if (plantId !== undefined) {
+      query = query.where(eq(chainAssignments.plantId, plantId));
+    }
+    return await query.orderBy(desc(chainAssignments.startedAt));
+  }
+
+  async getChainAssignment(id: number): Promise<ChainAssignment | undefined> {
+    const [assignment] = await db
+      .select()
+      .from(chainAssignments)
+      .where(eq(chainAssignments.id, id));
+    return assignment;
+  }
+
+  async createChainAssignment(assignment: InsertChainAssignment): Promise<ChainAssignment> {
+    const [newAssignment] = await db
+      .insert(chainAssignments)
+      .values(assignment)
+      .returning();
+    return newAssignment;
+  }
+
+  async updateChainAssignment(id: number, update: Partial<ChainAssignment>): Promise<ChainAssignment> {
+    const [assignment] = await db
+      .update(chainAssignments)
+      .set(update)
+      .where(eq(chainAssignments.id, id))
+      .returning();
+    if (!assignment) throw new Error("Chain assignment not found");
+    return assignment;
+  }
+
+  async deleteChainAssignment(id: number): Promise<void> {
+    await db.delete(stepApprovals).where(eq(stepApprovals.assignmentId, id));
+    await db.delete(chainAssignments).where(eq(chainAssignments.id, id));
+  }
+
+  async getStepApprovals(assignmentId: number): Promise<StepApproval[]> {
+    return await db
+      .select()
+      .from(stepApprovals)
+      .where(eq(stepApprovals.assignmentId, assignmentId))
+      .orderBy(desc(stepApprovals.approvedAt));
+  }
+
+  async createStepApproval(approval: InsertStepApproval): Promise<StepApproval> {
+    const [newApproval] = await db
+      .insert(stepApprovals)
+      .values(approval)
+      .returning();
+    return newApproval;
+  }
+
+  async deleteStepApproval(id: number): Promise<void> {
+    await db.delete(stepApprovals).where(eq(stepApprovals.id, id));
   }
 }
 

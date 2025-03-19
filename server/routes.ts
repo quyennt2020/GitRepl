@@ -1,7 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPlantSchema, insertCareTaskSchema, insertHealthRecordSchema, insertTaskTemplateSchema, insertChecklistItemSchema } from "@shared/schema";
+import { 
+  insertPlantSchema, insertCareTaskSchema, insertHealthRecordSchema, 
+  insertTaskTemplateSchema, insertChecklistItemSchema,
+  insertTaskChainSchema, insertChainStepSchema, 
+  insertChainAssignmentSchema, insertStepApprovalSchema 
+} from "@shared/schema";
 import type { ChecklistItem } from "@shared/schema";
 import backupRouter from "./routes/backup";
 import multer from "multer";
@@ -370,6 +375,190 @@ export function registerRoutes(app: Express): Server {
     }
     const record = await storage.updateHealthRecord(Number(req.params.id), result.data);
     res.json(record);
+  });
+
+  // Task Chains routes
+  app.get("/api/task-chains", async (_req, res) => {
+    try {
+      const chains = await storage.getTaskChains();
+      res.json(chains);
+    } catch (error) {
+      console.error('Error fetching task chains:', error);
+      res.status(500).json({ message: "Failed to fetch task chains" });
+    }
+  });
+
+  app.get("/api/task-chains/:id", async (req, res) => {
+    try {
+      const chain = await storage.getTaskChain(Number(req.params.id));
+      if (!chain) {
+        return res.status(404).json({ message: "Task chain not found" });
+      }
+      res.json(chain);
+    } catch (error) {
+      console.error('Error fetching task chain:', error);
+      res.status(500).json({ message: "Failed to fetch task chain" });
+    }
+  });
+
+  app.post("/api/task-chains", async (req, res) => {
+    try {
+      const result = insertTaskChainSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: result.error.message });
+      }
+      const chain = await storage.createTaskChain(result.data);
+      res.status(201).json(chain);
+    } catch (error) {
+      console.error('Error creating task chain:', error);
+      res.status(500).json({ message: "Failed to create task chain" });
+    }
+  });
+
+  app.patch("/api/task-chains/:id", async (req, res) => {
+    try {
+      const chain = await storage.updateTaskChain(Number(req.params.id), req.body);
+      res.json(chain);
+    } catch (error) {
+      console.error('Error updating task chain:', error);
+      res.status(500).json({ message: "Failed to update task chain" });
+    }
+  });
+
+  app.delete("/api/task-chains/:id", async (req, res) => {
+    try {
+      await storage.deleteTaskChain(Number(req.params.id));
+      res.status(204).end();
+    } catch (error) {
+      console.error('Error deleting task chain:', error);
+      res.status(500).json({ message: "Failed to delete task chain" });
+    }
+  });
+
+  // Chain Steps routes
+  app.get("/api/task-chains/:chainId/steps", async (req, res) => {
+    try {
+      const steps = await storage.getChainSteps(Number(req.params.chainId));
+      res.json(steps);
+    } catch (error) {
+      console.error('Error fetching chain steps:', error);
+      res.status(500).json({ message: "Failed to fetch chain steps" });
+    }
+  });
+
+  app.post("/api/chain-steps", async (req, res) => {
+    try {
+      const result = insertChainStepSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: result.error.message });
+      }
+      const step = await storage.createChainStep(result.data);
+      res.status(201).json(step);
+    } catch (error) {
+      console.error('Error creating chain step:', error);
+      res.status(500).json({ message: "Failed to create chain step" });
+    }
+  });
+
+  app.patch("/api/chain-steps/:id", async (req, res) => {
+    try {
+      const step = await storage.updateChainStep(Number(req.params.id), req.body);
+      res.json(step);
+    } catch (error) {
+      console.error('Error updating chain step:', error);
+      res.status(500).json({ message: "Failed to update chain step" });
+    }
+  });
+
+  app.delete("/api/chain-steps/:id", async (req, res) => {
+    try {
+      await storage.deleteChainStep(Number(req.params.id));
+      res.status(204).end();
+    } catch (error) {
+      console.error('Error deleting chain step:', error);
+      res.status(500).json({ message: "Failed to delete chain step" });
+    }
+  });
+
+  // Chain Assignments routes
+  app.get("/api/chain-assignments", async (req, res) => {
+    try {
+      const plantId = req.query.plantId ? Number(req.query.plantId) : undefined;
+      const assignments = await storage.getChainAssignments(plantId);
+      res.json(assignments);
+    } catch (error) {
+      console.error('Error fetching chain assignments:', error);
+      res.status(500).json({ message: "Failed to fetch chain assignments" });
+    }
+  });
+
+  app.post("/api/chain-assignments", async (req, res) => {
+    try {
+      const result = insertChainAssignmentSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: result.error.message });
+      }
+      const assignment = await storage.createChainAssignment(result.data);
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error('Error creating chain assignment:', error);
+      res.status(500).json({ message: "Failed to create chain assignment" });
+    }
+  });
+
+  app.patch("/api/chain-assignments/:id", async (req, res) => {
+    try {
+      const assignment = await storage.updateChainAssignment(Number(req.params.id), req.body);
+      res.json(assignment);
+    } catch (error) {
+      console.error('Error updating chain assignment:', error);
+      res.status(500).json({ message: "Failed to update chain assignment" });
+    }
+  });
+
+  app.delete("/api/chain-assignments/:id", async (req, res) => {
+    try {
+      await storage.deleteChainAssignment(Number(req.params.id));
+      res.status(204).end();
+    } catch (error) {
+      console.error('Error deleting chain assignment:', error);
+      res.status(500).json({ message: "Failed to delete chain assignment" });
+    }
+  });
+
+  // Step Approvals routes
+  app.get("/api/chain-assignments/:assignmentId/approvals", async (req, res) => {
+    try {
+      const approvals = await storage.getStepApprovals(Number(req.params.assignmentId));
+      res.json(approvals);
+    } catch (error) {
+      console.error('Error fetching step approvals:', error);
+      res.status(500).json({ message: "Failed to fetch step approvals" });
+    }
+  });
+
+  app.post("/api/step-approvals", async (req, res) => {
+    try {
+      const result = insertStepApprovalSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: result.error.message });
+      }
+      const approval = await storage.createStepApproval(result.data);
+      res.status(201).json(approval);
+    } catch (error) {
+      console.error('Error creating step approval:', error);
+      res.status(500).json({ message: "Failed to create step approval" });
+    }
+  });
+
+  app.delete("/api/step-approvals/:id", async (req, res) => {
+    try {
+      await storage.deleteStepApproval(Number(req.params.id));
+      res.status(204).end();
+    } catch (error) {
+      console.error('Error deleting step approval:', error);
+      res.status(500).json({ message: "Failed to delete step approval" });
+    }
   });
 
   const httpServer = createServer(app);

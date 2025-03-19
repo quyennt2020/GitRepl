@@ -126,3 +126,78 @@ export type TaskTemplate = typeof taskTemplates.$inferSelect;
 export type InsertTaskTemplate = z.infer<typeof insertTaskTemplateSchema>;
 export type ChecklistItem = typeof checklistItems.$inferSelect;
 export type InsertChecklistItem = z.infer<typeof insertChecklistItemSchema>;
+
+// New tables for task chains
+export const taskChains = pgTable("task_chains", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category").notNull(), // matches task template categories
+  createdAt: timestamp("created_at").defaultNow(),
+  isActive: boolean("is_active").default(true),
+});
+
+export const chainSteps = pgTable("chain_steps", {
+  id: serial("id").primaryKey(),
+  chainId: integer("chain_id").notNull(),
+  templateId: integer("template_id").notNull(), // References existing task templates
+  order: integer("order").notNull(),
+  isRequired: boolean("is_required").default(true),
+  waitDuration: integer("wait_duration"), // Hours to wait after previous step
+  condition: jsonb("condition"), // Conditions for step to be active
+  requiresApproval: boolean("requires_approval").default(false),
+  approvalRoles: text("approval_roles").array(), // Roles that can approve this step
+});
+
+export const chainAssignments = pgTable("chain_assignments", {
+  id: serial("id").primaryKey(),
+  chainId: integer("chain_id").notNull(),
+  plantId: integer("plant_id").notNull(),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  currentStepId: integer("current_step_id"),
+  status: text("status").notNull(), // active, completed, cancelled
+});
+
+export const stepApprovals = pgTable("step_approvals", {
+  id: serial("id").primaryKey(),
+  assignmentId: integer("assignment_id").notNull(),
+  stepId: integer("step_id").notNull(),
+  approvedBy: integer("approved_by").notNull(), // Reference to user table
+  approvedAt: timestamp("approved_at").defaultNow(),
+  notes: text("notes"),
+});
+
+// Add Zod schemas for the new tables
+export const insertTaskChainSchema = createInsertSchema(taskChains)
+  .omit({ id: true, createdAt: true })
+  .extend({
+    category: z.enum(["water", "fertilize", "prune", "check", "repot", "clean"]),
+  });
+
+export const insertChainStepSchema = createInsertSchema(chainSteps)
+  .omit({ id: true })
+  .extend({
+    waitDuration: z.number().min(0).default(0),
+    condition: z.record(z.unknown()).optional(),
+    approvalRoles: z.array(z.string()).default([]),
+  });
+
+export const insertChainAssignmentSchema = createInsertSchema(chainAssignments)
+  .omit({ id: true, startedAt: true, completedAt: true, currentStepId: true })
+  .extend({
+    status: z.enum(["active", "completed", "cancelled"]).default("active"),
+  });
+
+export const insertStepApprovalSchema = createInsertSchema(stepApprovals)
+  .omit({ id: true, approvedAt: true });
+
+// Add type exports for the new tables
+export type TaskChain = typeof taskChains.$inferSelect;
+export type InsertTaskChain = z.infer<typeof insertTaskChainSchema>;
+export type ChainStep = typeof chainSteps.$inferSelect;
+export type InsertChainStep = z.infer<typeof insertChainStepSchema>;
+export type ChainAssignment = typeof chainAssignments.$inferSelect;
+export type InsertChainAssignment = z.infer<typeof insertChainAssignmentSchema>;
+export type StepApproval = typeof stepApprovals.$inferSelect;
+export type InsertStepApproval = z.infer<typeof insertStepApprovalSchema>;
