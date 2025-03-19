@@ -242,7 +242,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
         category: existingChain.category
       });
     }
-  }, [existingChain, templates.length]);
+  }, [existingChain?.id, templates.length]);
 
   const selectedTemplate = selectedStepIndex !== null ?
     templates.find(t => t.id === steps[selectedStepIndex]?.templateId) : null;
