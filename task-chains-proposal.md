@@ -319,6 +319,92 @@ Mobile App                    Backend                    Notifications
         (Sync when online)      │                             │
 ```
 
+### Chain Status Visualization
+
+1. Chain Progress Overview:
+```
+Chain: Spring Repotting
+Status: In Progress
+[✓] Prepare Pot ──> [⌛] Remove Plant ──> [ ] Trim Roots ──> [ ] Transfer
+     Complete         Pending Approval      Not Started      Not Started
+     15m ago          Expert Review        Blocked          Blocked
+
+Legend:
+[✓] Complete  [⌛] Waiting  [!] Blocked  [ ] Not Started
+```
+
+2. Step Dependencies and Status:
+```
+                                        Optional
+                           ┌─────────> [Trim Roots] ─────────┐
+                           │             Skipped             │
+                           │                                 v
+[Prepare Pot] ────> [Remove Plant] ───────────────────> [Transfer]
+   Complete      Pending Approval                      Not Started
+   ✓ Checklist   ! Needs Expert                       » Next Step
+   ✓ Photos      ⌛ Waiting 2h
+   ✓ Notes       ⚠ High Priority
+```
+
+3. Calendar View with Chain Timeline:
+```
+March 2025
+Mon  Tue  Wed  Thu  Fri
+18   19   20   21   22
+│    │    │    │    │
+├────┼────┼────┼────┤      Chain: Disease Treatment
+│    ▼    │    │    │      Duration: 5 days
+│  Start  │    │    │      Progress: 40%
+│    ▼    │    │    │      Status: On Schedule
+│ Step 1  │    │    │      Next Action:
+│    ├────▼────┤    │      Expert Review (Step 2)
+│    │ Step 2  │    │      Due: Wed 20th, 2pm
+│    │    ├────▼────┤
+│    │    │ Step 3  │      Done
+│    │    │    ├────▼
+```
+
+4. Mobile Status Dashboard:
+```
+[Chain Status]────────────────┐
+│ Spring Repotting           │
+│ 2/5 Steps Complete         │
+│ [■■■□□] 40%               │
+│                           │
+│ Current Step:             │
+│ Remove Plant              │
+│ ⌛ Awaiting Approval      │
+│                           │
+│ Actions Required:         │
+│ 🔍 Expert Review         │
+│ 📸 Upload Photos         │
+│                           │
+│ Next Steps:               │
+│ • Trim Roots (Optional)   │
+│ • Add Soil               │
+│ • Water Plant            │
+└───────────────────────────┘
+```
+
+5. Task Chain Health Monitoring:
+```
+Chain Health Dashboard
+│
+├─ Time Progress     [■■■□□] 60%
+│  └─ Estimated Completion: 2 days
+│
+├─ Step Completion   [■■□□□] 40%
+│  └─ 2 of 5 steps done
+│
+├─ Approval Status   [!]
+│  ├─ Pending: 1
+│  └─ Completed: 1
+│
+└─ Alerts
+   ├─ [⚠] Expert review needed
+   └─ [ℹ] Optional step available
+```
+
 ### Approval System Features
 
 1. Role-Based Access:
