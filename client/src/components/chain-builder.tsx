@@ -121,7 +121,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       // If updating, delete old steps
       if (existingChain) {
         await Promise.all(
-          stepsQuery.data?.map(step => 
+          stepsQuery.data?.map(step =>
             fetch(`/api/chain-steps/${step.id}`, { method: "DELETE" })
           ) || []
         );
@@ -129,7 +129,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
 
       // Create new steps
       await Promise.all(
-        steps.map((step, index) => 
+        steps.map((step, index) =>
           fetch("/api/chain-steps", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -147,7 +147,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     onSuccess: (chain) => {
       // Invalidate both chains and steps queries
       queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         queryKey: ["/api/task-chains", chain.id, "steps"]
       });
 
@@ -216,6 +216,19 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       setSelectedStep(result.destination.index);
     }
   };
+
+  const onSubmit = (data: InsertTaskChain) => {
+    if (steps.length === 0) {
+      toast({
+        title: "Please add at least one step",
+        description: "A task chain must contain at least one step",
+        variant: "destructive",
+      });
+      return;
+    }
+    saveMutation.mutate(data);
+  };
+
 
   // Loading state
   if (templatesQuery.isLoading || stepsQuery.isLoading) {
