@@ -1,11 +1,12 @@
 import { Link, useLocation } from "wouter";
-import { Home, Sprout, Calendar, Book, Map, Settings } from "lucide-react";
+import { Home, Sprout, Calendar, Book, Map, Settings, Link2 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/plants", icon: Sprout, label: "Plants" },
   { href: "/location-map", icon: Map, label: "Locations" },
   { href: "/schedule", icon: Calendar, label: "Schedule" },
+  { href: "/task-chains", icon: Link2, label: "Chains" },
   { href: "/guides", icon: Book, label: "Guides" },
   { href: "/settings", icon: Settings, label: "Settings" }
 ];
