@@ -247,7 +247,9 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     );
   }
 
-  if (templatesLoading || stepsLoading) {
+  const isLoading = templatesLoading || (existingChain && stepsLoading);
+
+  if (isLoading) {
     return (
       <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="sm:max-w-[500px]">
