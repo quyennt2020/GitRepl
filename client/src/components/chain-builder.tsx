@@ -10,13 +10,13 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { Plus, Trash2, AlertCircle, GripVertical } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 
 interface ChainBuilderProps {
@@ -44,6 +44,12 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     queryKey: ['/api/task-templates'],
   });
 
+  // Fetch chain steps when editing
+  const { data: chainSteps = [], isLoading: stepsLoading } = useQuery<ChainStep[]>({
+    queryKey: ['/api/task-chains', existingChain?.id, 'steps'],
+    enabled: !!existingChain?.id,
+  });
+
   // Initialize form
   const form = useForm<InsertTaskChain>({
     resolver: zodResolver(insertTaskChainSchema),
@@ -54,6 +60,33 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
       isActive: existingChain?.isActive ?? true,
     },
   });
+
+  // Initialize steps when editing an existing chain
+  useEffect(() => {
+    if (existingChain && chainSteps.length > 0) {
+      const sortedSteps = chainSteps
+        .sort((a, b) => a.order - b.order)
+        .map(step => ({
+          templateId: step.templateId,
+          order: step.order,
+          isRequired: step.isRequired ?? true,
+          waitDuration: step.waitDuration ?? 0,
+          requiresApproval: step.requiresApproval ?? false,
+          approvalRoles: step.approvalRoles ?? [],
+        }));
+      setSteps(sortedSteps);
+    } else {
+      setSteps([]);
+    }
+  }, [chainSteps, existingChain]);
+
+  // Reset steps when opening/closing dialog
+  useEffect(() => {
+    if (!open) {
+      setSteps([]);
+      setSelectedStepIndex(null);
+    }
+  }, [open]);
 
   // Step Management Functions
   const addStep = () => {
@@ -66,18 +99,18 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
       return;
     }
 
+    const defaultTemplate = templates[0];
     const newStep: ChainStepForm = {
-      templateId: templates[0].id,
+      templateId: defaultTemplate.id,
       order: steps.length + 1,
       isRequired: true,
       waitDuration: 0,
-      requiresApproval: templates[0].requiresExpertise,
-      approvalRoles: templates[0].requiresExpertise ? ['expert'] : [],
+      requiresApproval: defaultTemplate.requiresExpertise,
+      approvalRoles: defaultTemplate.requiresExpertise ? ['expert'] : [],
     };
 
-    const newSteps = [...steps, newStep];
-    setSteps(newSteps);
-    setSelectedStepIndex(newSteps.length - 1);
+    setSteps([...steps, newStep]);
+    setSelectedStepIndex(steps.length);
   };
 
   const updateStep = (index: number, updates: Partial<ChainStepForm>) => {
@@ -99,13 +132,18 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     const [reorderedItem] = newSteps.splice(result.source.index, 1);
     newSteps.splice(result.destination.index, 0, reorderedItem);
 
-    setSteps(newSteps);
+    // Update orders after reordering
+    const updatedSteps = newSteps.map((step, index) => ({
+      ...step,
+      order: index + 1,
+    }));
+
+    setSteps(updatedSteps);
     if (selectedStepIndex === result.source.index) {
       setSelectedStepIndex(result.destination.index);
     }
   };
 
-  // Save Chain
   const createChainMutation = useMutation({
     mutationFn: async (data: InsertTaskChain) => {
       if (existingChain) {
@@ -125,14 +163,13 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
         });
 
         // Create new steps
-        for (const [index, step] of steps.entries()) {
+        for (const step of steps) {
           const stepResponse = await fetch('/api/chain-steps', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               ...step,
               chainId: existingChain.id,
-              order: index + 1,
             })
           });
 
@@ -154,14 +191,13 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
         const newChain = await chainResponse.json();
 
         // Create steps for the chain
-        for (const [index, step] of steps.entries()) {
+        for (const step of steps) {
           const stepResponse = await fetch('/api/chain-steps', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               ...step,
               chainId: newChain.id,
-              order: index + 1,
             })
           });
 
@@ -201,7 +237,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     createChainMutation.mutate(data);
   };
 
-  if (templatesLoading) {
+  if (templatesLoading || stepsLoading) {
     return (
       <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="sm:max-w-[500px]">
