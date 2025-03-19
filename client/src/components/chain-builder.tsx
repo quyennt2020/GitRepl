@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { InsertTaskChain, TaskChain, TaskTemplate, insertTaskChainSchema, InsertChainStep } from "@shared/schema";
+import { InsertTaskChain, TaskChain, TaskTemplate, insertTaskChainSchema, InsertChainStep, ChainStep } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { Plus, Trash2, AlertCircle } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 
 interface ChainBuilderProps {
@@ -45,40 +45,94 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     queryKey: ['/api/task-templates'],
   });
 
+  // Fetch chain steps when editing
+  const { data: chainSteps, isLoading: stepsLoading } = useQuery<ChainStep[]>({
+    queryKey: ['/api/chain-steps', existingChain?.id],
+    enabled: !!existingChain?.id,
+  });
+
+  // Initialize steps when editing an existing chain
+  useEffect(() => {
+    if (chainSteps && existingChain) {
+      const formattedSteps: ChainStepForm[] = chainSteps
+        .sort((a, b) => a.order - b.order)
+        .map(step => {
+          const template = templates.find(t => t.id === step.templateId);
+          return {
+            ...step,
+            templateName: template?.name,
+          };
+        });
+      setSteps(formattedSteps);
+    } else if (!existingChain) {
+      setSteps([]);
+    }
+  }, [chainSteps, existingChain, templates]);
+
   const selectedTemplate = selectedStep !== null ? templates.find(t => t.id === steps[selectedStep]?.templateId) : null;
 
   const createChainMutation = useMutation({
     mutationFn: async (data: InsertTaskChain) => {
-      // Create the chain first
-      const chainResponse = await fetch('/api/task-chains', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-
-      if (!chainResponse.ok) {
-        throw new Error('Failed to create chain');
-      }
-
-      const chain = await chainResponse.json();
-
-      // Create each step for the chain
-      for (const step of steps) {
-        const stepResponse = await fetch('/api/chain-steps', {
-          method: 'POST',
+      if (existingChain) {
+        // Update existing chain
+        const chainResponse = await fetch(`/api/task-chains/${existingChain.id}`, {
+          method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...step,
-            chainId: chain.id
-          })
+          body: JSON.stringify(data)
         });
 
-        if (!stepResponse.ok) {
-          throw new Error('Failed to create chain step');
+        if (!chainResponse.ok) {
+          throw new Error('Failed to update chain');
+        }
+
+        // Delete existing steps and create new ones
+        await fetch(`/api/chain-steps/${existingChain.id}`, {
+          method: 'DELETE'
+        });
+        for (const step of steps) {
+          const stepResponse = await fetch('/api/chain-steps', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...step,
+              chainId: existingChain.id
+            })
+          });
+
+          if (!stepResponse.ok) {
+            throw new Error('Failed to create chain step');
+          }
+        }
+      } else {
+        // Create new chain
+        const chainResponse = await fetch('/api/task-chains', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (!chainResponse.ok) {
+          throw new Error('Failed to create chain');
+        }
+
+        const chain = await chainResponse.json();
+
+        // Create steps for the chain
+        for (const step of steps) {
+          const stepResponse = await fetch('/api/chain-steps', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...step,
+              chainId: chain.id
+            })
+          });
+
+          if (!stepResponse.ok) {
+            throw new Error('Failed to create chain step');
+          }
         }
       }
-
-      return chain;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
@@ -119,7 +173,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
       waitDuration: 0,
       requiresApproval: template.requiresExpertise,
       approvalRoles: template.requiresExpertise ? ['expert'] : [],
-      chainId: 0,
+      chainId: existingChain?.id || 0,
       order: steps.length + 1,
     };
     setSteps([...steps, newStep]);
@@ -155,7 +209,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     createChainMutation.mutate(data);
   };
 
-  if (templatesLoading) {
+  if (templatesLoading || stepsLoading) {
     return null;
   }
 
@@ -163,7 +217,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Edit Task Chain</DialogTitle>
+          <DialogTitle>{existingChain ? 'Edit Task Chain' : 'New Task Chain'}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
