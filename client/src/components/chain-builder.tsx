@@ -17,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { Plus, Trash2, AlertCircle, GripVertical } from "lucide-react";
 import { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
 
 interface ChainBuilderProps {
   open: boolean;
@@ -42,7 +43,29 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
   const { data: chainSteps = [], isLoading: stepsLoading } = useQuery<ChainStep[]>({
     queryKey: ['/api/task-chains', existingChain?.id, 'steps'],
     enabled: !!existingChain?.id,
+    onSuccess: (data) => {
+      console.log('Fetched chain steps:', data);
+      if (data.length && templates.length) {
+        const formattedSteps = data
+          .sort((a, b) => a.order - b.order)
+          .map(step => {
+            const template = templates.find(t => t.id === step.templateId);
+            return {
+              templateId: step.templateId,
+              order: step.order,
+              isRequired: step.isRequired ?? true,
+              waitDuration: step.waitDuration ?? 0,
+              requiresApproval: step.requiresApproval ?? false,
+              approvalRoles: step.approvalRoles ?? [],
+              templateName: template?.name
+            };
+          });
+        console.log('Setting formatted steps:', formattedSteps);
+        setSteps(formattedSteps);
+      }
+    },
     onError: (error) => {
+      console.error('Error fetching chain steps:', error);
       toast({
         title: "Error loading chain steps",
         description: error instanceof Error ? error.message : "Failed to load chain steps",
@@ -62,33 +85,13 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     },
   });
 
-  // Initialize steps when editing
+  // Reset state when dialog closes
   useEffect(() => {
     if (!open) {
       setSteps([]);
       setSelectedStepIndex(null);
-      return;
     }
-
-    if (existingChain && chainSteps.length > 0 && templates.length > 0) {
-      const sortedSteps = chainSteps
-        .sort((a, b) => a.order - b.order)
-        .map(step => {
-          const template = templates.find(t => t.id === step.templateId);
-          return {
-            templateId: step.templateId,
-            order: step.order,
-            isRequired: step.isRequired ?? true,
-            waitDuration: step.waitDuration ?? 0,
-            requiresApproval: step.requiresApproval ?? false,
-            approvalRoles: step.approvalRoles ?? [],
-            templateName: template?.name
-          };
-        });
-
-      setSteps(sortedSteps);
-    }
-  }, [open, existingChain, chainSteps, templates]);
+  }, [open]);
 
   const addStep = () => {
     if (!templates.length) {
@@ -161,7 +164,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
         chainId = updatedChain.id;
 
         // Delete existing steps
-        await Promise.all(chainSteps.map(step => 
+        await Promise.all(chainSteps.map(step =>
           fetch(`/api/chain-steps/${step.id}`, { method: 'DELETE' })
         ));
       } else {
@@ -178,7 +181,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
       }
 
       // Create steps
-      await Promise.all(steps.map(step => 
+      await Promise.all(steps.map(step =>
         fetch('/api/chain-steps', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -231,7 +234,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     );
   }
 
-  const selectedTemplate = selectedStepIndex !== null ? 
+  const selectedTemplate = selectedStepIndex !== null ?
     templates.find(t => t.id === steps[selectedStepIndex]?.templateId) : null;
 
   return (

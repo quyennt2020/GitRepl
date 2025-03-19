@@ -438,7 +438,14 @@ export function registerRoutes(app: Express): Server {
   // Chain Steps routes
   app.get("/api/task-chains/:chainId/steps", async (req, res) => {
     try {
-      const steps = await storage.getChainSteps(Number(req.params.chainId));
+      const chainId = Number(req.params.chainId);
+      if (isNaN(chainId)) {
+        return res.status(400).json({ message: "Invalid chain ID" });
+      }
+
+      console.log('Fetching steps for chain:', chainId);
+      const steps = await storage.getChainSteps(chainId);
+      console.log('Retrieved steps:', steps);
       res.json(steps);
     } catch (error) {
       console.error('Error fetching chain steps:', error);
