@@ -58,33 +58,34 @@ app.use((req, res, next) => {
   let retries = 5;
   let currentPort = Number(PORT);
 
-  while (retries > 0) {
+  for (let i = 0; i < retries; i++) {
     try {
       log(`Attempting to start server on port ${currentPort}...`);
-      await new Promise((resolve, reject) => {
-        server.listen(currentPort, "0.0.0.0")
-          .once('listening', () => {
-            log(`Server listening on port ${currentPort}`);
-            resolve(undefined);
-          })
-          .once('error', (err) => {
-            if (err.code === 'EADDRINUSE') {
-              log(`Port ${currentPort} in use, trying next port...`);
-              reject(err);
-            } else {
-              console.error('Server error:', err);
-              reject(err);
-            }
-          });
+      await new Promise<void>((resolve, reject) => {
+        const onError = (err: Error & { code?: string }) => {
+          if (err.code === "EADDRINUSE") {
+            log(`Port ${currentPort} in use, trying next port...`);
+            server.removeListener('error', onError);
+            reject(err);
+          } else {
+            console.error('Server error:', err);
+            reject(err);
+          }
+        };
+
+        server.once('error', onError);
+        server.listen(currentPort, "0.0.0.0", () => {
+          server.removeListener('error', onError);
+          log(`Server listening on port ${currentPort}`);
+          resolve();
+        });
       });
       break;
     } catch (err) {
-      if (retries === 1) {
-        console.error(`Failed to start server after 5 attempts: ${err}`);
+      if (i === retries - 1) {
+        console.error(`Failed to start server after ${retries} attempts`);
         process.exit(1);
       }
-      log(`Port ${currentPort} in use, trying next port...`);
-      retries--;
       currentPort++;
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
