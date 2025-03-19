@@ -299,7 +299,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTaskChain(id: number): Promise<void> {
     await db.delete(stepApprovals).where(
-      eq(stepApprovals.assignmentId, 
+      eq(stepApprovals.assignmentId,
         db.select({ id: chainAssignments.id })
           .from(chainAssignments)
           .where(eq(chainAssignments.chainId, id))
@@ -342,10 +342,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getChainAssignments(plantId?: number): Promise<ChainAssignment[]> {
-    let query = db.select().from(chainAssignments);
-    if (plantId !== undefined) {
-      query = query.where(eq(chainAssignments.plantId, plantId));
-    }
+    const query = plantId !== undefined
+      ? db.select().from(chainAssignments).where(eq(chainAssignments.plantId, plantId))
+      : db.select().from(chainAssignments);
+
     return await query.orderBy(desc(chainAssignments.startedAt));
   }
 
