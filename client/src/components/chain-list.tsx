@@ -1,8 +1,8 @@
 import { TaskChain } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Trash2 } from "lucide-react";
+import { Edit2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -50,44 +50,31 @@ export default function ChainList({ chains, onEdit }: ChainListProps) {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="space-y-2">
       {chains.map((chain) => (
-        <Card key={chain.id}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xl font-semibold">{chain.name}</CardTitle>
-            <div className="flex space-x-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  console.log("Editing chain:", chain);
-                  onEdit(chain);
-                }}
-              >
-                <Edit2 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  console.log("Attempting to delete chain:", chain);
-                  if (confirm("Are you sure you want to delete this chain?")) {
-                    deleteChainMutation.mutate(chain.id);
-                  }
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
+        <Card key={chain.id} className="flex flex-col hover:bg-muted/50">
+          <CardContent className="p-4 flex items-start justify-between">
+            <div className="space-y-1 flex-1">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium">{chain.name}</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEdit(chain)}
+                  className="h-8 w-8"
+                >
+                  <Edit2 className="h-4 w-4" />
+                  <span className="sr-only">Edit</span>
+                </Button>
+              </div>
               <p className="text-sm text-muted-foreground">
                 {chain.description}
               </p>
-              <div className="flex gap-2">
-                <Badge variant="outline">{chain.category}</Badge>
-                <Badge variant="outline">
+              <div className="flex gap-1.5">
+                <Badge variant="outline" className="text-xs">
+                  {chain.category}
+                </Badge>
+                <Badge variant="outline" className="text-xs">
                   {chain.isActive ? "Active" : "Inactive"}
                 </Badge>
               </div>

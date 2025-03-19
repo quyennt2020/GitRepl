@@ -1,14 +1,14 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { InsertTaskChain, TaskChain, TaskTemplate, insertTaskChainSchema, InsertChainStep, insertChainStepSchema } from "@shared/schema";
+import { useMutation } from "@tanstack/react-query";
+import { InsertTaskChain, TaskChain, insertTaskChainSchema, InsertChainStep } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
@@ -17,6 +17,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { mockTaskTemplates } from "@/lib/mock-data";
+import { Separator } from "@/components/ui/separator";
 
 interface ChainBuilderProps {
   open: boolean;
@@ -26,30 +27,27 @@ interface ChainBuilderProps {
 
 interface ChainStepForm extends InsertChainStep {
   templateName?: string;
-  condition?: {
-    type: 'healthScore' | 'taskCompletion' | 'time';
-    operator: '>' | '<' | '==' | '>=' | '<=';
-    value: string;
-  };
 }
-
-const ROLES = ['owner', 'manager', 'expert', 'caretaker'] as const;
 
 export default function ChainBuilder({ open, onClose, existingChain }: ChainBuilderProps) {
   const { toast } = useToast();
   const [steps, setSteps] = useState<ChainStepForm[]>([]);
+  const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
 
   const form = useForm<InsertTaskChain>({
     resolver: zodResolver(insertTaskChainSchema),
     defaultValues: {
       name: existingChain?.name ?? "",
       description: existingChain?.description ?? "",
-      category: (existingChain?.category ?? "water") as InsertTaskChain["category"],
+      category: existingChain?.category ?? "water",
     },
   });
 
-  // Use mock templates directly
+  // Use mock templates
   const templates = mockTaskTemplates;
+  const selectedTemplate = selectedStepIndex !== null && steps[selectedStepIndex]
+    ? templates.find(t => t.id === steps[selectedStepIndex].templateId)
+    : null;
 
   const createChainMutation = useMutation({
     mutationFn: async (data: InsertTaskChain) => {
@@ -92,6 +90,10 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
     setSteps(items);
+    // Update selected step index if needed
+    if (selectedStepIndex === result.source.index) {
+      setSelectedStepIndex(result.destination.index);
+    }
   };
 
   const addStep = () => {
@@ -107,12 +109,18 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
       order: steps.length + 1,
     };
     setSteps([...steps, newStep]);
+    setSelectedStepIndex(steps.length);
   };
 
   const removeStep = (index: number) => {
     const newSteps = [...steps];
     newSteps.splice(index, 1);
     setSteps(newSteps);
+    if (selectedStepIndex === index) {
+      setSelectedStepIndex(null);
+    } else if (selectedStepIndex && selectedStepIndex > index) {
+      setSelectedStepIndex(selectedStepIndex - 1);
+    }
   };
 
   const updateStep = (index: number, updates: Partial<ChainStepForm>) => {
@@ -123,7 +131,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[700px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{existingChain ? "Edit" : "Create"} Task Chain</DialogTitle>
         </DialogHeader>
@@ -135,9 +143,9 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>Chain name</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Chain name" />
+                    <Input {...field} placeholder="Chain name" className="min-h-[40px]" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -151,7 +159,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea {...field} placeholder="Describe the purpose of this chain" />
+                    <Textarea {...field} placeholder="Describe the purpose of this chain" className="min-h-[60px]" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -164,33 +172,71 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category</FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={(value: InsertTaskChain["category"]) => field.onChange(value)}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
+                  <FormControl>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value: InsertTaskChain["category"]) => field.onChange(value)}
+                    >
+                      <SelectTrigger className="min-h-[40px]">
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="water">Water</SelectItem>
-                      <SelectItem value="fertilize">Fertilize</SelectItem>
-                      <SelectItem value="prune">Prune</SelectItem>
-                      <SelectItem value="check">Check</SelectItem>
-                      <SelectItem value="repot">Repot</SelectItem>
-                      <SelectItem value="clean">Clean</SelectItem>
-                    </SelectContent>
-                  </Select>
+                      <SelectContent>
+                        <SelectItem value="water">Water</SelectItem>
+                        <SelectItem value="fertilize">Fertilize</SelectItem>
+                        <SelectItem value="prune">Prune</SelectItem>
+                        <SelectItem value="check">Check</SelectItem>
+                        <SelectItem value="repot">Repot</SelectItem>
+                        <SelectItem value="clean">Clean</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="space-y-4">
+            {selectedTemplate && (
+              <>
+                <Separator className="my-4" />
+                <div className="space-y-3">
+                  <h4 className="font-medium">Selected Task Details</h4>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Task:</span>{" "}
+                      <span className="font-medium">{selectedTemplate.name}</span>
+                    </div>
+                    <p className="text-muted-foreground">{selectedTemplate.description}</p>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      <span>Duration: {selectedTemplate.estimatedDuration} minutes</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant={selectedTemplate.priority === 'high' ? 'destructive' : 'default'}>
+                        {selectedTemplate.priority} priority
+                      </Badge>
+                      {selectedTemplate.requiresExpertise && (
+                        <Badge variant="secondary">
+                          <Brain className="w-3 h-3 mr-1" />
+                          Expert Required
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <Separator className="my-4" />
+              </>
+            )}
+
+            <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-medium">Chain Steps</h3>
-                <Button type="button" variant="outline" size="sm" onClick={addStep}>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={addStep}
+                  className="min-h-[32px]"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Step
                 </Button>
@@ -209,6 +255,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
                     <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
                       {steps.map((step, index) => {
                         const template = templates.find(t => t.id === step.templateId);
+                        const isSelected = selectedStepIndex === index;
 
                         return (
                           <Draggable key={index} draggableId={`step-${index}`} index={index}>
@@ -216,221 +263,82 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
                               <Card
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
-                                className="border"
+                                className={`border cursor-pointer transition-colors ${isSelected ? 'bg-muted' : ''}`}
+                                onClick={() => setSelectedStepIndex(index)}
                               >
-                                <CardContent className="p-4">
-                                  <div className="flex items-start gap-4">
-                                    <div {...provided.dragHandleProps}>
-                                      <GripVertical className="w-4 h-4 text-muted-foreground" />
+                                <CardContent className="p-3">
+                                  <div className="flex items-center gap-3">
+                                    <div {...provided.dragHandleProps} className="touch-manipulation">
+                                      <Badge variant="outline" className="select-none">
+                                        {index + 1}
+                                      </Badge>
                                     </div>
-                                    <div className="flex-1 space-y-4">
+
+                                    <div className="flex-1">
                                       <div className="flex items-center gap-2">
-                                        <Badge variant="outline">{`Step ${index + 1}`}</Badge>
-                                        {step.isRequired && (
-                                          <Badge variant="secondary">Required</Badge>
-                                        )}
-                                        {template?.requiresExpertise && (
-                                          <Badge variant="secondary">
-                                            <Brain className="w-3 h-3 mr-1" />
-                                            Expertise Required
-                                          </Badge>
-                                        )}
-                                        {template && (
-                                          <Badge variant={template.priority === 'high' ? 'destructive' : 'default'}>
-                                            {template.priority} priority
-                                          </Badge>
-                                        )}
-                                      </div>
-
-                                      <Select
-                                        value={String(step.templateId)}
-                                        onValueChange={(value) => {
-                                          const template = templates.find(t => t.id === Number(value));
-                                          if (template) {
-                                            updateStep(index, {
-                                              templateId: Number(value),
-                                              templateName: template.name,
-                                              requiresApproval: template.requiresExpertise,
-                                              approvalRoles: template.requiresExpertise ? ['expert'] : [],
-                                            });
-                                          }
-                                        }}
-                                      >
-                                        <SelectTrigger className="w-full">
-                                          <SelectValue placeholder="Select template" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {templates.map((template) => (
-                                            <SelectItem
-                                              key={template.id}
-                                              value={String(template.id)}
-                                            >
-                                              <div className="flex items-center">
-                                                <span>{template.name}</span>
-                                                {template.requiresExpertise && (
-                                                  <Brain className="w-3 h-3 ml-2" />
-                                                )}
-                                                <Clock className="w-3 h-3 ml-2" />
-                                                <span className="text-xs ml-1">
-                                                  {template.estimatedDuration}min
-                                                </span>
-                                              </div>
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-
-                                      {template && (
-                                        <p className="text-sm text-muted-foreground">
-                                          {template.description}
-                                        </p>
-                                      )}
-
-                                      <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                          <div className="flex items-center space-x-2">
-                                            <Checkbox
-                                              id={`required-${index}`}
-                                              checked={step.isRequired}
-                                              onCheckedChange={(checked) =>
-                                                updateStep(index, { isRequired: checked as boolean })
-                                              }
-                                            />
-                                            <label htmlFor={`required-${index}`}>Required</label>
-                                          </div>
-
-                                          <div className="flex items-center space-x-2">
-                                            <Checkbox
-                                              id={`approval-${index}`}
-                                              checked={step.requiresApproval}
-                                              onCheckedChange={(checked) =>
-                                                updateStep(index, { 
-                                                  requiresApproval: checked as boolean,
-                                                  approvalRoles: checked ? ['expert'] : []
-                                                })
-                                              }
-                                            />
-                                            <label htmlFor={`approval-${index}`}>Needs Approval</label>
-                                          </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                          <FormItem>
-                                            <FormLabel>Wait Duration (hours)</FormLabel>
-                                            <FormControl>
-                                              <Input
-                                                type="number"
-                                                min="0"
-                                                value={step.waitDuration}
-                                                onChange={(e) =>
-                                                  updateStep(index, {
-                                                    waitDuration: parseInt(e.target.value) || 0,
-                                                  })
-                                                }
-                                              />
-                                            </FormControl>
-                                          </FormItem>
-                                        </div>
-                                      </div>
-
-                                      {step.requiresApproval && (
-                                        <div className="space-y-2">
-                                          <FormLabel>Approval Roles</FormLabel>
-                                          <div className="flex flex-wrap gap-2">
-                                            {ROLES.map((role) => (
-                                              <Badge
-                                                key={role}
-                                                variant={step.approvalRoles?.includes(role) ? "default" : "outline"}
-                                                className="cursor-pointer"
-                                                onClick={() => {
-                                                  const roles = step.approvalRoles || [];
-                                                  const newRoles = roles.includes(role)
-                                                    ? roles.filter((r) => r !== role)
-                                                    : [...roles, role];
-                                                  updateStep(index, { approvalRoles: newRoles });
-                                                }}
-                                              >
-                                                {role}
-                                              </Badge>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      <div className="space-y-2">
-                                        <FormLabel>Activation Condition</FormLabel>
-                                        <div className="flex gap-2">
-                                          <Select
-                                            value={step.condition?.type || ""}
-                                            onValueChange={(value) =>
+                                        <Select
+                                          value={String(step.templateId)}
+                                          onValueChange={(value) => {
+                                            const template = templates.find(t => t.id === Number(value));
+                                            if (template) {
                                               updateStep(index, {
-                                                condition: {
-                                                  type: value as any,
-                                                  operator: ">",
-                                                  value: "",
-                                                },
-                                              })
+                                                templateId: Number(value),
+                                                templateName: template.name,
+                                                requiresApproval: template.requiresExpertise,
+                                                approvalRoles: template.requiresExpertise ? ['expert'] : [],
+                                              });
                                             }
-                                          >
-                                            <SelectTrigger>
-                                              <SelectValue placeholder="Select condition type" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="healthScore">Health Score</SelectItem>
-                                              <SelectItem value="taskCompletion">Task Completion</SelectItem>
-                                              <SelectItem value="time">Time Based</SelectItem>
-                                            </SelectContent>
-                                          </Select>
-
-                                          {step.condition && (
-                                            <>
-                                              <Select
-                                                value={step.condition.operator}
-                                                onValueChange={(value) =>
-                                                  updateStep(index, {
-                                                    condition: {
-                                                      ...step.condition!,
-                                                      operator: value as any,
-                                                    },
-                                                  })
-                                                }
+                                          }}
+                                        >
+                                          <SelectTrigger className="h-8">
+                                            <SelectValue placeholder="Select template" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {templates.map((template) => (
+                                              <SelectItem
+                                                key={template.id}
+                                                value={String(template.id)}
                                               >
-                                                <SelectTrigger>
-                                                  <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                  <SelectItem value=">">greater than</SelectItem>
-                                                  <SelectItem value="<">less than</SelectItem>
-                                                  <SelectItem value="==">equals</SelectItem>
-                                                  <SelectItem value=">=">greater or equal</SelectItem>
-                                                  <SelectItem value="<=">less or equal</SelectItem>
-                                                </SelectContent>
-                                              </Select>
+                                                {template.name}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
 
-                                              <Input
-                                                placeholder="Value"
-                                                value={step.condition.value}
-                                                onChange={(e) =>
-                                                  updateStep(index, {
-                                                    condition: {
-                                                      ...step.condition!,
-                                                      value: e.target.value,
-                                                    },
-                                                  })
-                                                }
-                                              />
-                                            </>
-                                          )}
+                                        <div className="flex items-center space-x-2">
+                                          <Checkbox
+                                            id={`required-${index}`}
+                                            checked={step.isRequired}
+                                            onCheckedChange={(checked) =>
+                                              updateStep(index, { isRequired: checked as boolean })
+                                            }
+                                          />
+                                          <label htmlFor={`required-${index}`} className="text-sm">Required</label>
                                         </div>
+
+                                        {template && (
+                                          <Badge 
+                                            variant={template.priority === 'high' ? 'destructive' : 'default'}
+                                            className="ml-auto"
+                                          >
+                                            {template.priority}
+                                          </Badge>
+                                        )}
+
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeStep(index);
+                                          }}
+                                          className="h-8 w-8 ml-2"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                          <span className="sr-only">Remove step</span>
+                                        </Button>
                                       </div>
                                     </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => removeStep(index)}
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
                                   </div>
                                 </CardContent>
                               </Card>
@@ -446,10 +354,19 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
             </div>
 
             <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" type="button" onClick={onClose}>
+              <Button 
+                variant="outline" 
+                type="button" 
+                onClick={onClose}
+                className="min-h-[40px]"
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={createChainMutation.isPending}>
+              <Button 
+                type="submit" 
+                disabled={createChainMutation.isPending}
+                className="min-h-[40px]"
+              >
                 {createChainMutation.isPending ? "Saving..." : "Save"}
               </Button>
             </div>

@@ -37,8 +37,8 @@ export default function TaskChainsPage() {
 
   if (error) {
     return (
-      <div className="container py-6 space-y-4">
-        <h1 className="text-3xl font-bold">Task Chains</h1>
+      <div className="container py-4 px-4 md:py-6 md:px-6 space-y-4">
+        <h1 className="text-2xl md:text-3xl font-bold">Task Chains</h1>
         <div className="bg-destructive/10 text-destructive p-4 rounded-lg">
           Failed to load task chains. Please try again later.
         </div>
@@ -47,10 +47,13 @@ export default function TaskChainsPage() {
   }
 
   return (
-    <div className="container py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Task Chains</h1>
-        <Button onClick={() => setIsBuilderOpen(true)}>
+    <div className="container py-4 px-4 md:py-6 md:px-6 space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold">Task Chains</h1>
+        <Button 
+          onClick={() => setIsBuilderOpen(true)}
+          className="w-full sm:w-auto"
+        >
           <Plus className="w-4 h-4 mr-2" />
           New Chain
         </Button>
