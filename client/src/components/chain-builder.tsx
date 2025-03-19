@@ -33,15 +33,22 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
   const [steps, setSteps] = useState<ChainStepForm[]>([]);
   const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
 
-  // Load templates
+  // Fetch templates
   const { data: templates = [], isLoading: templatesLoading } = useQuery<TaskTemplate[]>({
     queryKey: ['/api/task-templates']
   });
 
-  // Load existing chain steps if editing
+  // Fetch chain steps for existing chain
   const { data: chainSteps = [], isLoading: stepsLoading } = useQuery<ChainStep[]>({
     queryKey: ['/api/task-chains', existingChain?.id, 'steps'],
-    enabled: !!existingChain?.id
+    enabled: !!existingChain?.id,
+    onError: (error) => {
+      toast({
+        title: "Error loading chain steps",
+        description: error instanceof Error ? error.message : "Failed to load chain steps",
+        variant: "destructive",
+      });
+    }
   });
 
   // Form setup
@@ -57,11 +64,13 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
 
   // Initialize steps when editing
   useEffect(() => {
-    if (existingChain && chainSteps.length > 0 && templates.length > 0) {
-      console.log('Initializing steps for existing chain:', existingChain.id);
-      console.log('Chain steps:', chainSteps);
-      console.log('Available templates:', templates);
+    if (!open) {
+      setSteps([]);
+      setSelectedStepIndex(null);
+      return;
+    }
 
+    if (existingChain && chainSteps.length > 0 && templates.length > 0) {
       const sortedSteps = chainSteps
         .sort((a, b) => a.order - b.order)
         .map(step => {
@@ -77,20 +86,10 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
           };
         });
 
-      console.log('Setting sorted steps:', sortedSteps);
       setSteps(sortedSteps);
     }
-  }, [existingChain, chainSteps, templates]);
+  }, [open, existingChain, chainSteps, templates]);
 
-  // Reset when dialog closes
-  useEffect(() => {
-    if (!open) {
-      setSteps([]);
-      setSelectedStepIndex(null);
-    }
-  }, [open]);
-
-  // Add step
   const addStep = () => {
     if (!templates.length) {
       toast({
@@ -150,7 +149,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
       let chainId: number;
 
       if (existingChain) {
-        // Update existing chain
+        // Update chain
         const chainResponse = await fetch(`/api/task-chains/${existingChain.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -178,7 +177,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
         chainId = newChain.id;
       }
 
-      // Create new steps
+      // Create steps
       await Promise.all(steps.map(step => 
         fetch('/api/chain-steps', {
           method: 'POST',
