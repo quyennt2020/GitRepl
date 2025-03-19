@@ -17,7 +17,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { Plus, Trash2, AlertCircle, GripVertical } from "lucide-react";
 import { useState, useEffect } from "react";
-import { Badge } from "@/components/ui/badge";
 
 interface ChainBuilderProps {
   open: boolean;
@@ -25,13 +24,8 @@ interface ChainBuilderProps {
   existingChain?: TaskChain;
 }
 
-interface ChainStepForm {
-  templateId: number;
-  order: number;
-  isRequired: boolean;
-  waitDuration: number;
-  requiresApproval: boolean;
-  approvalRoles: string[];
+interface ChainStepForm extends Omit<InsertChainStep, 'chainId'> {
+  templateName?: string;
 }
 
 export default function ChainBuilder({ open, onClose, existingChain }: ChainBuilderProps) {
@@ -39,18 +33,18 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
   const [steps, setSteps] = useState<ChainStepForm[]>([]);
   const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
 
-  // Fetch task templates
+  // Load templates
   const { data: templates = [], isLoading: templatesLoading } = useQuery<TaskTemplate[]>({
-    queryKey: ['/api/task-templates'],
+    queryKey: ['/api/task-templates']
   });
 
-  // Fetch chain steps when editing
+  // Load existing chain steps if editing
   const { data: chainSteps = [], isLoading: stepsLoading } = useQuery<ChainStep[]>({
     queryKey: ['/api/task-chains', existingChain?.id, 'steps'],
-    enabled: !!existingChain?.id,
+    enabled: !!existingChain?.id
   });
 
-  // Initialize form
+  // Form setup
   const form = useForm<InsertTaskChain>({
     resolver: zodResolver(insertTaskChainSchema),
     defaultValues: {
@@ -61,9 +55,9 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     },
   });
 
-  // Initialize steps when editing an existing chain
+  // Initialize steps when editing
   useEffect(() => {
-    if (existingChain && chainSteps.length > 0) {
+    if (existingChain && chainSteps.length > 0 && templates.length > 0) {
       const sortedSteps = chainSteps
         .sort((a, b) => a.order - b.order)
         .map(step => ({
@@ -73,14 +67,13 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
           waitDuration: step.waitDuration ?? 0,
           requiresApproval: step.requiresApproval ?? false,
           approvalRoles: step.approvalRoles ?? [],
+          templateName: templates.find(t => t.id === step.templateId)?.name
         }));
       setSteps(sortedSteps);
-    } else {
-      setSteps([]);
     }
-  }, [chainSteps, existingChain]);
+  }, [existingChain, chainSteps, templates]);
 
-  // Reset steps when opening/closing dialog
+  // Reset when dialog closes
   useEffect(() => {
     if (!open) {
       setSteps([]);
@@ -88,7 +81,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     }
   }, [open]);
 
-  // Step Management Functions
+  // Step management
   const addStep = () => {
     if (!templates.length) {
       toast({
@@ -107,6 +100,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
       waitDuration: 0,
       requiresApproval: defaultTemplate.requiresExpertise,
       approvalRoles: defaultTemplate.requiresExpertise ? ['expert'] : [],
+      templateName: defaultTemplate.name
     };
 
     setSteps([...steps, newStep]);
@@ -114,7 +108,6 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
   };
 
   const updateStep = (index: number, updates: Partial<ChainStepForm>) => {
-    if (index < 0 || index >= steps.length) return;
     const newSteps = [...steps];
     newSteps[index] = { ...newSteps[index], ...updates };
     setSteps(newSteps);
@@ -128,24 +121,26 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
   const handleDragEnd = (result: any) => {
     if (!result.destination) return;
 
-    const newSteps = Array.from(steps);
-    const [reorderedItem] = newSteps.splice(result.source.index, 1);
-    newSteps.splice(result.destination.index, 0, reorderedItem);
+    const items = Array.from(steps);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
 
-    // Update orders after reordering
-    const updatedSteps = newSteps.map((step, index) => ({
+    const reorderedSteps = items.map((step, index) => ({
       ...step,
-      order: index + 1,
+      order: index + 1
     }));
 
-    setSteps(updatedSteps);
+    setSteps(reorderedSteps);
     if (selectedStepIndex === result.source.index) {
       setSelectedStepIndex(result.destination.index);
     }
   };
 
+  // Save chain
   const createChainMutation = useMutation({
     mutationFn: async (data: InsertTaskChain) => {
+      let chainId: number;
+
       if (existingChain) {
         // Update existing chain
         const chainResponse = await fetch(`/api/task-chains/${existingChain.id}`, {
@@ -156,29 +151,12 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
 
         if (!chainResponse.ok) throw new Error('Failed to update chain');
         const updatedChain = await chainResponse.json();
+        chainId = updatedChain.id;
 
         // Delete existing steps
-        await fetch(`/api/task-chains/${existingChain.id}/steps`, {
-          method: 'DELETE'
-        });
-
-        // Create new steps
-        for (const step of steps) {
-          const stepResponse = await fetch('/api/chain-steps', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...step,
-              chainId: existingChain.id,
-            })
-          });
-
-          if (!stepResponse.ok) {
-            throw new Error('Failed to create chain step');
-          }
-        }
-
-        return updatedChain;
+        await Promise.all(chainSteps.map(step => 
+          fetch(`/api/chain-steps/${step.id}`, { method: 'DELETE' })
+        ));
       } else {
         // Create new chain
         const chainResponse = await fetch('/api/task-chains', {
@@ -189,25 +167,22 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
 
         if (!chainResponse.ok) throw new Error('Failed to create chain');
         const newChain = await chainResponse.json();
-
-        // Create steps for the chain
-        for (const step of steps) {
-          const stepResponse = await fetch('/api/chain-steps', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...step,
-              chainId: newChain.id,
-            })
-          });
-
-          if (!stepResponse.ok) {
-            throw new Error('Failed to create chain step');
-          }
-        }
-
-        return newChain;
+        chainId = newChain.id;
       }
+
+      // Create new steps
+      await Promise.all(steps.map(step => 
+        fetch('/api/chain-steps', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...step,
+            chainId
+          })
+        })
+      ));
+
+      return chainId;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
@@ -248,9 +223,6 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
       </Dialog>
     );
   }
-
-  const selectedTemplate = selectedStepIndex !== null ? 
-    templates.find(t => t.id === steps[selectedStepIndex]?.templateId) : null;
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
@@ -365,9 +337,9 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
                                       <GripVertical className="w-4 h-4 text-muted-foreground" />
                                     </div>
 
-                                    <Badge variant="outline" className="w-6 h-6 flex items-center justify-center">
+                                    <div className="w-6 h-6 flex items-center justify-center border rounded">
                                       {index + 1}
-                                    </Badge>
+                                    </div>
 
                                     <Select
                                       value={String(step.templateId)}
@@ -376,6 +348,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
                                         if (template) {
                                           updateStep(index, {
                                             templateId: Number(value),
+                                            templateName: template.name,
                                             requiresApproval: template.requiresExpertise,
                                             approvalRoles: template.requiresExpertise ? ['expert'] : []
                                           });
@@ -421,18 +394,12 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
             </div>
 
             {/* Step Configuration */}
-            {selectedStepIndex !== null && selectedTemplate && (
+            {selectedStepIndex !== null && templates.find(t => t.id === steps[selectedStepIndex]?.templateId) && (
               <div className="space-y-4 border rounded-lg p-4">
                 <div>
                   <h4 className="font-medium flex items-center gap-2">
-                    {selectedTemplate.name}
-                    <span className="text-sm text-muted-foreground">
-                      ({selectedTemplate.estimatedDuration}min)
-                    </span>
+                    Step {selectedStepIndex + 1} Configuration
                   </h4>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {selectedTemplate.description}
-                  </p>
                 </div>
 
                 <div className="space-y-4">
