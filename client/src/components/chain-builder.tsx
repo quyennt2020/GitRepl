@@ -234,6 +234,16 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     );
   }
 
+  useEffect(() => {
+    if (existingChain && templates.length > 0) {
+      form.reset({
+        name: existingChain.name,
+        description: existingChain.description,
+        category: existingChain.category
+      });
+    }
+  }, [existingChain, templates.length]);
+
   const selectedTemplate = selectedStepIndex !== null ?
     templates.find(t => t.id === steps[selectedStepIndex]?.templateId) : null;
 
