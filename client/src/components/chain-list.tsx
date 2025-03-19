@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Edit2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
+import { mockTaskChains } from "@/lib/mock-data";
 
 interface ChainListProps {
   chains: TaskChain[];
@@ -17,8 +18,12 @@ export default function ChainList({ chains, onEdit }: ChainListProps) {
 
   const deleteChainMutation = useMutation({
     mutationFn: async (chainId: number) => {
-      console.log("Deleting chain:", chainId);
-      await apiRequest("DELETE", `/api/task-chains/${chainId}`);
+      console.log("Mock deleting chain:", chainId);
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      // Filter out the deleted chain from mock data
+      const updatedChains = mockTaskChains.filter(chain => chain.id !== chainId);
+      return updatedChains;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });

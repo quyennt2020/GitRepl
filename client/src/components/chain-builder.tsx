@@ -12,11 +12,11 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
-import { GripVertical, Plus, Trash2, AlertCircle } from "lucide-react";
+import { GripVertical, Plus, Trash2, AlertCircle, Clock, Brain } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ComboboxDemo } from "@/components/ui/combobox";
+import { mockTaskTemplates } from "@/lib/mock-data";
 
 interface ChainBuilderProps {
   open: boolean;
@@ -48,12 +48,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     },
   });
 
-  // Mock data for templates until backend is ready
-  const templates = [
-    { id: 1, name: "Water Plant", category: "water", description: "Basic watering task" },
-    { id: 2, name: "Fertilize Plant", category: "fertilize", description: "Apply fertilizer" },
-    { id: 3, name: "Check Health", category: "check", description: "Health inspection" },
-  ];
+  // Use mock templates directly
+  const templates = mockTaskTemplates;
 
   const createChainMutation = useMutation({
     mutationFn: async (data: InsertTaskChain) => {
@@ -99,13 +95,14 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
   };
 
   const addStep = () => {
+    const template = templates[0];
     const newStep: ChainStepForm = {
-      templateId: templates[0].id,
-      templateName: templates[0].name,
+      templateId: template.id,
+      templateName: template.name,
       isRequired: true,
       waitDuration: 0,
-      requiresApproval: false,
-      approvalRoles: [],
+      requiresApproval: template.requiresExpertise,
+      approvalRoles: template.requiresExpertise ? ['expert'] : [],
       chainId: 0,
       order: steps.length + 1,
     };
@@ -210,203 +207,237 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
                 <Droppable droppableId="steps">
                   {(provided) => (
                     <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
-                      {steps.map((step, index) => (
-                        <Draggable key={index} draggableId={`step-${index}`} index={index}>
-                          {(provided) => (
-                            <Card
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className="border"
-                            >
-                              <CardContent className="p-4">
-                                <div className="flex items-start gap-4">
-                                  <div {...provided.dragHandleProps}>
-                                    <GripVertical className="w-4 h-4 text-muted-foreground" />
-                                  </div>
-                                  <div className="flex-1 space-y-4">
-                                    <div className="flex items-center gap-2">
-                                      <Badge variant="outline">{`Step ${index + 1}`}</Badge>
-                                      {step.isRequired && (
-                                        <Badge variant="secondary">Required</Badge>
-                                      )}
-                                      {step.requiresApproval && (
-                                        <Badge variant="secondary">Needs Approval</Badge>
-                                      )}
+                      {steps.map((step, index) => {
+                        const template = templates.find(t => t.id === step.templateId);
+
+                        return (
+                          <Draggable key={index} draggableId={`step-${index}`} index={index}>
+                            {(provided) => (
+                              <Card
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                className="border"
+                              >
+                                <CardContent className="p-4">
+                                  <div className="flex items-start gap-4">
+                                    <div {...provided.dragHandleProps}>
+                                      <GripVertical className="w-4 h-4 text-muted-foreground" />
                                     </div>
-
-                                    <Select
-                                      value={String(step.templateId)}
-                                      onValueChange={(value) => {
-                                        const template = templates.find(t => t.id === Number(value));
-                                        updateStep(index, {
-                                          templateId: Number(value),
-                                          templateName: template?.name
-                                        });
-                                      }}
-                                    >
-                                      <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select template" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {templates.map((template) => (
-                                          <SelectItem
-                                            key={template.id}
-                                            value={String(template.id)}
-                                          >
-                                            {template.name}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div className="space-y-2">
-                                        <div className="flex items-center space-x-2">
-                                          <Checkbox
-                                            id={`required-${index}`}
-                                            checked={step.isRequired}
-                                            onCheckedChange={(checked) =>
-                                              updateStep(index, { isRequired: checked as boolean })
-                                            }
-                                          />
-                                          <label htmlFor={`required-${index}`}>Required</label>
-                                        </div>
-
-                                        <div className="flex items-center space-x-2">
-                                          <Checkbox
-                                            id={`approval-${index}`}
-                                            checked={step.requiresApproval}
-                                            onCheckedChange={(checked) =>
-                                              updateStep(index, { requiresApproval: checked as boolean })
-                                            }
-                                          />
-                                          <label htmlFor={`approval-${index}`}>Needs Approval</label>
-                                        </div>
-                                      </div>
-
-                                      <div className="space-y-2">
-                                        <FormItem>
-                                          <FormLabel>Wait Duration (hours)</FormLabel>
-                                          <FormControl>
-                                            <Input
-                                              type="number"
-                                              min="0"
-                                              value={step.waitDuration}
-                                              onChange={(e) =>
-                                                updateStep(index, {
-                                                  waitDuration: parseInt(e.target.value) || 0,
-                                                })
-                                              }
-                                            />
-                                          </FormControl>
-                                        </FormItem>
-                                      </div>
-                                    </div>
-
-                                    {step.requiresApproval && (
-                                      <div className="space-y-2">
-                                        <FormLabel>Approval Roles</FormLabel>
-                                        <div className="flex flex-wrap gap-2">
-                                          {ROLES.map((role) => (
-                                            <Badge
-                                              key={role}
-                                              variant={step.approvalRoles?.includes(role) ? "default" : "outline"}
-                                              className="cursor-pointer"
-                                              onClick={() => {
-                                                const roles = step.approvalRoles || [];
-                                                const newRoles = roles.includes(role)
-                                                  ? roles.filter((r) => r !== role)
-                                                  : [...roles, role];
-                                                updateStep(index, { approvalRoles: newRoles });
-                                              }}
-                                            >
-                                              {role}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    <div className="space-y-2">
-                                      <FormLabel>Activation Condition</FormLabel>
-                                      <div className="flex gap-2">
-                                        <Select
-                                          value={step.condition?.type || ""}
-                                          onValueChange={(value) =>
-                                            updateStep(index, {
-                                              condition: {
-                                                type: value as any,
-                                                operator: ">",
-                                                value: "",
-                                              },
-                                            })
-                                          }
-                                        >
-                                          <SelectTrigger>
-                                            <SelectValue placeholder="Select condition type" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="healthScore">Health Score</SelectItem>
-                                            <SelectItem value="taskCompletion">Task Completion</SelectItem>
-                                            <SelectItem value="time">Time Based</SelectItem>
-                                          </SelectContent>
-                                        </Select>
-
-                                        {step.condition && (
-                                          <>
-                                            <Select
-                                              value={step.condition.operator}
-                                              onValueChange={(value) =>
-                                                updateStep(index, {
-                                                  condition: {
-                                                    ...step.condition!,
-                                                    operator: value as any,
-                                                  },
-                                                })
-                                              }
-                                            >
-                                              <SelectTrigger>
-                                                <SelectValue />
-                                              </SelectTrigger>
-                                              <SelectContent>
-                                                <SelectItem value=">">greater than</SelectItem>
-                                                <SelectItem value="<">less than</SelectItem>
-                                                <SelectItem value="==">equals</SelectItem>
-                                                <SelectItem value=">=">greater or equal</SelectItem>
-                                                <SelectItem value="<=">less or equal</SelectItem>
-                                              </SelectContent>
-                                            </Select>
-
-                                            <Input
-                                              placeholder="Value"
-                                              value={step.condition.value}
-                                              onChange={(e) =>
-                                                updateStep(index, {
-                                                  condition: {
-                                                    ...step.condition!,
-                                                    value: e.target.value,
-                                                  },
-                                                })
-                                              }
-                                            />
-                                          </>
+                                    <div className="flex-1 space-y-4">
+                                      <div className="flex items-center gap-2">
+                                        <Badge variant="outline">{`Step ${index + 1}`}</Badge>
+                                        {step.isRequired && (
+                                          <Badge variant="secondary">Required</Badge>
+                                        )}
+                                        {template?.requiresExpertise && (
+                                          <Badge variant="secondary">
+                                            <Brain className="w-3 h-3 mr-1" />
+                                            Expertise Required
+                                          </Badge>
+                                        )}
+                                        {template && (
+                                          <Badge variant={template.priority === 'high' ? 'destructive' : 'default'}>
+                                            {template.priority} priority
+                                          </Badge>
                                         )}
                                       </div>
+
+                                      <Select
+                                        value={String(step.templateId)}
+                                        onValueChange={(value) => {
+                                          const template = templates.find(t => t.id === Number(value));
+                                          if (template) {
+                                            updateStep(index, {
+                                              templateId: Number(value),
+                                              templateName: template.name,
+                                              requiresApproval: template.requiresExpertise,
+                                              approvalRoles: template.requiresExpertise ? ['expert'] : [],
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        <SelectTrigger className="w-full">
+                                          <SelectValue placeholder="Select template" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {templates.map((template) => (
+                                            <SelectItem
+                                              key={template.id}
+                                              value={String(template.id)}
+                                            >
+                                              <div className="flex items-center">
+                                                <span>{template.name}</span>
+                                                {template.requiresExpertise && (
+                                                  <Brain className="w-3 h-3 ml-2" />
+                                                )}
+                                                <Clock className="w-3 h-3 ml-2" />
+                                                <span className="text-xs ml-1">
+                                                  {template.estimatedDuration}min
+                                                </span>
+                                              </div>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+
+                                      {template && (
+                                        <p className="text-sm text-muted-foreground">
+                                          {template.description}
+                                        </p>
+                                      )}
+
+                                      <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                          <div className="flex items-center space-x-2">
+                                            <Checkbox
+                                              id={`required-${index}`}
+                                              checked={step.isRequired}
+                                              onCheckedChange={(checked) =>
+                                                updateStep(index, { isRequired: checked as boolean })
+                                              }
+                                            />
+                                            <label htmlFor={`required-${index}`}>Required</label>
+                                          </div>
+
+                                          <div className="flex items-center space-x-2">
+                                            <Checkbox
+                                              id={`approval-${index}`}
+                                              checked={step.requiresApproval}
+                                              onCheckedChange={(checked) =>
+                                                updateStep(index, { 
+                                                  requiresApproval: checked as boolean,
+                                                  approvalRoles: checked ? ['expert'] : []
+                                                })
+                                              }
+                                            />
+                                            <label htmlFor={`approval-${index}`}>Needs Approval</label>
+                                          </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          <FormItem>
+                                            <FormLabel>Wait Duration (hours)</FormLabel>
+                                            <FormControl>
+                                              <Input
+                                                type="number"
+                                                min="0"
+                                                value={step.waitDuration}
+                                                onChange={(e) =>
+                                                  updateStep(index, {
+                                                    waitDuration: parseInt(e.target.value) || 0,
+                                                  })
+                                                }
+                                              />
+                                            </FormControl>
+                                          </FormItem>
+                                        </div>
+                                      </div>
+
+                                      {step.requiresApproval && (
+                                        <div className="space-y-2">
+                                          <FormLabel>Approval Roles</FormLabel>
+                                          <div className="flex flex-wrap gap-2">
+                                            {ROLES.map((role) => (
+                                              <Badge
+                                                key={role}
+                                                variant={step.approvalRoles?.includes(role) ? "default" : "outline"}
+                                                className="cursor-pointer"
+                                                onClick={() => {
+                                                  const roles = step.approvalRoles || [];
+                                                  const newRoles = roles.includes(role)
+                                                    ? roles.filter((r) => r !== role)
+                                                    : [...roles, role];
+                                                  updateStep(index, { approvalRoles: newRoles });
+                                                }}
+                                              >
+                                                {role}
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      <div className="space-y-2">
+                                        <FormLabel>Activation Condition</FormLabel>
+                                        <div className="flex gap-2">
+                                          <Select
+                                            value={step.condition?.type || ""}
+                                            onValueChange={(value) =>
+                                              updateStep(index, {
+                                                condition: {
+                                                  type: value as any,
+                                                  operator: ">",
+                                                  value: "",
+                                                },
+                                              })
+                                            }
+                                          >
+                                            <SelectTrigger>
+                                              <SelectValue placeholder="Select condition type" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="healthScore">Health Score</SelectItem>
+                                              <SelectItem value="taskCompletion">Task Completion</SelectItem>
+                                              <SelectItem value="time">Time Based</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+
+                                          {step.condition && (
+                                            <>
+                                              <Select
+                                                value={step.condition.operator}
+                                                onValueChange={(value) =>
+                                                  updateStep(index, {
+                                                    condition: {
+                                                      ...step.condition!,
+                                                      operator: value as any,
+                                                    },
+                                                  })
+                                                }
+                                              >
+                                                <SelectTrigger>
+                                                  <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                  <SelectItem value=">">greater than</SelectItem>
+                                                  <SelectItem value="<">less than</SelectItem>
+                                                  <SelectItem value="==">equals</SelectItem>
+                                                  <SelectItem value=">=">greater or equal</SelectItem>
+                                                  <SelectItem value="<=">less or equal</SelectItem>
+                                                </SelectContent>
+                                              </Select>
+
+                                              <Input
+                                                placeholder="Value"
+                                                value={step.condition.value}
+                                                onChange={(e) =>
+                                                  updateStep(index, {
+                                                    condition: {
+                                                      ...step.condition!,
+                                                      value: e.target.value,
+                                                    },
+                                                  })
+                                                }
+                                              />
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
                                     </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => removeStep(index)}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
                                   </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => removeStep(index)}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          )}
-                        </Draggable>
-                      ))}
+                                </CardContent>
+                              </Card>
+                            )}
+                          </Draggable>
+                        );
+                      })}
                       {provided.placeholder}
                     </div>
                   )}

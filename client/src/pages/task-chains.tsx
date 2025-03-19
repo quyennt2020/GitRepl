@@ -6,14 +6,17 @@ import { Plus } from "lucide-react";
 import ChainBuilder from "@/components/chain-builder";
 import ChainList from "@/components/chain-list";
 import { useToast } from "@/hooks/use-toast";
+import { mockTaskChains } from "@/lib/mock-data";
 
 export default function TaskChainsPage() {
   const { toast } = useToast();
   const [editingChain, setEditingChain] = useState<TaskChain | undefined>();
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
 
+  // Using mock data instead of actual API call
   const { data: chains, isLoading, error } = useQuery<TaskChain[]>({
     queryKey: ["/api/task-chains"],
+    queryFn: () => Promise.resolve(mockTaskChains),
     onError: (error: Error) => {
       console.error("Failed to fetch task chains:", error);
       toast({
