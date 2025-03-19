@@ -12,8 +12,11 @@ export default function TaskChainsPage() {
   const [editingChain, setEditingChain] = useState<TaskChain | undefined>();
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
 
-  const { data: chains, isLoading, error } = useQuery<TaskChain[]>({
+  // Fetch chains with proper caching
+  const { data: chains = [], isLoading, error } = useQuery<TaskChain[]>({
     queryKey: ["/api/task-chains"],
+    staleTime: 0, // Always refetch when component mounts
+    refetchOnMount: true,
   });
 
   if (isLoading) {
@@ -39,7 +42,10 @@ export default function TaskChainsPage() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <h1 className="text-2xl md:text-3xl font-bold">Task Chains</h1>
         <Button 
-          onClick={() => setIsBuilderOpen(true)}
+          onClick={() => {
+            setEditingChain(undefined);
+            setIsBuilderOpen(true);
+          }}
           className="w-full sm:w-auto"
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -48,7 +54,7 @@ export default function TaskChainsPage() {
       </div>
 
       <ChainList
-        chains={chains || []}
+        chains={chains}
         onEdit={(chain) => {
           setEditingChain(chain);
           setIsBuilderOpen(true);

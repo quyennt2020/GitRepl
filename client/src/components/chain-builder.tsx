@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -48,42 +48,59 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     queryKey: ["/api/task-templates"],
   });
 
-  // Load chain steps if editing
+  // Load chain steps if editing with proper cache invalidation
   const stepsQuery = useQuery<ChainStep[]>({
     queryKey: ["/api/task-chains", existingChain?.id, "steps"],
     enabled: !!existingChain?.id,
+    staleTime: 0, // Always refetch when query is enabled
     onSuccess: (data) => {
-      console.log("Loaded chain steps:", data);
-      const sortedSteps = data
-        .sort((a, b) => a.order - b.order)
-        .map((step) => ({
-          id: step.id,
-          chainId: step.chainId,
-          templateId: step.templateId,
-          order: step.order,
-          isRequired: step.isRequired ?? true,
-          waitDuration: step.waitDuration ?? 0,
-          requiresApproval: step.requiresApproval ?? false,
-          approvalRoles: step.approvalRoles ?? [],
-        }));
-      setSteps(sortedSteps);
+      if (data.length > 0) {
+        console.log("Loading chain steps:", data);
+        const sortedSteps = data
+          .sort((a, b) => a.order - b.order)
+          .map((step) => ({
+            id: step.id,
+            chainId: step.chainId,
+            templateId: step.templateId,
+            order: step.order,
+            isRequired: step.isRequired ?? true,
+            waitDuration: step.waitDuration ?? 0,
+            requiresApproval: step.requiresApproval ?? false,
+            approvalRoles: step.approvalRoles ?? [],
+          }));
+        console.log("Setting sorted steps:", sortedSteps);
+        setSteps(sortedSteps);
+      } else {
+        // Reset steps if no data
+        setSteps([]);
+      }
     },
   });
+
+  // Reset state on dialog close or chain change
+  useEffect(() => {
+    if (!open || !existingChain) {
+      setSteps([]);
+      setSelectedStep(null);
+    }
+  }, [open, existingChain]);
 
   // Form handling
   const form = useForm<InsertTaskChain>({
     resolver: zodResolver(insertTaskChainSchema),
-    defaultValues: existingChain ? {
-      name: existingChain.name,
-      description: existingChain.description ?? "",
-      category: existingChain.category,
-      isActive: existingChain.isActive ?? true,
-    } : {
-      name: "",
-      description: "",
-      category: "water",
-      isActive: true,
-    },
+    defaultValues: existingChain
+      ? {
+          name: existingChain.name,
+          description: existingChain.description ?? "",
+          category: existingChain.category,
+          isActive: existingChain.isActive ?? true,
+        }
+      : {
+          name: "",
+          description: "",
+          category: "water",
+          isActive: true,
+        },
   });
 
   // Step management
@@ -113,9 +130,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
   };
 
   const updateStep = (index: number, updates: Partial<StepData>) => {
-    setSteps(steps.map((step, i) => 
-      i === index ? { ...step, ...updates } : step
-    ));
+    setSteps(steps.map((step, i) => (i === index ? { ...step, ...updates } : step)));
   };
 
   const removeStep = (index: number) => {
@@ -188,7 +203,13 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       return chain;
     },
     onSuccess: () => {
+      // Invalidate both chains and steps queries
       queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
+      if (existingChain) {
+        queryClient.invalidateQueries({
+          queryKey: ["/api/task-chains", existingChain.id, "steps"],
+        });
+      }
       toast({
         title: `Chain ${existingChain ? "updated" : "created"} successfully`,
       });
@@ -228,9 +249,10 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     );
   }
 
-  const selectedTemplate = selectedStep !== null && templatesQuery.data
-    ? templatesQuery.data.find((t) => t.id === steps[selectedStep]?.templateId)
-    : null;
+  const selectedTemplate =
+    selectedStep !== null && templatesQuery.data
+      ? templatesQuery.data.find((t) => t.id === steps[selectedStep]?.templateId)
+      : null;
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
@@ -302,12 +324,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium">Chain Steps</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addStep}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={addStep}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Step
                 </Button>
