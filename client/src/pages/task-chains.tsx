@@ -15,7 +15,7 @@ export default function TaskChainsPage() {
   // Fetch chains with proper caching
   const { data: chains = [], isLoading, error } = useQuery<TaskChain[]>({
     queryKey: ["/api/task-chains"],
-    staleTime: 0, // Always refetch when component mounts
+    staleTime: 0,
     refetchOnMount: true,
   });
 

@@ -1,28 +1,20 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import {
-  TaskChain,
-  TaskTemplate,
-  ChainStep,
-  InsertTaskChain,
-  insertTaskChainSchema,
-} from "@shared/schema";
+import { TaskChain, TaskTemplate, insertTaskChainSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent } from "@/components/ui/card";
 import { queryClient } from "@/lib/queryClient";
-import { Plus, Trash2, AlertCircle, GripVertical, Clock, Shield } from "lucide-react";
+import { Plus, Trash2, AlertCircle, GripVertical } from "lucide-react";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 
 
 interface Props {
@@ -52,41 +44,6 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     queryKey: ["/api/task-templates"],
   });
 
-  // Load chain steps if editing with proper cache invalidation
-  const stepsQuery = useQuery<ChainStep[]>({
-    queryKey: ["/api/task-chains", existingChain?.id, "steps"],
-    enabled: !!existingChain?.id,
-    staleTime: 0,
-    refetchOnMount: true
-  });
-
-  // Initialize steps from existing chain
-  useEffect(() => {
-    if (existingChain && stepsQuery.data) {
-      const sortedSteps = [...stepsQuery.data]
-        .sort((a, b) => a.order - b.order)
-        .map(step => ({
-          id: step.id,
-          chainId: step.chainId,
-          templateId: step.templateId,
-          order: step.order,
-          isRequired: step.isRequired ?? true,
-          waitDuration: step.waitDuration ?? 0,
-          requiresApproval: step.requiresApproval ?? false,
-          approvalRoles: step.approvalRoles ?? [],
-        }));
-      setSteps(sortedSteps);
-    }
-  }, [existingChain, stepsQuery.data]);
-
-  // Reset state when dialog closes
-  useEffect(() => {
-    if (!open) {
-      setSteps([]);
-      setSelectedStep(null);
-    }
-  }, [open]);
-
   // Form setup
   const form = useForm<InsertTaskChain>({
     resolver: zodResolver(insertTaskChainSchema),
@@ -103,10 +60,9 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     },
   });
 
-  // Save chain mutation
+  // Save chain mutation (retained from original, crucial for functionality)
   const saveMutation = useMutation({
     mutationFn: async (data: InsertTaskChain) => {
-      // Save the chain first
       const chainResponse = await fetch(
         existingChain ? `/api/task-chains/${existingChain.id}` : "/api/task-chains",
         {
@@ -122,16 +78,14 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
 
       const chain = await chainResponse.json();
 
-      // If updating, delete old steps
       if (existingChain) {
         await Promise.all(
-          stepsQuery.data?.map(step =>
+          steps.map(step =>
             fetch(`/api/chain-steps/${step.id}`, { method: "DELETE" })
-          ) || []
+          )
         );
       }
 
-      // Create new steps
       await Promise.all(
         steps.map((step, index) =>
           fetch("/api/chain-steps", {
@@ -149,12 +103,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       return chain;
     },
     onSuccess: (chain) => {
-      // Invalidate both chains and steps queries
       queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
-      queryClient.invalidateQueries({
-        queryKey: ["/api/task-chains", chain.id, "steps"]
-      });
-
       toast({
         title: `Chain ${existingChain ? "updated" : "created"} successfully`,
       });
@@ -220,7 +169,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     }
   };
 
-  const onSubmit = (data: InsertTaskChain) => {
+  const onSubmitForm = (data: InsertTaskChain) => {
     if (steps.length === 0) {
       toast({
         title: "Please add at least one step",
@@ -232,9 +181,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     saveMutation.mutate(data);
   };
 
-
   // Loading state
-  if (templatesQuery.isLoading || stepsQuery.isLoading) {
+  if (templatesQuery.isLoading) {
     return (
       <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
         <DialogContent>
@@ -256,7 +204,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmitForm)} className="space-y-6">
             {/* Basic Info */}
             <div className="space-y-4">
               <FormField
