@@ -17,6 +17,7 @@ export default function ChainList({ chains, onEdit }: ChainListProps) {
 
   const deleteChainMutation = useMutation({
     mutationFn: async (chainId: number) => {
+      console.log("Deleting chain:", chainId);
       await apiRequest("DELETE", `/api/task-chains/${chainId}`);
     },
     onSuccess: () => {
@@ -26,6 +27,7 @@ export default function ChainList({ chains, onEdit }: ChainListProps) {
       });
     },
     onError: (error: Error) => {
+      console.error("Failed to delete chain:", error);
       toast({
         title: "Failed to delete chain",
         description: error.message,
@@ -52,7 +54,10 @@ export default function ChainList({ chains, onEdit }: ChainListProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => onEdit(chain)}
+                onClick={() => {
+                  console.log("Editing chain:", chain);
+                  onEdit(chain);
+                }}
               >
                 <Edit2 className="h-4 w-4" />
               </Button>
@@ -60,6 +65,7 @@ export default function ChainList({ chains, onEdit }: ChainListProps) {
                 variant="ghost"
                 size="icon"
                 onClick={() => {
+                  console.log("Attempting to delete chain:", chain);
                   if (confirm("Are you sure you want to delete this chain?")) {
                     deleteChainMutation.mutate(chain.id);
                   }
