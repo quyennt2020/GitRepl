@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
-import { InsertTaskChain, TaskChain, insertTaskChainSchema, InsertChainStep } from "@shared/schema";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { InsertTaskChain, TaskChain, TaskTemplate, insertTaskChainSchema, InsertChainStep } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,6 @@ import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { Plus, Trash2, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { mockTaskTemplates } from "@/lib/mock-data";
 
 interface ChainBuilderProps {
   open: boolean;
@@ -41,13 +40,45 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     },
   });
 
-  const templates = mockTaskTemplates;
+  // Fetch task templates from API
+  const { data: templates = [], isLoading: templatesLoading } = useQuery<TaskTemplate[]>({
+    queryKey: ['/api/task-templates'],
+  });
+
   const selectedTemplate = selectedStep !== null ? templates.find(t => t.id === steps[selectedStep]?.templateId) : null;
 
   const createChainMutation = useMutation({
     mutationFn: async (data: InsertTaskChain) => {
-      console.log("Creating chain with data:", { chain: data, steps });
-      return { id: Math.random(), ...data };
+      // Create the chain first
+      const chainResponse = await fetch('/api/task-chains', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (!chainResponse.ok) {
+        throw new Error('Failed to create chain');
+      }
+
+      const chain = await chainResponse.json();
+
+      // Create each step for the chain
+      for (const step of steps) {
+        const stepResponse = await fetch('/api/chain-steps', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...step,
+            chainId: chain.id
+          })
+        });
+
+        if (!stepResponse.ok) {
+          throw new Error('Failed to create chain step');
+        }
+      }
+
+      return chain;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
@@ -66,18 +97,6 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     },
   });
 
-  const onSubmit = (data: InsertTaskChain) => {
-    if (steps.length === 0) {
-      toast({
-        title: "Please add at least one step",
-        description: "A chain must contain at least one step",
-        variant: "destructive",
-      });
-      return;
-    }
-    createChainMutation.mutate(data);
-  };
-
   const handleDragEnd = (result: any) => {
     if (!result.destination) return;
     const items = Array.from(steps);
@@ -90,6 +109,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
   };
 
   const addStep = () => {
+    if (templates.length === 0) return;
+
     const template = templates[0];
     const newStep: ChainStepForm = {
       templateId: template.id,
@@ -121,6 +142,22 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
     newSteps[index] = { ...newSteps[index], ...updates };
     setSteps(newSteps);
   };
+
+  const onSubmit = (data: InsertTaskChain) => {
+    if (steps.length === 0) {
+      toast({
+        title: "Please add at least one step",
+        description: "A chain must contain at least one step",
+        variant: "destructive",
+      });
+      return;
+    }
+    createChainMutation.mutate(data);
+  };
+
+  if (templatesLoading) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
@@ -192,7 +229,6 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
               </div>
             ) : (
               <>
-                {/* Chain Information Section */}
                 <FormField
                   control={form.control}
                   name="name"
@@ -328,9 +364,9 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
                                     </Select>
 
                                     {template && (
-                                      <Badge
+                                      <Badge 
                                         variant={template.priority === 'high' ? 'destructive' : 'default'}
-                                        className="ml-auto"
+                                        className="min-w-[45px] text-center"
                                       >
                                         {template.priority}
                                       </Badge>
@@ -343,7 +379,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: ChainBuil
                                         e.stopPropagation();
                                         removeStep(index);
                                       }}
-                                      className="h-8 w-8 p-0"
+                                      className="h-8 w-8 p-0 ml-auto"
                                     >
                                       <Trash2 className="w-4 h-4" />
                                       <span className="sr-only">Remove step</span>
