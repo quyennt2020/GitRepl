@@ -44,13 +44,16 @@ const repottingChain = {
       order: 1,
       templateId: 1, // References "Prepare New Pot" template
       isRequired: true,
-      waitDuration: 0
+      waitDuration: 0,
+      requiresApproval: false
     },
     {
       order: 2,
       templateId: 2, // References "Remove Plant" template
       isRequired: true,
-      waitDuration: 0
+      waitDuration: 0,
+      requiresApproval: true, // Expert needs to verify root condition
+      approvalRoles: ["expert", "manager"]
     }
   ]
 }
@@ -77,6 +80,8 @@ chainSteps = pgTable("chain_steps", {
   isRequired: boolean("is_required").default(true),
   waitDuration: integer("wait_duration"), // Hours to wait after previous step
   condition: jsonb("condition"), // Conditions for step to be active
+  requiresApproval: boolean("requires_approval").default(false),
+  approvalRoles: text("approval_roles").array(), // Roles that can approve this step
 })
 
 // New table for chain assignments
@@ -89,6 +94,16 @@ chainAssignments = pgTable("chain_assignments", {
   currentStepId: integer("current_step_id"),
   status: text("status").notNull(), // active, completed, cancelled
 })
+
+// New table for step approvals
+stepApprovals = pgTable("step_approvals", {
+  id: serial("id").primaryKey(),
+  assignmentId: integer("assignment_id").notNull(),
+  stepId: integer("step_id").notNull(),
+  approvedBy: integer("approved_by").notNull(), // Reference to user table
+  approvedAt: timestamp("approved_at").defaultNow(),
+  notes: text("notes"),
+})
 ```
 
 ## Features
@@ -99,6 +114,7 @@ chainAssignments = pgTable("chain_assignments", {
    - Arranging them in sequence
    - Setting dependencies and wait times
    - Adding conditional logic
+   - Configuring approval requirements
 
 2. Benefits of Using Task Templates:
    - Reuse existing checklists and procedures
@@ -117,6 +133,13 @@ chainAssignments = pgTable("chain_assignments", {
    - Monitor checklist progress from templates
    - Enforce wait periods between steps
    - Handle conditional branching
+   - Manage approval checkpoints
+
+3. Approval Process:
+   - Block chain progress at approval steps
+   - Notify eligible approvers
+   - Record approval decisions
+   - Track approval history
 
 ### UI Components
 
@@ -134,6 +157,7 @@ Features:
 - Wait duration inputs
 - Condition builder
 - Preview mode
+- Approval requirement configuration
 
 2. Chain Progress View:
 ```typescript
@@ -141,6 +165,7 @@ interface ChainProgressProps {
   chainAssignment: ChainAssignment;
   plant: Plant;
   templates: Record<number, TaskTemplate>; // Template lookup by ID
+  currentUser: User;
 }
 ```
 Features:
@@ -149,6 +174,24 @@ Features:
 - Next action indicators
 - Time remaining displays
 - Branching visualization
+- Approval status indicators
+- Approval action buttons for authorized users
+
+3. Approval Management:
+```typescript
+interface ApprovalDialogProps {
+  step: ChainStep;
+  template: TaskTemplate;
+  onApprove: (notes: string) => void;
+  onReject: (reason: string) => void;
+}
+```
+Features:
+- Step details review
+- Checklist verification
+- Notes/comments input
+- Approval/rejection actions
+- History viewing
 
 ## Benefits
 
@@ -156,16 +199,19 @@ Features:
    - Consistent plant care procedures
    - Quality control through templates
    - Training aid for new users
+   - Expert oversight via approvals
 
 2. Efficiency
    - Reuse existing task templates
    - Automated progression
    - Clear task dependencies
+   - Streamlined approval process
 
 3. Flexibility
    - Optional steps based on conditions
    - Customizable timing
    - Mix and match templates
+   - Role-based approvals
 
 ## Technical Implementation Plan
 
@@ -173,21 +219,25 @@ Features:
 1. Add chain-related tables
 2. Create foreign key relationships to task_templates
 3. Update storage interface
+4. Add approval-related tables
 
 ### Phase 2: API Layer
 1. Chain CRUD endpoints
 2. Chain assignment endpoints
 3. Progress tracking endpoints
+4. Approval management endpoints
 
 ### Phase 3: UI Components
 1. Template selector and chain builder
 2. Progress visualization
 3. Mobile responsiveness
+4. Approval interface
 
 ### Phase 4: Integration
 1. Connect with existing task system
 2. Add to plant management workflow
 3. Testing and validation
+4. Approval flow testing
 
 ## Risks and Considerations
 
@@ -195,15 +245,18 @@ Features:
    - Keep chain creation simple
    - Clear visualization of steps
    - Limit chain length initially
+   - Intuitive approval UI
 
 2. Performance
    - Efficient template lookups
    - Cache template data
    - Monitor database joins
+   - Optimize approval queries
 
 3. User Experience
    - Simple template selection
    - Clear progress indicators
    - Mobile-friendly interface
+   - Easy approval process
 
 Please review and provide feedback before implementation begins.
