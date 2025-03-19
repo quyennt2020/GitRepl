@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { Plus, Trash2, AlertCircle } from "lucide-react";
-
 
 interface Props {
   open: boolean;
@@ -347,9 +348,9 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                       <Checkbox
                         id="step-required"
                         checked={steps[selectedStep].isRequired}
-                        onCheckedChange={(checked) =>
+                        onCheckedChange={(checked: boolean) =>
                           updateStep(selectedStep, {
-                            isRequired: !!checked,
+                            isRequired: checked,
                           })
                         }
                       />
@@ -362,9 +363,9 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                       <Checkbox
                         id="step-approval"
                         checked={steps[selectedStep].requiresApproval}
-                        onCheckedChange={(checked) =>
+                        onCheckedChange={(checked: boolean) =>
                           updateStep(selectedStep, {
-                            requiresApproval: !!checked,
+                            requiresApproval: checked,
                             approvalRoles: checked ? ["expert"] : [],
                           })
                         }
