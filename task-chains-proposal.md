@@ -257,6 +257,68 @@ const diseaseChain = {
 };
 ```
 
+### Approval Flow Diagrams
+
+1. Basic Task Approval Sequence:
+```
+Task Execution ──> Pending Approval ──> Approver Review ──> Decision
+     │                    │                    │               │
+     │                    │                    │               ├─> Approve ──> Next Step
+     │                    │                    │               │
+     v                    v                    v               └─> Reject ───> Revise Task
+Checklist Items    Notify Approvers     View Details
+     │                                       │
+     └─> Photos                             ├─> Checklist Status
+     └─> Notes                              ├─> Uploaded Photos
+                                           └─> Task Notes
+```
+
+2. Role-Based Approval Routing:
+```
+                 ┌─> Expert ─────┐
+                 │              v
+Task Complete ───┼─> Manager ───┼──> 2+ Approvals ──> Proceed
+                 │              ^
+                 └─> Admin ─────┘
+
+Roles:
+Expert   - Technical plant care verification
+Manager  - Process compliance check
+Admin    - Emergency override capability
+```
+
+3. Sequential vs Parallel Approvals:
+```
+Sequential:
+Step 1 ──> Expert ──> Step 2 ──> Manager ──> Step 3
+   │          │          │          │          │
+   v          v          v          v          v
+Complete   Approve   Complete    Approve    Complete
+
+Parallel:
+           ┌─> Expert Review ─┐
+Step 1 ────┤                 ├──> Step 2
+           └─> Manager Review┘
+```
+
+4. Mobile Approval Workflow:
+```
+Mobile App                    Backend                    Notifications
+   │                            │                             │
+   ├─> View Pending Tasks ─────>│                             │
+   │                            │                             │
+   │<─ Task Details & Photos ───┤                             │
+   │                            │                             │
+   ├─> Take Action ────────────>│─> Update Chain Status       │
+   │   │                        │                             │
+   │   ├─> Approve             │─> Notify Team ─────────────>│
+   │   ├─> Reject              │                             │
+   │   └─> Request Changes     │                             │
+   │                            │                             │
+   └─> Offline Queue ──────────>│                             │
+        (Sync when online)      │                             │
+```
+
 ### Approval System Features
 
 1. Role-Based Access:
