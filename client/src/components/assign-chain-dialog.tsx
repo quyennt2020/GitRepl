@@ -42,13 +42,11 @@ export default function AssignChainDialog({ open, onClose, plantId }: Props) {
 
   const assignMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("/api/chain-assignments", {
-        method: "POST",
-        body: JSON.stringify({
-          chainId: Number(selectedChainId),
-          plantId,
-          status: "active",
-        }),
+      // Fix: Use proper parameters for apiRequest
+      const response = await apiRequest("POST", "/api/chain-assignments", {
+        chainId: Number(selectedChainId),
+        plantId,
+        status: "active",
       });
 
       if (!response.ok) {
@@ -67,6 +65,7 @@ export default function AssignChainDialog({ open, onClose, plantId }: Props) {
       onClose();
     },
     onError: (error) => {
+      console.error("Error assigning chain:", error);
       toast({
         title: "Error assigning chain",
         description: error instanceof Error ? error.message : "An error occurred",
