@@ -12,17 +12,20 @@ interface Props {
 }
 
 export default function ChainAssignmentDetails({ assignmentId }: Props) {
+  // Fetch assignment details
   const { data: assignment, isLoading: isLoadingAssignment } = useQuery<ChainAssignment>({
     queryKey: ["/api/chain-assignments", assignmentId],
     enabled: !!assignmentId,
   });
 
+  // Fetch chain details
   const { data: chain, isLoading: isLoadingChain } = useQuery<TaskChain>({
     queryKey: ["/api/task-chains", assignment?.chainId],
     enabled: !!assignment?.chainId,
   });
 
-  const { data: steps = [], isLoading: isLoadingSteps } = useQuery<ChainStep[]>({
+  // Fetch steps with template details
+  const { data: steps = [], isLoading: isLoadingSteps } = useQuery<(ChainStep & { templateName: string; templateDescription: string | null })[]>({
     queryKey: ["/api/task-chains", assignment?.chainId, "steps"],
     enabled: !!assignment?.chainId,
   });
@@ -47,7 +50,9 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
   const currentStepIndex = steps.findIndex(s => s.id === assignment.currentStepId);
   const progressPercentage = assignment.status === "completed" 
     ? 100 
-    : Math.round((currentStepIndex / steps.length) * 100);
+    : currentStepIndex >= 0 
+      ? Math.round((currentStepIndex / steps.length) * 100)
+      : 0;
 
   return (
     <div className="space-y-4">
@@ -91,8 +96,7 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
             <div className="relative space-y-4">
               {steps.map((step, index) => {
                 const isCurrentStep = step.id === assignment.currentStepId;
-                const isCompleted = assignment.status === "completed" || 
-                  index < currentStepIndex;
+                const isCompleted = assignment.status === "completed" || index < currentStepIndex;
                 const isPending = !isCompleted && !isCurrentStep;
 
                 return (
