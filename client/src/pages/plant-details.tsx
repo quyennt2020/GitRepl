@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Plant } from "@shared/schema";
@@ -7,13 +8,15 @@ import HealthTrend from "@/components/HealthTrend";
 import TaskHistory from "@/components/TaskHistory";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, ClipboardList, ChevronLeft } from "lucide-react";
+import { Check, ClipboardList, ChevronLeft, ListOrdered } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import AssignChainDialog from "@/components/assign-chain-dialog";
 
 export default function PlantDetails() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
+  const [isChainDialogOpen, setIsChainDialogOpen] = useState(false);
 
   const { data: plant, isLoading } = useQuery<Plant>({
     queryKey: [`/api/plants/${id}`],
@@ -78,7 +81,7 @@ export default function PlantDetails() {
                 lastWatered={plant.lastWatered ? new Date(plant.lastWatered) : new Date()}
                 wateringInterval={plant.wateringInterval}
               />
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <Button 
                   onClick={() => markWatered()}
                   className="w-full"
@@ -92,6 +95,14 @@ export default function PlantDetails() {
                     View Tasks
                   </Button>
                 </Link>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsChainDialogOpen(true)}
+                  className="w-full"
+                >
+                  <ListOrdered className="w-4 h-4 mr-2" />
+                  Assign Chain
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -113,6 +124,12 @@ export default function PlantDetails() {
             <TaskHistory plantId={parseInt(id)} />
           </TabsContent>
         </Tabs>
+
+        <AssignChainDialog
+          open={isChainDialogOpen}
+          onClose={() => setIsChainDialogOpen(false)}
+          plantId={parseInt(id)}
+        />
       </div>
     </div>
   );
