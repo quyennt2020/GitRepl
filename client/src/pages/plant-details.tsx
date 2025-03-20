@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { Plant } from "@shared/schema";
+import { Plant, CareTask } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import WateringAnimation from "@/components/WateringAnimation";
 import HealthTrend from "@/components/HealthTrend";
@@ -20,6 +20,12 @@ export default function PlantDetails() {
 
   const { data: plant, isLoading } = useQuery<Plant>({
     queryKey: [`/api/plants/${id}`],
+  });
+
+  // Add explicit fetching of tasks
+  const { data: tasks = [] } = useQuery<CareTask[]>({
+    queryKey: [`/api/tasks`],
+    select: (tasks) => tasks.filter(task => task.plantId === parseInt(id)),
   });
 
   const { mutate: markWatered } = useMutation({
@@ -92,7 +98,7 @@ export default function PlantDetails() {
                 <Link href={`/plants/${id}/tasks`}>
                   <Button variant="outline" className="w-full">
                     <ClipboardList className="w-4 h-4 mr-2" />
-                    View Tasks
+                    View Tasks ({tasks.length})
                   </Button>
                 </Link>
                 <Button
