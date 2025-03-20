@@ -574,15 +574,38 @@ export function registerRoutes(app: Express): Server {
       const stepId = Number(req.params.stepId);
       const { approved, notes } = req.body;
 
+      console.log('Approval request received:', {
+        assignmentId,
+        stepId,
+        approved,
+        notes
+      });
+
       if (!assignmentId || !stepId) {
         return res.status(400).json({ message: "Invalid assignment or step ID" });
       }
+
+      // Verify the assignment and step exist
+      const assignment = await storage.getChainAssignment(assignmentId);
+      if (!assignment) {
+        console.log('Assignment not found:', assignmentId);
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+
+      const step = await storage.getChainStep(stepId);
+      if (!step) {
+        console.log('Step not found:', stepId);
+        return res.status(404).json({ message: "Step not found" });
+      }
+
+      console.log('Found assignment and step:', { assignment, step });
 
       // For now hardcoding the approver ID as 1, in future this will come from auth
       const approvedBy = 1;
 
       if (approved) {
         // Create approval record
+        console.log('Creating approval record');
         const approval = await storage.createStepApproval({
           assignmentId,
           stepId,
@@ -591,6 +614,7 @@ export function registerRoutes(app: Express): Server {
         });
 
         // Update assignment status to reflect approval
+        console.log('Updating assignment status');
         await storage.updateChainAssignment(assignmentId, {
           currentStepId: stepId,
           status: "active",
@@ -599,6 +623,7 @@ export function registerRoutes(app: Express): Server {
         res.status(201).json(approval);
       } else {
         // If rejected, update assignment status
+        console.log('Rejecting assignment');
         await storage.updateChainAssignment(assignmentId, {
           status: "cancelled",
           completedAt: new Date(),
@@ -608,7 +633,10 @@ export function registerRoutes(app: Express): Server {
       }
     } catch (error) {
       console.error('Error in step approval:', error);
-      res.status(500).json({ message: "Failed to process approval" });
+      res.status(500).json({ 
+        message: "Failed to process approval",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

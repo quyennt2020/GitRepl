@@ -3,9 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ChainStep } from "@shared/schema";
+import { ChainStep, TaskTemplate } from "@shared/schema";
 import { Shield, CheckCircle2, XCircle } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 
 interface Props {
@@ -18,6 +18,12 @@ interface Props {
 export default function StepApprovalDialog({ open, onClose, step, assignmentId }: Props) {
   const { toast } = useToast();
   const [notes, setNotes] = useState("");
+
+  // Get template information for the step
+  const { data: template } = useQuery<TaskTemplate>({
+    queryKey: ["/api/task-templates", step.templateId],
+    enabled: !!step.templateId,
+  });
 
   const approveMutation = useMutation({
     mutationFn: async ({ approved, notes }: { approved: boolean; notes: string }) => {
@@ -70,9 +76,9 @@ export default function StepApprovalDialog({ open, onClose, step, assignmentId }
           <div className="space-y-2">
             <h3 className="font-medium">Step Details</h3>
             <div className="text-sm text-muted-foreground">
-              <p>{step.templateName}</p>
-              {step.templateDescription && (
-                <p className="mt-1">{step.templateDescription}</p>
+              <p>{template?.name}</p>
+              {template?.description && (
+                <p className="mt-1">{template.description}</p>
               )}
             </div>
           </div>
