@@ -67,7 +67,7 @@ export default function ChainAssignmentsList() {
   // Combine assignment data with plant information
   const assignmentsWithDetails = assignments.map(assignment => {
     const plant = plants.find(p => p.id === assignment.plantId);
-    const steps = chainStepsResults.find(steps => 
+    const steps = chainStepsResults.find(steps =>
       steps?.some(step => step.chainId === assignment.chainId)
     ) || [];
     const currentStep = steps.find(s => s?.id === assignment.currentStepId);
@@ -85,11 +85,11 @@ export default function ChainAssignmentsList() {
 
   // Filter assignments that need approval
   const pendingApprovals = assignmentsWithDetails.filter(
-    a => a.status === "active" && 
-        a.currentStepId !== null && 
-        chainStepsResults
-          .flat()
-          .find(s => s.id === a.currentStepId)?.requiresApproval
+    a => a.status === "active" &&
+      a.currentStepId !== null &&
+      chainStepsResults
+        .flat()
+        .find(s => s.id === a.currentStepId)?.requiresApproval
   );
 
   return (
@@ -152,9 +152,9 @@ export default function ChainAssignmentsList() {
       )}
 
       <div className="space-y-2">
-        <h2 className="text-lg font-medium">All Assignments ({assignmentsWithPlants.length})</h2>
+        <h2 className="text-lg font-medium">All Assignments ({assignmentsWithDetails.length})</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          {assignmentsWithPlants.map((assignment) => (
+          {assignmentsWithDetails.map((assignment) => (
             <Card
               key={assignment.id}
               className="cursor-pointer hover:bg-muted/50 transition-colors"
