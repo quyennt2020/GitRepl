@@ -48,6 +48,8 @@ export interface IStorage {
   createHealthRecord(record: InsertHealthRecord): Promise<HealthRecord>;
   updateHealthRecord(id: number, update: Partial<HealthRecord>): Promise<HealthRecord>;
   createTaskForChainStep(assignmentId: number, stepId: number): Promise<void>;
+  getChainAssignment(id: number): Promise<ChainAssignment | undefined>;
+  getChainStep(id: number): Promise<ChainStep | undefined>;
 }
 
 class DatabaseStorage implements IStorage {
@@ -325,6 +327,10 @@ class DatabaseStorage implements IStorage {
     console.log(`[Storage] Creating step approval:`, approval);
 
     return await db.transaction(async (tx) => {
+      // Get the assignment first
+      const assignment = await this.getChainAssignment(approval.assignmentId);
+      if (!assignment) throw new Error("Chain assignment not found");
+
       // Create the approval record
       const [newApproval] = await tx.insert(stepApprovals)
         .values({
@@ -332,13 +338,6 @@ class DatabaseStorage implements IStorage {
           createdAt: new Date()
         })
         .returning();
-
-      // Get the assignment
-      const [assignment] = await tx.select()
-        .from(chainAssignments)
-        .where(eq(chainAssignments.id, approval.assignmentId));
-
-      if (!assignment) throw new Error("Chain assignment not found");
 
       // Get all steps for the chain
       const steps = await this.getChainSteps(assignment.chainId);
@@ -353,12 +352,10 @@ class DatabaseStorage implements IStorage {
       if (approval.approvedBy) {
         // If there's a next step, update assignment and create new task
         if (nextStep) {
-          // Update assignment to point to next step
           await tx.update(chainAssignments)
             .set({ currentStepId: nextStep.id })
             .where(eq(chainAssignments.id, approval.assignmentId));
 
-          // Create task for next step
           await tx.insert(careTasks).values({
             plantId: assignment.plantId,
             templateId: nextStep.templateId,
@@ -384,7 +381,7 @@ class DatabaseStorage implements IStorage {
       } else {
         // If rejected, reset the current task completion
         await tx.update(careTasks)
-          .set({ 
+          .set({
             completed: false,
             completedAt: null
           })
@@ -447,6 +444,18 @@ class DatabaseStorage implements IStorage {
     });
 
     console.log(`[Storage] Created task for chain ${assignment.chainId} step ${step.order}`);
+  }
+
+  async getChainAssignment(id: number): Promise<ChainAssignment | undefined> {
+    const [assignment] = await db.select()
+      .from(chainAssignments)
+      .where(eq(chainAssignments.id, id));
+    return assignment;
+  }
+
+  async getChainStep(id: number): Promise<ChainStep | undefined> {
+    const [step] = await db.select().from(chainSteps).where(eq(chainSteps.id, id));
+    return step;
   }
 }
 
