@@ -155,11 +155,45 @@ export class DatabaseStorage implements IStorage {
   async deleteCareTask(id: number): Promise<void> {
     await db.delete(careTasks).where(eq(careTasks.id, id));
   }
-  async getTaskTemplates(): Promise<TaskTemplate[]> { throw new Error("Method not implemented."); }
-  async getTaskTemplate(id: number): Promise<TaskTemplate | undefined> { throw new Error("Method not implemented."); }
-  async createTaskTemplate(template: InsertTaskTemplate): Promise<TaskTemplate> { throw new Error("Method not implemented."); }
-  async updateTaskTemplate(id: number, update: Partial<TaskTemplate>): Promise<TaskTemplate> { throw new Error("Method not implemented."); }
-  async deleteTaskTemplate(id: number): Promise<void> { throw new Error("Method not implemented."); }
+  async getTaskTemplates(): Promise<TaskTemplate[]> {
+    console.log('Fetching all task templates');
+    return db.select()
+      .from(taskTemplates)
+      .orderBy(desc(taskTemplates.createdAt));
+  }
+  async getTaskTemplate(id: number): Promise<TaskTemplate | undefined> {
+    console.log('Fetching task template:', id);
+    const [template] = await db.select()
+      .from(taskTemplates)
+      .where(eq(taskTemplates.id, id));
+    return template;
+  }
+  async createTaskTemplate(template: InsertTaskTemplate): Promise<TaskTemplate> {
+    console.log('Creating task template:', template);
+    const [newTemplate] = await db.insert(taskTemplates)
+      .values({
+        ...template,
+        createdAt: new Date(),
+        public: template.public ?? false,
+        applyToAll: template.applyToAll ?? false,
+        requiresExpertise: template.requiresExpertise ?? false,
+      })
+      .returning();
+    return newTemplate;
+  }
+  async updateTaskTemplate(id: number, update: Partial<TaskTemplate>): Promise<TaskTemplate> {
+    console.log('Updating task template:', id, update);
+    const [template] = await db.update(taskTemplates)
+      .set(update)
+      .where(eq(taskTemplates.id, id))
+      .returning();
+    if (!template) throw new Error("Task template not found");
+    return template;
+  }
+  async deleteTaskTemplate(id: number): Promise<void> {
+    console.log('Deleting task template:', id);
+    await db.delete(taskTemplates).where(eq(taskTemplates.id, id));
+  }
   async createTaskChain(chain: InsertTaskChain): Promise<TaskChain> { throw new Error("Method not implemented."); }
   async updateTaskChain(id: number, update: Partial<TaskChain>): Promise<TaskChain> { throw new Error("Method not implemented."); }
   async deleteTaskChain(id: number): Promise<void> { throw new Error("Method not implemented."); }

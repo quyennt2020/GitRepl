@@ -49,6 +49,96 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     queryKey: ["/api/task-templates"],
   });
 
+  // Form setup with proper initialization
+  const form = useForm<InsertTaskChain>({
+    resolver: zodResolver(insertTaskChainSchema),
+    defaultValues: {
+      name: existingChain?.name ?? "",
+      description: existingChain?.description ?? "",
+      category: (existingChain?.category ?? "water") as "water" | "fertilize" | "prune" | "check" | "repot" | "clean",
+      isActive: existingChain?.isActive ?? true,
+    },
+  });
+
+  // Save mutation with improved error handling
+  const saveMutation = useMutation({
+    mutationFn: async (data: InsertTaskChain) => {
+      if (localSteps.length === 0) {
+        throw new Error("At least one step is required");
+      }
+
+      setIsLoading(true);
+      try {
+        console.log('Saving chain:', {
+          data,
+          existingChain: existingChain?.id,
+          stepsCount: localSteps.length
+        });
+
+        // Save chain first
+        const chainResponse = await fetch(
+          existingChain ? `/api/task-chains/${existingChain.id}` : "/api/task-chains",
+          {
+            method: existingChain ? "PATCH" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          }
+        );
+
+        if (!chainResponse.ok) {
+          const error = await chainResponse.text();
+          throw new Error(`Failed to save chain: ${error}`);
+        }
+
+        const chain = await chainResponse.json();
+        console.log('Chain saved:', chain);
+
+        // Create new steps with correct chain ID
+        const stepPromises = localSteps.map((step, index) =>
+          fetch("/api/chain-steps", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...step,
+              chainId: chain.id,
+              order: index + 1,
+            }),
+          }).then(async (response) => {
+            if (!response.ok) {
+              const error = await response.text();
+              throw new Error(`Failed to save step ${index + 1}: ${error}`);
+            }
+            return response.json();
+          })
+        );
+
+        await Promise.all(stepPromises);
+        console.log('All steps saved successfully');
+
+        return chain;
+      } catch (error) {
+        console.error('Error saving chain:', error);
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
+      toast({
+        title: `Chain template ${existingChain ? "updated" : "created"} successfully`,
+      });
+      cleanup();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error saving chain template",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Load existing chain steps when editing
   const { data: existingSteps = [] } = useQuery<StepData[]>({
     queryKey: ["/api/task-chains", existingChain?.id, "steps"],
@@ -73,17 +163,6 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       setIsDirty(false);
     }
   }, [existingChain, existingSteps]);
-
-  // Form setup with proper initialization from database
-  const form = useForm<InsertTaskChain>({
-    resolver: zodResolver(insertTaskChainSchema),
-    defaultValues: {
-      name: existingChain?.name ?? "",
-      description: existingChain?.description ?? "",
-      category: (existingChain?.category ?? "water") as "water" | "fertilize" | "prune" | "check" | "repot" | "clean",
-      isActive: existingChain?.isActive ?? true,
-    },
-  });
 
   // Reset form when existingChain changes
   useEffect(() => {
@@ -123,75 +202,6 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     onClose();
   };
 
-  // Save mutation
-  const saveMutation = useMutation({
-    mutationFn: async (data: InsertTaskChain) => {
-      if (localSteps.length === 0) {
-        throw new Error("At least one step is required");
-      }
-
-      setIsLoading(true);
-      try {
-        // Save chain first
-        const chainResponse = await fetch(
-          existingChain ? `/api/task-chains/${existingChain.id}` : "/api/task-chains",
-          {
-            method: existingChain ? "PATCH" : "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-          }
-        );
-
-        if (!chainResponse.ok) {
-          throw new Error("Failed to save chain");
-        }
-
-        const chain = await chainResponse.json();
-
-        // If updating, delete existing steps
-        if (existingChain) {
-          await Promise.all(
-            existingSteps.map(step =>
-              step.id ? fetch(`/api/chain-steps/${step.id}`, { method: "DELETE" }) : Promise.resolve()
-            )
-          );
-        }
-
-        // Create new steps with correct chain ID
-        await Promise.all(
-          localSteps.map((step, index) =>
-            fetch("/api/chain-steps", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                ...step,
-                chainId: chain.id,
-                order: index + 1,
-              }),
-            })
-          )
-        );
-
-        return chain;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
-      toast({
-        title: `Chain ${existingChain ? "updated" : "created"} successfully`,
-      });
-      cleanup();
-    },
-    onError: (error) => {
-      toast({
-        title: "Error saving chain",
-        description: error instanceof Error ? error.message : "An error occurred",
-        variant: "destructive",
-      });
-    },
-  });
 
   // Step management
   const addStep = () => {
