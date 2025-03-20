@@ -61,6 +61,12 @@ export interface IStorage {
   createHealthRecord(record: InsertHealthRecord): Promise<HealthRecord>;
   updateHealthRecord(id: number, update: Partial<HealthRecord>): Promise<HealthRecord>;
 
+  // Checklist item related methods
+  getChecklistItems(templateId: number): Promise<ChecklistItem[]>;
+  createChecklistItem(item: InsertChecklistItem): Promise<ChecklistItem>;
+  updateChecklistItem(id: number, update: Partial<ChecklistItem>): Promise<ChecklistItem>;
+  deleteChecklistItem(id: number): Promise<void>;
+
   // Chain task methods
   createTaskForChainStep(assignmentId: number, stepId: number): Promise<void>;
 
@@ -218,6 +224,34 @@ export class DatabaseStorage implements IStorage {
   async updateHealthRecord(id: number, update: Partial<HealthRecord>): Promise<HealthRecord> { throw new Error("Method not implemented."); }
   async createTaskForChainStep(assignmentId: number, stepId: number): Promise<void> { throw new Error("Method not implemented."); }
 
+  async getChecklistItems(templateId: number): Promise<ChecklistItem[]> {
+    return db.select()
+      .from(checklistItems)
+      .where(eq(checklistItems.templateId, templateId))
+      .orderBy(checklistItems.order);
+  }
+
+  async createChecklistItem(item: InsertChecklistItem): Promise<ChecklistItem> {
+    const [newItem] = await db.insert(checklistItems)
+      .values(item)
+      .returning();
+    return newItem;
+  }
+
+  async updateChecklistItem(id: number, update: Partial<ChecklistItem>): Promise<ChecklistItem> {
+    const [updatedItem] = await db.update(checklistItems)
+      .set(update)
+      .where(eq(checklistItems.id, id))
+      .returning();
+    if (!updatedItem) throw new Error("Checklist item not found");
+    return updatedItem;
+  }
+
+  async deleteChecklistItem(id: number): Promise<void> {
+    await db.delete(checklistItems).where(eq(checklistItems.id, id));
+  }
+
+
   async getTaskChains(): Promise<TaskChain[]> {
     return db.select()
       .from(taskChains)
@@ -346,13 +380,13 @@ export class DatabaseStorage implements IStorage {
       isActive: taskChains.isActive,
       stepCount: sql`count(${chainSteps.id})::int`,
     })
-    .from(taskChains)
-    .leftJoin(chainSteps, eq(chainSteps.chainId, taskChains.id))
-    .where(and(
-      eq(taskChains.id, id),
-      eq(taskChains.isActive, true)
-    ))
-    .groupBy(taskChains.id);
+      .from(taskChains)
+      .leftJoin(chainSteps, eq(chainSteps.chainId, taskChains.id))
+      .where(and(
+        eq(taskChains.id, id),
+        eq(taskChains.isActive, true)
+      ))
+      .groupBy(taskChains.id);
 
     console.log('Retrieved chain:', chain);
     return chain;
