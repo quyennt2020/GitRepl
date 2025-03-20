@@ -30,21 +30,22 @@ export default function ChainList({ chains, onEdit }: Props) {
   const { toast } = useToast();
   const [expandedChain, setExpandedChain] = useState<number | null>(null);
 
-  // Query steps for the expanded chain only with proper queryFn
+  // Load steps for the expanded chain only
   const { data: chainSteps = [], isLoading } = useQuery<ChainStep[]>({
     queryKey: ["/api/task-chains", expandedChain, "steps"],
     queryFn: async () => {
       if (!expandedChain) return [];
-      console.log(`Fetching steps for chain ${expandedChain}`);
+
       const response = await fetch(`/api/task-chains/${expandedChain}/steps`);
       if (!response.ok) {
         throw new Error("Failed to fetch chain steps");
       }
       const steps = await response.json();
-      console.log(`Received ${steps.length} steps for chain ${expandedChain}:`, steps);
+      console.log(`Chain ${expandedChain} steps:`, steps);
       return steps;
     },
     enabled: expandedChain !== null,
+    staleTime: 0, // Don't cache the results
   });
 
   const deleteChainMutation = useMutation({
@@ -86,7 +87,14 @@ export default function ChainList({ chains, onEdit }: Props) {
               {/* Chain Header */}
               <div 
                 className="flex items-start justify-between cursor-pointer"
-                onClick={() => setExpandedChain(expandedChain === chain.id ? null : chain.id)}
+                onClick={() => {
+                  // Reset steps when collapsing
+                  if (expandedChain === chain.id) {
+                    setExpandedChain(null);
+                  } else {
+                    setExpandedChain(chain.id);
+                  }
+                }}
               >
                 <div className="flex items-start gap-2">
                   {expandedChain === chain.id ? (
@@ -150,7 +158,8 @@ export default function ChainList({ chains, onEdit }: Props) {
                     </div>
                   ) : chainSteps.length > 0 ? (
                     <div className="space-y-2">
-                      {[...chainSteps]
+                      {chainSteps
+                        .filter(step => step.chainId === chain.id) // Extra safety filter
                         .sort((a, b) => a.order - b.order)
                         .map((step, index) => (
                           <div
