@@ -28,7 +28,11 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
   });
 
   if (!assignment || !chain) {
-    return null;
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
   }
 
   // Calculate progress percentage
@@ -80,7 +84,7 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
               {steps.map((step, index) => {
                 const isCurrentStep = step.id === assignment.currentStepId;
                 const isCompleted = assignment.status === "completed" || 
-                  index < steps.findIndex(s => s.id === assignment.currentStepId);
+                  index < currentStepIndex;
                 const isPending = !isCompleted && !isCurrentStep;
 
                 return (
