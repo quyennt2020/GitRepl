@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChainAssignment, Plant } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Sprout, Shield } from "lucide-react"; // Changed Plant to Sprout
+import { Clock, Sprout, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import ChainAssignmentDetails from "./chain-assignment-details";
@@ -11,15 +11,26 @@ import { format } from "date-fns";
 export default function ChainAssignmentsList() {
   const [selectedAssignment, setSelectedAssignment] = useState<number | null>(null);
 
-  const { data: assignments = [] } = useQuery<ChainAssignment[]>({
+  // Fetch assignments with explicit staleTime and refetch settings
+  const { data: assignments = [], isLoading: isLoadingAssignments } = useQuery<ChainAssignment[]>({
     queryKey: ["/api/chain-assignments"],
+    staleTime: 0, // Always fetch fresh data
+    refetchOnMount: true,
   });
 
   // Get plant information for each assignment
-  const { data: plants = [] } = useQuery<Plant[]>({
+  const { data: plants = [], isLoading: isLoadingPlants } = useQuery<Plant[]>({
     queryKey: ["/api/plants"],
     enabled: assignments.length > 0,
   });
+
+  if (isLoadingAssignments || isLoadingPlants) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   // Combine assignment data with plant information
   const assignmentsWithPlants = assignments.map(assignment => {
@@ -30,9 +41,14 @@ export default function ChainAssignmentsList() {
     };
   });
 
+  // Filter assignments that need approval
   const pendingApprovals = assignmentsWithPlants.filter(
     a => a.status === "active" && a.currentStepId !== null
   );
+
+  // Log assignments data for debugging
+  console.log('All assignments:', assignmentsWithPlants);
+  console.log('Pending approvals:', pendingApprovals);
 
   return (
     <div className="space-y-4">
@@ -40,7 +56,7 @@ export default function ChainAssignmentsList() {
         <div className="space-y-2">
           <h2 className="text-lg font-medium flex items-center gap-2">
             <Shield className="w-5 h-5 text-amber-500" />
-            Pending Approvals
+            Pending Approvals ({pendingApprovals.length})
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             {pendingApprovals.map((assignment) => (
@@ -77,7 +93,7 @@ export default function ChainAssignmentsList() {
       )}
 
       <div className="space-y-2">
-        <h2 className="text-lg font-medium">All Assignments</h2>
+        <h2 className="text-lg font-medium">All Assignments ({assignmentsWithPlants.length})</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {assignmentsWithPlants.map((assignment) => (
             <Card
