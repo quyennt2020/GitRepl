@@ -6,8 +6,8 @@ const NAV_ITEMS = [
   { href: "/plants", icon: Sprout, label: "Plants" },
   { href: "/location-map", icon: Map, label: "Locations" },
   { href: "/schedule", icon: Calendar, label: "Schedule" },
-  { href: "/task-chains", icon: Link2, label: "Task Chains" },
-  { href: "/chains", icon: ListChecks, label: "Assignments" },
+  { href: "/task-chains", icon: Link2, label: "Chain Templates" },
+  { href: "/chains", icon: ListChecks, label: "Active Chains" },
   { href: "/guides", icon: Book, label: "Guides" },
   { href: "/settings", icon: Settings, label: "Settings" }
 ];
