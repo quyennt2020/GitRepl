@@ -161,7 +161,52 @@ export class DatabaseStorage implements IStorage {
   async updateChainStep(id: number, update: Partial<ChainStep>): Promise<ChainStep> { throw new Error("Method not implemented."); }
   async deleteChainStep(id: number): Promise<void> { throw new Error("Method not implemented."); }
   async getChainStep(id: number): Promise<ChainStep | undefined> { throw new Error("Method not implemented."); }
-  async createChainAssignment(assignment: InsertChainAssignment): Promise<ChainAssignment> { throw new Error("Method not implemented."); }
+  async createChainAssignment(assignment: InsertChainAssignment): Promise<ChainAssignment> {
+    console.log(`[Storage] Creating chain assignment:`, assignment);
+
+    // Start a transaction
+    return await db.transaction(async (tx) => {
+      // Create the assignment
+      const [newAssignment] = await tx.insert(chainAssignments)
+        .values({
+          ...assignment,
+          completedSteps: [],
+          progressPercentage: 0,
+          lastUpdated: new Date()
+        })
+        .returning();
+
+      // Get the first step of the chain
+      const steps = await this.getChainSteps(assignment.chainId);
+      if (steps.length > 0) {
+        const firstStep = steps[0];
+
+        // Update the assignment with the first step
+        const [updatedAssignment] = await tx.update(chainAssignments)
+          .set({ currentStepId: firstStep.id })
+          .where(eq(chainAssignments.id, newAssignment.id))
+          .returning();
+
+        // Create the first task
+        await tx.insert(careTasks).values({
+          plantId: assignment.plantId,
+          templateId: firstStep.templateId,
+          chainAssignmentId: newAssignment.id,
+          chainStepId: firstStep.id,
+          dueDate: new Date(),
+          completed: false,
+          notes: `Part of chain: ${assignment.chainId}, step: 1`,
+          checklistProgress: {},
+          stepOrder: 0
+        });
+
+        console.log(`[Storage] Created first task for chain ${assignment.chainId}`);
+        return updatedAssignment;
+      }
+
+      return newAssignment;
+    });
+  }
   async updateChainAssignment(id: number, update: Partial<ChainAssignment>): Promise<ChainAssignment> { throw new Error("Method not implemented."); }
   async deleteChainAssignment(id: number): Promise<void> { throw new Error("Method not implemented."); }
   async getStepApprovals(assignmentId: number): Promise<StepApproval[]> { throw new Error("Method not implemented."); }
@@ -181,15 +226,49 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getChainAssignments(plantId?: number): Promise<ChainAssignment[]> {
-    let query = db.select().from(chainAssignments);
+    let query = db.select()
+      .from(chainAssignments)
+      .orderBy(desc(chainAssignments.startedAt));
 
     if (plantId) {
       query = query.where(eq(chainAssignments.plantId, plantId));
     }
 
-    const assignments = await query.orderBy(desc(chainAssignments.startedAt));
+    const assignments = await query;
     console.log('Retrieved assignments:', assignments);
-    return assignments;
+
+    // For each assignment, calculate progress if not set
+    return Promise.all(assignments.map(async (assignment) => {
+      if (assignment.progressPercentage === 0 && assignment.status === "active") {
+        // Get all steps for this chain
+        const steps = await this.getChainSteps(assignment.chainId);
+
+        // Get completed care tasks
+        const completedTasks = await db.select()
+          .from(careTasks)
+          .where(and(
+            eq(careTasks.chainAssignmentId, assignment.id),
+            eq(careTasks.completed, true)
+          ));
+
+        // Calculate progress
+        const completedSteps = completedTasks.map(task => String(task.chainStepId));
+        const progressPercentage = Math.round((completedSteps.length / steps.length) * 100);
+
+        // Update assignment in database
+        const [updatedAssignment] = await db.update(chainAssignments)
+          .set({
+            completedSteps,
+            progressPercentage,
+            lastUpdated: new Date()
+          })
+          .where(eq(chainAssignments.id, assignment.id))
+          .returning();
+
+        return updatedAssignment;
+      }
+      return assignment;
+    }));
   }
 
   async getChainAssignment(id: number): Promise<ChainAssignment | undefined> {
@@ -250,9 +329,14 @@ export class DatabaseStorage implements IStorage {
     isCompleted: boolean;
     careTaskId?: number;
   })[]> {
-    console.log('Fetching steps with progress for chain:', chainId, 'assignment:', assignmentId);
+    // Get the assignment first to check completed steps
+    const [assignment] = await db.select()
+      .from(chainAssignments)
+      .where(eq(chainAssignments.id, assignmentId));
 
-    // Get all steps with template info
+    if (!assignment) throw new Error("Chain assignment not found");
+
+    // Get steps with template info
     const steps = await db.select({
       id: chainSteps.id,
       chainId: chainSteps.chainId,
@@ -271,7 +355,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(chainSteps.chainId, chainId))
       .orderBy(chainSteps.order);
 
-    // Get all care tasks for this chain assignment
+    // Get completed care tasks for this assignment
     const tasks = await db.select()
       .from(careTasks)
       .where(and(
@@ -279,14 +363,16 @@ export class DatabaseStorage implements IStorage {
         eq(careTasks.completed, true)
       ));
 
-    // Combine step data with care task completion status
+    // Combine data with string comparison for step IDs
     return steps.map(step => {
       const relatedTask = tasks.find(t => t.chainStepId === step.id);
+      const isCompleted = (assignment.completedSteps || []).includes(String(step.id));
+
       return {
         ...step,
         templateName: step.templateName ?? 'Unknown Task',
         templateDescription: step.templateDescription ?? null,
-        isCompleted: !!relatedTask?.completed,
+        isCompleted,
         careTaskId: relatedTask?.id
       };
     });
@@ -301,62 +387,69 @@ export class DatabaseStorage implements IStorage {
 
       if (!assignment) throw new Error("Chain assignment not found");
 
-      // Get the step
-      const [step] = await tx.select()
-        .from(chainSteps)
-        .where(eq(chainSteps.id, stepId));
-
-      if (!step) throw new Error("Chain step not found");
-
-      // Create or update the care task for this step
-      const [existingTask] = await tx.select()
-        .from(careTasks)
-        .where(and(
-          eq(careTasks.chainAssignmentId, assignmentId),
-          eq(careTasks.chainStepId, stepId)
-        ));
-
-      if (!existingTask) {
-        await tx.insert(careTasks).values({
-          plantId: assignment.plantId,
-          templateId: step.templateId,
-          chainAssignmentId: assignmentId,
-          chainStepId: stepId,
-          dueDate: new Date(),
-          completed: true,
-          completedAt: new Date(),
-          notes: `Completed as part of chain: ${assignment.chainId}, step: ${step.order}`,
-          checklistProgress: {},
-        });
-      } else {
-        await tx.update(careTasks)
-          .set({
-            completed: true,
-            completedAt: new Date()
-          })
-          .where(eq(careTasks.id, existingTask.id));
-      }
-
-      // Get all steps to determine the next step
+      // Get all steps for this chain
       const steps = await tx.select()
         .from(chainSteps)
         .where(eq(chainSteps.chainId, assignment.chainId))
         .orderBy(chainSteps.order);
 
       const currentStepIndex = steps.findIndex(s => s.id === stepId);
-      const nextStep = steps[currentStepIndex + 1];
+      if (currentStepIndex === -1) throw new Error("Step not found in chain");
 
-      // Update the assignment status
+      // Get completed steps array and convert ids to strings
+      const completedSteps = (assignment.completedSteps || []).map(String);
+      completedSteps.push(String(stepId));
+
+      // Calculate new progress percentage
+      const progressPercentage = Math.round((completedSteps.length / steps.length) * 100);
+
+      // Create care task for the completed step
+      await tx.insert(careTasks).values({
+        plantId: assignment.plantId,
+        templateId: steps[currentStepIndex].templateId,
+        chainAssignmentId: assignmentId,
+        chainStepId: stepId,
+        dueDate: new Date(),
+        completed: true,
+        completedAt: new Date(),
+        notes: `Completed as part of chain: ${assignment.chainId}, step: ${currentStepIndex + 1}`,
+        checklistProgress: {},
+        stepOrder: currentStepIndex,
+      });
+
+      // Create next step's task if available
+      const nextStep = steps[currentStepIndex + 1];
       if (nextStep) {
+        await tx.insert(careTasks).values({
+          plantId: assignment.plantId,
+          templateId: nextStep.templateId,
+          chainAssignmentId: assignmentId,
+          chainStepId: nextStep.id,
+          dueDate: new Date(),
+          completed: false,
+          notes: `Part of chain: ${assignment.chainId}, step: ${currentStepIndex + 2}`,
+          checklistProgress: {},
+          stepOrder: currentStepIndex + 1
+        });
+
         await tx.update(chainAssignments)
-          .set({ currentStepId: nextStep.id })
+          .set({
+            currentStepId: nextStep.id,
+            completedSteps,
+            progressPercentage,
+            lastUpdated: new Date(),
+          })
           .where(eq(chainAssignments.id, assignmentId));
       } else {
+        // Complete the chain if no more steps
         await tx.update(chainAssignments)
           .set({
             status: "completed",
             completedAt: new Date(),
-            currentStepId: null
+            currentStepId: null,
+            completedSteps,
+            progressPercentage: 100,
+            lastUpdated: new Date(),
           })
           .where(eq(chainAssignments.id, assignmentId));
       }

@@ -54,6 +54,7 @@ export const careTasks = pgTable("care_tasks", {
   completedAt: timestamp("completed_at"),
   notes: text("notes"),
   checklistProgress: jsonb("checklist_progress"), // Store completion status of checklist items
+  stepOrder: integer("step_order"), // Track step order within chain
 });
 
 export const healthRecords = pgTable("health_records", {
@@ -83,7 +84,7 @@ export const insertTaskTemplateSchema = createInsertSchema(taskTemplates)
 export const insertChecklistItemSchema = createInsertSchema(checklistItems)
   .omit({ id: true });
 
-// Update care task schema
+// Update care task schema with new fields
 export const insertCareTaskSchema = createInsertSchema(careTasks)
   .omit({ id: true, completedAt: true })
   .extend({
@@ -99,6 +100,7 @@ export const insertCareTaskSchema = createInsertSchema(careTasks)
     plantId: z.coerce.number().positive(),
     chainAssignmentId: z.coerce.number().optional(),
     chainStepId: z.coerce.number().optional(),
+    stepOrder: z.number().optional(),
   });
 
 export const insertPlantSchema = createInsertSchema(plants)
@@ -154,6 +156,7 @@ export const chainSteps = pgTable("chain_steps", {
   approvalRoles: text("approval_roles").array(), // Roles that can approve this step
 });
 
+// Modified chainAssignments table definition
 export const chainAssignments = pgTable("chain_assignments", {
   id: serial("id").primaryKey(),
   chainId: integer("chain_id").notNull(),
@@ -162,6 +165,9 @@ export const chainAssignments = pgTable("chain_assignments", {
   completedAt: timestamp("completed_at"),
   currentStepId: integer("current_step_id"),
   status: text("status").notNull(), // active, completed, cancelled
+  completedSteps: text("completed_steps").array(), // Array of completed step IDs
+  progressPercentage: integer("progress_percentage").default(0),
+  lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
 export const stepApprovals = pgTable("step_approvals", {
