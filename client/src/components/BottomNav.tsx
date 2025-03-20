@@ -1,12 +1,13 @@
 import { Link, useLocation } from "wouter";
-import { Home, Sprout, Calendar, Book, Map, Settings, Link2 } from "lucide-react";
+import { Home, Sprout, Calendar, Book, Map, Settings, Link2, ListChecks } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/plants", icon: Sprout, label: "Plants" },
   { href: "/location-map", icon: Map, label: "Locations" },
   { href: "/schedule", icon: Calendar, label: "Schedule" },
-  { href: "/chains", icon: Link2, label: "Chains" },
+  { href: "/task-chains", icon: Link2, label: "Task Chains" },
+  { href: "/chains", icon: ListChecks, label: "Assignments" },
   { href: "/guides", icon: Book, label: "Guides" },
   { href: "/settings", icon: Settings, label: "Settings" }
 ];
@@ -20,13 +21,15 @@ export default function BottomNav() {
         {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
           const isActive = location === href;
           return (
-            <Link key={href} href={href}>
-              <a className={`flex flex-col items-center gap-1 px-3 py-2 ${
+            <Link 
+              key={href} 
+              href={href}
+              className={`flex flex-col items-center gap-1 px-3 py-2 ${
                 isActive ? "text-primary" : "text-muted-foreground"
-              }`}>
-                <Icon className="h-5 w-5" />
-                <span className="text-xs">{label}</span>
-              </a>
+              }`}
+            >
+              <Icon className="h-5 w-5" />
+              <span className="text-xs">{label}</span>
             </Link>
           );
         })}
