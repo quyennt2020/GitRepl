@@ -37,6 +37,7 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
     templateDescription: string | null;
     isCompleted: boolean;
     careTaskId?: number;
+    completedAt?: string;
   })[]>({
     queryKey: ["/api/task-chains", assignment?.chainId, "steps", assignmentId],
     enabled: !!assignment?.chainId,
@@ -142,13 +143,35 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
 
         <CardContent>
           <div className="space-y-6">
-            {/* Progress Bar */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Progress</span>
-                <span>{progressPercentage}%</span>
+            {/* Progress Overview */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Progress</span>
+                    <span className="text-sm text-muted-foreground">{progressPercentage}%</span>
+                  </div>
+                  <Progress value={progressPercentage} className="h-2" />
+                </div>
+                <div className="text-sm text-muted-foreground text-right">
+                  <div>{completedSteps} of {steps.length} steps completed</div>
+                  {assignment.status === "active" && (
+                    <div>
+                      {steps.find(s => s.id === assignment.currentStepId)?.requiresApproval ? (
+                        <div className="flex items-center gap-1 text-amber-500">
+                          <Shield className="w-4 h-4" />
+                          <span>Waiting for approval</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-primary">
+                          <AlertCircle className="w-4 h-4" />
+                          <span>In progress</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-              <Progress value={progressPercentage} className="h-2" />
             </div>
 
             {/* Steps Timeline */}
@@ -157,6 +180,8 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
                 const isCurrentStep = step.id === assignment.currentStepId;
                 const isCompleted = step.isCompleted || assignment.status === "completed";
                 const isPending = !isCompleted && !isCurrentStep;
+                const nextStep = index < steps.length - 1 ? steps[index + 1] : null;
+                const hasWaitPeriod = nextStep?.waitDuration && nextStep.waitDuration > 0;
 
                 return (
                   <div
@@ -174,13 +199,19 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
                           ? "border-primary"
                           : isCompleted
                           ? "border-green-500"
+                          : isPending && step.requiresApproval
+                          ? "border-amber-500"
                           : "border-muted-foreground"
                       }`}
                     >
                       {isCompleted ? (
                         <CheckCircle2 className="w-4 h-4 text-green-500" />
                       ) : isCurrentStep ? (
-                        <AlertCircle className="w-4 h-4 text-primary" />
+                        step.requiresApproval ? (
+                          <Shield className="w-4 h-4 text-amber-500" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-primary" />
+                        )
                       ) : (
                         <AlertCircle className="w-4 h-4 text-muted-foreground" />
                       )}
@@ -219,10 +250,18 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
                                 {step.templateDescription}
                               </p>
                             )}
-                            {step.waitDuration && step.waitDuration > 0 && (
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Clock className="w-4 h-4" />
-                                Wait {step.waitDuration}h after previous step
+                            {hasWaitPeriod && (
+                              <div className="mt-4 p-2 bg-muted rounded-md">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Clock className="w-4 h-4" />
+                                  <span>Wait {nextStep.waitDuration}h before next step</span>
+                                </div>
+                              </div>
+                            )}
+                            {isCompleted && step.careTaskId && (
+                              <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                <span>Completed {step.completedAt ? format(new Date(step.completedAt), "PPp") : ""}</span>
                               </div>
                             )}
                           </div>
