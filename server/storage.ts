@@ -327,25 +327,30 @@ class DatabaseStorage implements IStorage {
     return await db.transaction(async (tx) => {
       // Create the approval record
       const [newApproval] = await tx.insert(stepApprovals)
-        .values(approval)
+        .values({
+          ...approval,
+          createdAt: new Date()
+        })
         .returning();
 
-      if (approval.approved) {
-        // Get the assignment and current step
-        const [assignment] = await tx.select()
-          .from(chainAssignments)
-          .where(eq(chainAssignments.id, approval.assignmentId));
+      // Get the assignment
+      const [assignment] = await tx.select()
+        .from(chainAssignments)
+        .where(eq(chainAssignments.id, approval.assignmentId));
 
-        if (!assignment) throw new Error("Chain assignment not found");
+      if (!assignment) throw new Error("Chain assignment not found");
 
-        // Get all steps for the chain
-        const steps = await this.getChainSteps(assignment.chainId);
-        const currentStepIndex = steps.findIndex(s => s.id === assignment.currentStepId);
+      // Get all steps for the chain
+      const steps = await this.getChainSteps(assignment.chainId);
+      const currentStepIndex = steps.findIndex(s => s.id === assignment.currentStepId);
 
-        if (currentStepIndex === -1) throw new Error("Current step not found in chain");
+      if (currentStepIndex === -1) throw new Error("Current step not found in chain");
 
-        const nextStep = steps[currentStepIndex + 1];
+      const currentStep = steps[currentStepIndex];
+      const nextStep = steps[currentStepIndex + 1];
 
+      // If approved, move to next step or complete chain
+      if (approval.approvedBy) {
         // If there's a next step, update assignment and create new task
         if (nextStep) {
           // Update assignment to point to next step
@@ -357,7 +362,7 @@ class DatabaseStorage implements IStorage {
           await tx.insert(careTasks).values({
             plantId: assignment.plantId,
             templateId: nextStep.templateId,
-            dueDate: new Date().toISOString(),
+            dueDate: new Date(),
             completed: false,
             notes: `Part of chain: ${assignment.chainId}, step: ${nextStep.order}${nextStep.requiresApproval ? ' (Needs Approval)' : ''}`,
             checklistProgress: {},
@@ -369,7 +374,7 @@ class DatabaseStorage implements IStorage {
           await tx.update(chainAssignments)
             .set({
               status: "completed",
-              completedAt: new Date().toISOString(),
+              completedAt: new Date(),
               currentStepId: null
             })
             .where(eq(chainAssignments.id, approval.assignmentId));
@@ -377,10 +382,7 @@ class DatabaseStorage implements IStorage {
           console.log(`[Storage] Chain completed, no more steps`);
         }
       } else {
-        //If rejected, find the current step to reset its task.
-        const [currentStep] = await tx.select().from(chainSteps).where(eq(chainSteps.id, assignment.currentStepId));
-        if (!currentStep) throw new Error("Current step not found");
-        // If rejected, reset the task completion
+        // If rejected, reset the current task completion
         await tx.update(careTasks)
           .set({ 
             completed: false,

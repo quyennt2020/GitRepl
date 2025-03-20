@@ -26,11 +26,11 @@ export default function StepApprovalDialog({ open, onClose, step, assignmentId }
   });
 
   const approveMutation = useMutation({
-    mutationFn: async ({ approved, notes }: { approved: boolean; notes: string }) => {
-      const response = await fetch(`/api/chain-assignments/${assignmentId}/steps/${step.id}/approve`, {
+    mutationFn: async ({ approved, notes, assignmentId, stepId, approvedBy }: { approved: boolean; notes: string | null; assignmentId: number; stepId: number; approvedBy: number | null }) => {
+      const response = await fetch(`/api/chain-assignments/${assignmentId}/steps/${stepId}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approved, notes }),
+        body: JSON.stringify({ approved, notes, approvedBy }),
       });
 
       if (!response.ok) {
@@ -67,7 +67,15 @@ export default function StepApprovalDialog({ open, onClose, step, assignmentId }
       });
       return;
     }
-    approveMutation.mutate({ approved, notes });
+
+    // Assuming we have a logged-in user with ID 1 for testing.  Replace with actual user ID retrieval.
+    approveMutation.mutate({ 
+      assignmentId,
+      stepId: step.id,
+      approvedBy: approved ? 1 : null,
+      notes: notes.trim() || null,
+      approved
+    });
   };
 
   return (
