@@ -1,4 +1,3 @@
-
 import { Plant, InsertPlant, CareTask, InsertCareTask, HealthRecord, InsertHealthRecord,
   TaskTemplate, InsertTaskTemplate, ChecklistItem, InsertChecklistItem,
   TaskChain, InsertTaskChain, ChainStep, InsertChainStep,
@@ -9,65 +8,48 @@ import { db } from "./db";
 import { eq, desc, and, or } from "drizzle-orm";
 
 export interface IStorage {
-  // Plants
   getPlants(): Promise<Plant[]>;
   getPlant(id: number): Promise<Plant | undefined>;
   createPlant(plant: InsertPlant): Promise<Plant>;
   updatePlant(id: number, update: Partial<Plant>): Promise<Plant>;
   deletePlant(id: number): Promise<void>;
-
-  // Care Tasks
   getCareTasks(plantId?: number): Promise<CareTask[]>;
   getCareTask(id: number): Promise<CareTask | undefined>;
   createCareTask(task: InsertCareTask): Promise<CareTask>;
   updateCareTask(id: number, update: Partial<CareTask>): Promise<CareTask>;
   deleteCareTask(id: number): Promise<void>;
-
-  // Task Templates
   getTaskTemplates(): Promise<TaskTemplate[]>;
   getTaskTemplate(id: number): Promise<TaskTemplate | undefined>;
   createTaskTemplate(template: InsertTaskTemplate): Promise<TaskTemplate>;
   updateTaskTemplate(id: number, update: Partial<TaskTemplate>): Promise<TaskTemplate>;
   deleteTaskTemplate(id: number): Promise<void>;
-
-  // Checklist Items
   getChecklistItems(templateId: number): Promise<ChecklistItem[]>;
   createChecklistItem(item: InsertChecklistItem): Promise<ChecklistItem>;
   updateChecklistItem(id: number, update: Partial<ChecklistItem>): Promise<ChecklistItem>;
   deleteChecklistItem(id: number): Promise<void>;
-
-  // Task Chains
   getTaskChains(): Promise<TaskChain[]>;
   getTaskChain(id: number): Promise<TaskChain | undefined>;
   createTaskChain(chain: InsertTaskChain): Promise<TaskChain>;
   updateTaskChain(id: number, update: Partial<TaskChain>): Promise<TaskChain>;
   deleteTaskChain(id: number): Promise<void>;
-
-  // Chain Steps
   getChainSteps(chainId: number): Promise<ChainStep[]>;
   createChainStep(step: InsertChainStep): Promise<ChainStep>;
   updateChainStep(id: number, update: Partial<ChainStep>): Promise<ChainStep>;
   deleteChainStep(id: number): Promise<void>;
-
-  // Chain Assignments
   getChainAssignments(plantId?: number): Promise<ChainAssignment[]>;
   createChainAssignment(assignment: InsertChainAssignment): Promise<ChainAssignment>;
   updateChainAssignment(id: number, update: Partial<ChainAssignment>): Promise<ChainAssignment>;
   deleteChainAssignment(id: number): Promise<void>;
-
-  // Step Approvals
   getStepApprovals(assignmentId: number): Promise<StepApproval[]>;
   createStepApproval(approval: InsertStepApproval): Promise<StepApproval>;
   deleteStepApproval(id: number): Promise<void>;
-
-  // Health Records
   getHealthRecords(plantId: number): Promise<HealthRecord[]>;
   getHealthRecord(id: number): Promise<HealthRecord | undefined>;
   createHealthRecord(record: InsertHealthRecord): Promise<HealthRecord>;
   updateHealthRecord(id: number, update: Partial<HealthRecord>): Promise<HealthRecord>;
 }
 
-export class DatabaseStorage implements IStorage {
+class DatabaseStorage implements IStorage {
   async getPlants(): Promise<Plant[]> {
     return db.select().from(plants);
   }
@@ -83,11 +65,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePlant(id: number, update: Partial<Plant>): Promise<Plant> {
-    const [plant] = await db
-      .update(plants)
-      .set(update)
-      .where(eq(plants.id, id))
-      .returning();
+    const [plant] = await db.update(plants).set(update).where(eq(plants.id, id)).returning();
     if (!plant) throw new Error("Plant not found");
     return plant;
   }
@@ -115,11 +93,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCareTask(id: number, update: Partial<CareTask>): Promise<CareTask> {
-    const [task] = await db
-      .update(careTasks)
-      .set(update)
-      .where(eq(careTasks.id, id))
-      .returning();
+    const [task] = await db.update(careTasks).set(update).where(eq(careTasks.id, id)).returning();
     if (!task) throw new Error("Care task not found");
     return task;
   }
@@ -133,10 +107,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTaskTemplate(id: number): Promise<TaskTemplate | undefined> {
-    const [template] = await db
-      .select()
-      .from(taskTemplates)
-      .where(eq(taskTemplates.id, id));
+    const [template] = await db.select().from(taskTemplates).where(eq(taskTemplates.id, id));
     return template;
   }
 
@@ -146,11 +117,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTaskTemplate(id: number, update: Partial<TaskTemplate>): Promise<TaskTemplate> {
-    const [template] = await db
-      .update(taskTemplates)
-      .set(update)
-      .where(eq(taskTemplates.id, id))
-      .returning();
+    const [template] = await db.update(taskTemplates).set(update).where(eq(taskTemplates.id, id)).returning();
     if (!template) throw new Error("Task template not found");
     return template;
   }
@@ -169,11 +136,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateChecklistItem(id: number, update: Partial<ChecklistItem>): Promise<ChecklistItem> {
-    const [item] = await db
-      .update(checklistItems)
-      .set(update)
-      .where(eq(checklistItems.id, id))
-      .returning();
+    const [item] = await db.update(checklistItems).set(update).where(eq(checklistItems.id, id)).returning();
     if (!item) throw new Error("Checklist item not found");
     return item;
   }
@@ -197,11 +160,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTaskChain(id: number, update: Partial<TaskChain>): Promise<TaskChain> {
-    const [chain] = await db
-      .update(taskChains)
-      .set(update)
-      .where(eq(taskChains.id, id))
-      .returning();
+    const [chain] = await db.update(taskChains).set(update).where(eq(taskChains.id, id)).returning();
     if (!chain) throw new Error("Task chain not found");
     return chain;
   }
@@ -211,41 +170,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getChainSteps(chainId: number): Promise<ChainStep[]> {
-    console.log(`[Storage] Fetching steps for chain ${chainId}`);
-
-    // First check if chain exists
-    const chainExists = await db
-      .select({ id: taskChains.id })
-      .from(taskChains)
-      .where(eq(taskChains.id, chainId))
-      .limit(1);
-
-    if (!chainExists.length) {
-      console.error(`[Storage] Chain with ID ${chainId} not found`);
-      return []; // Return empty array rather than throwing
-    }
-
-    // Join with templates to get names and ensure proper chainId filtering
-    const steps = await db
-      .select({
-        id: chainSteps.id,
-        chainId: chainSteps.chainId,
-        templateId: chainSteps.templateId,
-        order: chainSteps.order,
-        isRequired: chainSteps.isRequired,
-        waitDuration: chainSteps.waitDuration,
-        requiresApproval: chainSteps.requiresApproval,
-        approvalRoles: chainSteps.approvalRoles,
-        templateName: taskTemplates.name,
-        templateDescription: taskTemplates.description,
-      })
-      .from(chainSteps)
-      .leftJoin(taskTemplates, eq(chainSteps.templateId, taskTemplates.id))
-      .where(eq(chainSteps.chainId, chainId))
-      .orderBy(chainSteps.order);
-
-    console.log(`[Storage] Retrieved ${steps.length} steps for chain ${chainId}:`, steps);
-    return steps;
+    return db.select({
+      id: chainSteps.id,
+      chainId: chainSteps.chainId,
+      templateId: chainSteps.templateId,
+      order: chainSteps.order,
+      isRequired: chainSteps.isRequired,
+      waitDuration: chainSteps.waitDuration,
+      requiresApproval: chainSteps.requiresApproval,
+      approvalRoles: chainSteps.approvalRoles,
+      templateName: taskTemplates.name,
+      templateDescription: taskTemplates.description,
+    })
+    .from(chainSteps)
+    .leftJoin(taskTemplates, eq(chainSteps.templateId, taskTemplates.id))
+    .where(eq(chainSteps.chainId, chainId))
+    .orderBy(chainSteps.order);
   }
 
   async createChainStep(step: InsertChainStep): Promise<ChainStep> {
@@ -254,11 +194,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateChainStep(id: number, update: Partial<ChainStep>): Promise<ChainStep> {
-    const [step] = await db
-      .update(chainSteps)
-      .set(update)
-      .where(eq(chainSteps.id, id))
-      .returning();
+    const [step] = await db.update(chainSteps).set(update).where(eq(chainSteps.id, id)).returning();
     if (!step) throw new Error("Chain step not found");
     return step;
   }
@@ -281,11 +217,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateChainAssignment(id: number, update: Partial<ChainAssignment>): Promise<ChainAssignment> {
-    const [assignment] = await db
-      .update(chainAssignments)
-      .set(update)
-      .where(eq(chainAssignments.id, id))
-      .returning();
+    const [assignment] = await db.update(chainAssignments).set(update).where(eq(chainAssignments.id, id)).returning();
     if (!assignment) throw new Error("Chain assignment not found");
     return assignment;
   }
@@ -322,11 +254,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateHealthRecord(id: number, update: Partial<HealthRecord>): Promise<HealthRecord> {
-    const [record] = await db
-      .update(healthRecords)
-      .set(update)
-      .where(eq(healthRecords.id, id))
-      .returning();
+    const [record] = await db.update(healthRecords).set(update).where(eq(healthRecords.id, id)).returning();
     if (!record) throw new Error("Health record not found");
     return record;
   }
