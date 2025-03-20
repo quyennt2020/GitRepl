@@ -273,12 +273,55 @@ export class DatabaseStorage implements IStorage {
 
   async getChainAssignment(id: number): Promise<ChainAssignment | undefined> {
     console.log('Fetching chain assignment:', id);
-    const [assignment] = await db.select()
-      .from(chainAssignments)
-      .where(eq(chainAssignments.id, id));
 
-    console.log('Retrieved assignment:', assignment);
-    return assignment;
+    // Get the assignment with a transaction to ensure data consistency
+    return await db.transaction(async (tx) => {
+      const [assignment] = await tx.select()
+        .from(chainAssignments)
+        .where(eq(chainAssignments.id, id));
+
+      if (!assignment) {
+        console.log('Assignment not found:', id);
+        return undefined;
+      }
+
+      console.log('Retrieved assignment:', assignment);
+
+      // If progress is not calculated, calculate it
+      if (assignment.progressPercentage === 0 && assignment.status === "active") {
+        // Get all steps for this chain
+        const steps = await tx.select()
+          .from(chainSteps)
+          .where(eq(chainSteps.chainId, assignment.chainId))
+          .orderBy(chainSteps.order);
+
+        // Get completed care tasks
+        const completedTasks = await tx.select()
+          .from(careTasks)
+          .where(and(
+            eq(careTasks.chainAssignmentId, assignment.id),
+            eq(careTasks.completed, true)
+          ));
+
+        // Calculate progress
+        const completedSteps = completedTasks.map(task => String(task.chainStepId));
+        const progressPercentage = Math.round((completedSteps.length / steps.length) * 100);
+
+        // Update assignment
+        const [updatedAssignment] = await tx.update(chainAssignments)
+          .set({
+            completedSteps,
+            progressPercentage,
+            lastUpdated: new Date()
+          })
+          .where(eq(chainAssignments.id, assignment.id))
+          .returning();
+
+        return updatedAssignment;
+      }
+
+      return assignment;
+    });
   }
 
   async getTaskChain(id: number): Promise<TaskChain | undefined> {
