@@ -30,29 +30,29 @@ export default function ChainList({ chains, onEdit }: Props) {
   const { toast } = useToast();
   const [expandedChain, setExpandedChain] = useState<number | null>(null);
 
-  // Query steps only for the expanded chain
+  // Query steps for the expanded chain only
   const { data: chainSteps = [], isLoading: stepsLoading } = useQuery<ChainStep[]>({
     queryKey: ["/api/task-chains", expandedChain, "steps"],
     queryFn: async () => {
       if (!expandedChain) return [];
 
-      console.log(`Fetching steps for chain ${expandedChain}`);
+      console.log(`[ChainList] Fetching steps for chain ${expandedChain}`);
       const response = await fetch(`/api/task-chains/${expandedChain}/steps`);
       if (!response.ok) {
         throw new Error("Failed to fetch chain steps");
       }
 
       const steps = await response.json();
-      console.log(`Chain ${expandedChain} steps:`, steps);
+      console.log(`[ChainList] Received steps for chain ${expandedChain}:`, steps);
       return steps;
     },
     enabled: expandedChain !== null,
-    staleTime: 0, // Don't cache results
-    cacheTime: 0, // Remove from cache immediately
+    gcTime: 0, // Immediately garbage collect
   });
 
   const deleteChainMutation = useMutation({
     mutationFn: async (chainId: number) => {
+      console.log(`[ChainList] Deleting chain ${chainId}`);
       const response = await fetch(`/api/task-chains/${chainId}`, {
         method: "DELETE",
       });
@@ -60,9 +60,11 @@ export default function ChainList({ chains, onEdit }: Props) {
         throw new Error("Failed to delete chain");
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, chainId) => {
+      // Clear the query cache for both the chain and its steps
+      queryClient.removeQueries({ queryKey: ["/api/task-chains", chainId, "steps"] });
       queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
-      toast({ title: "Chain deleted successfully" });
+      toast({ title: "Chain and its steps deleted successfully" });
     },
     onError: (error) => {
       toast({
@@ -88,15 +90,16 @@ export default function ChainList({ chains, onEdit }: Props) {
           <CardContent className="p-4">
             <div className="space-y-4">
               {/* Chain Header */}
-              <div 
+              <div
                 className="flex items-start justify-between cursor-pointer"
                 onClick={() => {
-                  // Reset steps state when collapsing or changing chains
                   if (expandedChain === chain.id) {
+                    // Reset steps state when collapsing
                     setExpandedChain(null);
                     queryClient.removeQueries({ queryKey: ["/api/task-chains", chain.id, "steps"] });
                   } else {
-                    if (expandedChain) {
+                    // Clear previous chain's data before expanding new one
+                    if (expandedChain !== null) {
                       queryClient.removeQueries({ queryKey: ["/api/task-chains", expandedChain, "steps"] });
                     }
                     setExpandedChain(chain.id);
@@ -130,7 +133,7 @@ export default function ChainList({ chains, onEdit }: Props) {
                     className="h-8 w-8 p-0"
                   >
                     <Edit2 className="h-4 w-4" />
-                    <span className="sr-only">Edit</span>
+                    <span className="sr-only">Edit chain</span>
                   </Button>
                   <Button
                     variant="ghost"
@@ -144,7 +147,7 @@ export default function ChainList({ chains, onEdit }: Props) {
                     className="h-8 w-8 p-0"
                   >
                     <Trash2 className="h-4 w-4" />
-                    <span className="sr-only">Delete</span>
+                    <span className="sr-only">Delete chain</span>
                   </Button>
                 </div>
               </div>
@@ -188,7 +191,7 @@ export default function ChainList({ chains, onEdit }: Props) {
                                       className="flex items-center gap-1 text-xs"
                                     >
                                       <Clock className="w-3 h-3" />
-                                      {step.waitDuration}h
+                                      Wait {step.waitDuration}h
                                     </Badge>
                                   )}
                                   {step.requiresApproval && (

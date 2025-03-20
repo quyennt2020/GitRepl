@@ -166,7 +166,28 @@ class DatabaseStorage implements IStorage {
   }
 
   async deleteTaskChain(id: number): Promise<void> {
+    console.log(`[Storage] Deleting chain ${id} and its dependencies`);
+
+    // Delete step approvals first
+    await db.delete(stepApprovals).where(
+      eq(stepApprovals.assignmentId,
+        db.select({ id: chainAssignments.id })
+          .from(chainAssignments)
+          .where(eq(chainAssignments.chainId, id))
+          .limit(1)
+      )
+    );
+
+    // Delete chain assignments
+    await db.delete(chainAssignments).where(eq(chainAssignments.chainId, id));
+
+    // Delete chain steps
+    await db.delete(chainSteps).where(eq(chainSteps.chainId, id));
+
+    // Finally delete the chain itself
     await db.delete(taskChains).where(eq(taskChains.id, id));
+
+    console.log(`[Storage] Successfully deleted chain ${id} and all its dependencies`);
   }
 
   async getChainSteps(chainId: number): Promise<ChainStep[]> {
@@ -182,10 +203,10 @@ class DatabaseStorage implements IStorage {
       templateName: taskTemplates.name,
       templateDescription: taskTemplates.description,
     })
-    .from(chainSteps)
-    .leftJoin(taskTemplates, eq(chainSteps.templateId, taskTemplates.id))
-    .where(eq(chainSteps.chainId, chainId))
-    .orderBy(chainSteps.order);
+      .from(chainSteps)
+      .leftJoin(taskTemplates, eq(chainSteps.templateId, taskTemplates.id))
+      .where(eq(chainSteps.chainId, chainId))
+      .orderBy(chainSteps.order);
   }
 
   async createChainStep(step: InsertChainStep): Promise<ChainStep> {
