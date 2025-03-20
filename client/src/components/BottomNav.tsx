@@ -6,7 +6,7 @@ const NAV_ITEMS = [
   { href: "/plants", icon: Sprout, label: "Plants" },
   { href: "/location-map", icon: Map, label: "Locations" },
   { href: "/schedule", icon: Calendar, label: "Schedule" },
-  { href: "/task-chains", icon: Link2, label: "Chains" },
+  { href: "/chains", icon: Link2, label: "Chains" },
   { href: "/guides", icon: Book, label: "Guides" },
   { href: "/settings", icon: Settings, label: "Settings" }
 ];

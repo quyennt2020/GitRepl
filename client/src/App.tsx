@@ -14,6 +14,7 @@ import TaskTemplateConfig from "@/pages/task-templates";
 import ChecklistItemsPage from "@/pages/ChecklistItemsPage";
 import NotFound from "@/pages/not-found";
 import TaskChainsPage from "@/pages/task-chains";
+import ChainAssignmentsPage from "@/pages/chain-assignments";
 
 function Router() {
   return (
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/settings" component={TaskTemplateConfig} />
       <Route path="/templates/:id/checklist" component={ChecklistItemsPage} />
       <Route path="/task-chains" component={TaskChainsPage} />
+      <Route path="/chains" component={ChainAssignmentsPage} />
       <Route component={NotFound} />
     </Switch>
   );
