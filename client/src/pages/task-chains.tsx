@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import ChainBuilder from "@/components/chain-builder";
 import ChainList from "@/components/chain-list";
+import ChainAssignmentsList from "@/components/chain-assignments-list";
 import { useToast } from "@/hooks/use-toast";
 
 export default function TaskChainsPage() {
@@ -38,8 +39,8 @@ export default function TaskChainsPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+    <div className="max-w-5xl mx-auto p-6 space-y-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h1 className="text-2xl md:text-3xl font-bold">Task Chains</h1>
         <Button 
           onClick={() => {
@@ -52,6 +53,9 @@ export default function TaskChainsPage() {
           New Chain
         </Button>
       </div>
+
+      {/* Add Chain Assignments List here */}
+      <ChainAssignmentsList />
 
       <ChainList
         chains={chains}
