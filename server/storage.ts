@@ -312,11 +312,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getChainSteps(chainId: number): Promise<ChainStep[]> {
-    return await db
-      .select()
+    // First check if chain exists
+    const chainExists = await db
+      .select({ id: taskChains.id })
+      .from(taskChains)
+      .where(eq(taskChains.id, chainId))
+      .limit(1);
+
+    if (!chainExists.length) {
+      console.error(`Chain with ID ${chainId} not found`);
+      return []; // Return empty array rather than throwing
+    }
+
+    // Join with templates to get names
+    const steps = await db
+      .select({
+        id: chainSteps.id,
+        chainId: chainSteps.chainId,
+        templateId: chainSteps.templateId,
+        order: chainSteps.order,
+        isRequired: chainSteps.isRequired,
+        waitDuration: chainSteps.waitDuration,
+        requiresApproval: chainSteps.requiresApproval,
+        approvalRoles: chainSteps.approvalRoles,
+        templateName: taskTemplates.name,
+        templateCategory: taskTemplates.category,
+        templateDescription: taskTemplates.description,
+      })
       .from(chainSteps)
+      .leftJoin(taskTemplates, eq(chainSteps.templateId, taskTemplates.id))
       .where(eq(chainSteps.chainId, chainId))
       .orderBy(chainSteps.order);
+
+    console.log(`Retrieved ${steps.length} steps for chain ${chainId}`);
+    return steps;
   }
 
   async createChainStep(step: InsertChainStep): Promise<ChainStep> {

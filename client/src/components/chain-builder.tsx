@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -10,11 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { Plus, Trash2, AlertCircle } from "lucide-react";
+import { Plus, Trash2, AlertCircle, Clock, Shield } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -30,6 +31,8 @@ interface StepData {
   waitDuration: number;
   requiresApproval: boolean;
   approvalRoles: string[];
+  templateName?: string;
+  templateDescription?: string;
 }
 
 export default function ChainBuilder({ open, onClose, existingChain }: Props) {
@@ -37,10 +40,44 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
   const [steps, setSteps] = useState<StepData[]>([]);
   const [selectedStep, setSelectedStep] = useState<number | null>(null);
 
-  // Load templates
+  // Load templates for step selection
   const templatesQuery = useQuery<TaskTemplate[]>({
     queryKey: ["/api/task-templates"],
   });
+
+  // Load existing chain steps
+  const stepsQuery = useQuery({
+    queryKey: ["/api/task-chains", existingChain?.id, "steps"],
+    enabled: !!existingChain?.id,
+  });
+
+  // Initialize steps from existing chain
+  useEffect(() => {
+    if (existingChain && stepsQuery.data?.length) {
+      const sortedSteps = [...stepsQuery.data]
+        .sort((a, b) => a.order - b.order)
+        .map(step => ({
+          id: step.id,
+          templateId: step.templateId,
+          order: step.order,
+          isRequired: step.isRequired ?? true,
+          waitDuration: step.waitDuration ?? 0,
+          requiresApproval: step.requiresApproval ?? false,
+          approvalRoles: step.approvalRoles ?? [],
+          templateName: step.templateName,
+          templateDescription: step.templateDescription,
+        }));
+      setSteps(sortedSteps);
+    }
+  }, [existingChain, stepsQuery.data]);
+
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setSteps([]);
+      setSelectedStep(null);
+    }
+  }, [open]);
 
   // Form setup
   const form = useForm<InsertTaskChain>({
@@ -48,7 +85,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     defaultValues: existingChain ? {
       name: existingChain.name,
       description: existingChain.description ?? "",
-      category: existingChain.category as "water" | "fertilize" | "prune" | "check" | "repot" | "clean",
+      category: existingChain.category,
       isActive: existingChain.isActive ?? true,
     } : {
       name: "",
@@ -75,7 +112,16 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
 
       const chain = await chainResponse.json();
 
-      // Create steps
+      // If updating, delete old steps
+      if (existingChain) {
+        await Promise.all(
+          stepsQuery.data?.map(step =>
+            fetch(`/api/chain-steps/${step.id}`, { method: "DELETE" })
+          ) || []
+        );
+      }
+
+      // Create new steps
       await Promise.all(
         steps.map((step, index) =>
           fetch("/api/chain-steps", {
@@ -119,13 +165,16 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       return;
     }
 
+    const template = templates[0];
     const newStep: StepData = {
-      templateId: templates[0].id,
+      templateId: template.id,
       order: steps.length + 1,
       isRequired: true,
       waitDuration: 0,
-      requiresApproval: false,
-      approvalRoles: [],
+      requiresApproval: template.requiresExpertise ?? false,
+      approvalRoles: template.requiresExpertise ? ["expert"] : [],
+      templateName: template.name,
+      templateDescription: template.description,
     };
 
     setSteps([...steps, newStep]);
@@ -133,6 +182,13 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
   };
 
   const updateStep = (index: number, updates: Partial<StepData>) => {
+    if (updates.templateId && templatesQuery.data) {
+      const template = templatesQuery.data.find(t => t.id === updates.templateId);
+      if (template) {
+        updates.templateName = template.name;
+        updates.templateDescription = template.description;
+      }
+    }
     setSteps(steps.map((step, i) => (i === index ? { ...step, ...updates } : step)));
   };
 
@@ -154,7 +210,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
   };
 
   // Loading state
-  if (templatesQuery.isLoading) {
+  if (templatesQuery.isLoading || stepsQuery.isLoading) {
     return (
       <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
         <DialogContent>
@@ -165,6 +221,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       </Dialog>
     );
   }
+
+  const selectedStepData = selectedStep !== null && steps[selectedStep] ? steps[selectedStep] : null;
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
@@ -249,25 +307,20 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {steps.map((step, index) => {
-                    const template = templatesQuery.data?.find(
-                      (t) => t.id === step.templateId
-                    );
-
-                    return (
-                      <Card
-                        key={index}
-                        className={`${
-                          selectedStep === index ? "ring-2 ring-primary" : ""
-                        }`}
-                        onClick={() => setSelectedStep(index)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="min-w-[32px] h-8 flex items-center justify-center border rounded-md bg-muted">
-                              {index + 1}
-                            </div>
-
+                  {steps.map((step, index) => (
+                    <Card
+                      key={index}
+                      className={`${
+                        selectedStep === index ? "ring-2 ring-primary" : ""
+                      }`}
+                      onClick={() => setSelectedStep(index)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="min-w-[32px] h-8 flex items-center justify-center border rounded-md bg-muted">
+                            {index + 1}
+                          </div>
+                          <div className="flex-1 space-y-2">
                             <Select
                               value={String(step.templateId)}
                               onValueChange={(value) => {
@@ -279,11 +332,13 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                                     templateId: Number(value),
                                     requiresApproval: template.requiresExpertise,
                                     approvalRoles: template.requiresExpertise ? ["expert"] : [],
+                                    templateName: template.name,
+                                    templateDescription: template.description,
                                   });
                                 }
                               }}
                             >
-                              <SelectTrigger className="flex-1">
+                              <SelectTrigger>
                                 <SelectValue placeholder="Select task" />
                               </SelectTrigger>
                               <SelectContent>
@@ -295,26 +350,50 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                               </SelectContent>
                             </Select>
 
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeStep(index)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              <span className="sr-only">Remove step</span>
-                            </Button>
+                            {step.templateDescription && (
+                              <p className="text-sm text-muted-foreground">
+                                {step.templateDescription}
+                              </p>
+                            )}
+
+                            <div className="flex flex-wrap gap-2">
+                              {step.waitDuration > 0 && (
+                                <Badge variant="outline" className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  Wait {step.waitDuration}h
+                                </Badge>
+                              )}
+                              {step.requiresApproval && (
+                                <Badge variant="outline" className="flex items-center gap-1">
+                                  <Shield className="w-3 h-3" />
+                                  Needs Approval
+                                </Badge>
+                              )}
+                            </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeStep(index);
+                            }}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span className="sr-only">Remove step</span>
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               )}
             </div>
 
             {/* Step Configuration */}
-            {selectedStep !== null && templatesQuery.data && (
+            {selectedStepData && (
               <div className="space-y-4 border rounded-lg p-4">
                 <div className="space-y-1">
                   <h4 className="font-medium">Step Configuration</h4>
@@ -332,7 +411,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                       <Input
                         type="number"
                         min="0"
-                        value={steps[selectedStep].waitDuration}
+                        value={selectedStepData.waitDuration}
                         onChange={(e) =>
                           updateStep(selectedStep, {
                             waitDuration: parseInt(e.target.value) || 0,
@@ -347,7 +426,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         id="step-required"
-                        checked={steps[selectedStep].isRequired}
+                        checked={selectedStepData.isRequired}
                         onCheckedChange={(checked: boolean) =>
                           updateStep(selectedStep, {
                             isRequired: checked,
@@ -362,7 +441,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         id="step-approval"
-                        checked={steps[selectedStep].requiresApproval}
+                        checked={selectedStepData.requiresApproval}
                         onCheckedChange={(checked: boolean) =>
                           updateStep(selectedStep, {
                             requiresApproval: checked,
@@ -375,11 +454,11 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                       </label>
                     </div>
 
-                    {steps[selectedStep].requiresApproval && (
+                    {selectedStepData.requiresApproval && (
                       <FormItem className="space-y-1">
                         <FormLabel>Approval Roles</FormLabel>
                         <Select
-                          value={steps[selectedStep].approvalRoles[0] || "expert"}
+                          value={selectedStepData.approvalRoles[0] || "expert"}
                           onValueChange={(value) =>
                             updateStep(selectedStep, {
                               approvalRoles: [value],
