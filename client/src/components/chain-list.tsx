@@ -15,6 +15,7 @@ interface Props {
 
 interface ChainStep {
   id: number;
+  chainId: number;
   templateId: number;
   order: number;
   isRequired: boolean;
@@ -29,8 +30,20 @@ export default function ChainList({ chains, onEdit }: Props) {
   const { toast } = useToast();
   const [expandedChain, setExpandedChain] = useState<number | null>(null);
 
-  const { data: steps = [], isLoading } = useQuery<ChainStep[]>({
+  // Query steps for the expanded chain only with proper queryFn
+  const { data: chainSteps = [], isLoading } = useQuery<ChainStep[]>({
     queryKey: ["/api/task-chains", expandedChain, "steps"],
+    queryFn: async () => {
+      if (!expandedChain) return [];
+      console.log(`Fetching steps for chain ${expandedChain}`);
+      const response = await fetch(`/api/task-chains/${expandedChain}/steps`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch chain steps");
+      }
+      const steps = await response.json();
+      console.log(`Received ${steps.length} steps for chain ${expandedChain}:`, steps);
+      return steps;
+    },
     enabled: expandedChain !== null,
   });
 
@@ -108,7 +121,9 @@ export default function ChainList({ chains, onEdit }: Props) {
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
-                      deleteChainMutation.mutate(chain.id);
+                      if (confirm("Are you sure you want to delete this chain?")) {
+                        deleteChainMutation.mutate(chain.id);
+                      }
                     }}
                     className="h-8 w-8 p-0"
                   >
@@ -126,16 +141,16 @@ export default function ChainList({ chains, onEdit }: Props) {
                 </Badge>
               </div>
 
-              {/* Steps List */}
+              {/* Steps List - Only show steps for the expanded chain */}
               {expandedChain === chain.id && (
                 <div className="pt-2 border-t">
                   {isLoading ? (
                     <div className="flex items-center justify-center p-4">
                       <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />
                     </div>
-                  ) : steps.length > 0 ? (
+                  ) : chainSteps.length > 0 ? (
                     <div className="space-y-2">
-                      {[...steps]
+                      {[...chainSteps]
                         .sort((a, b) => a.order - b.order)
                         .map((step, index) => (
                           <div
@@ -150,7 +165,7 @@ export default function ChainList({ chains, onEdit }: Props) {
                                 <span className="font-medium">
                                   {step.templateName}
                                 </span>
-                                <div className="flex gap-1.5">
+                                <div className="flex gap-1.5 flex-wrap">
                                   {step.waitDuration > 0 && (
                                     <Badge
                                       variant="outline"

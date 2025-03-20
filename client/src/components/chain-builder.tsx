@@ -25,6 +25,7 @@ interface Props {
 
 interface StepData {
   id?: number;
+  chainId?: number;
   templateId: number;
   order: number;
   isRequired: boolean;
@@ -40,19 +41,20 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
   const [steps, setSteps] = useState<StepData[]>([]);
   const [selectedStep, setSelectedStep] = useState<number | null>(null);
 
-  // Load templates and existing steps
+  // Load templates for step selection
   const { data: templates = [] } = useQuery<TaskTemplate[]>({
     queryKey: ["/api/task-templates"],
   });
 
+  // Load existing chain steps when editing
   const { data: existingSteps = [] } = useQuery<StepData[]>({
     queryKey: ["/api/task-chains", existingChain?.id, "steps"],
     enabled: !!existingChain?.id,
     onSuccess: (data) => {
       if (data?.length && existingChain) {
-        // Initialize steps when editing existing chain
         setSteps(data.map(step => ({
           id: step.id,
+          chainId: existingChain.id,
           templateId: step.templateId,
           order: step.order,
           isRequired: step.isRequired ?? true,
@@ -66,7 +68,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     }
   });
 
-  // Form setup with proper types
+  // Form setup
   const form = useForm<InsertTaskChain>({
     resolver: zodResolver(insertTaskChainSchema),
     defaultValues: {
@@ -84,7 +86,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
         throw new Error("At least one step is required");
       }
 
-      // Save chain
+      // Save chain first
       const chainResponse = await fetch(
         existingChain ? `/api/task-chains/${existingChain.id}` : "/api/task-chains",
         {
@@ -100,16 +102,16 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
 
       const chain = await chainResponse.json();
 
-      // Delete existing steps if updating
+      // If updating, delete existing steps
       if (existingChain) {
         await Promise.all(
           existingSteps.map(step =>
-            fetch(`/api/chain-steps/${step.id}`, { method: "DELETE" })
+            step.id ? fetch(`/api/chain-steps/${step.id}`, { method: "DELETE" }) : Promise.resolve()
           )
         );
       }
 
-      // Create new steps
+      // Create new steps with correct chain ID
       await Promise.all(
         steps.map((step, index) =>
           fetch("/api/chain-steps", {
@@ -164,6 +166,10 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       templateName: template.name,
       templateDescription: template.description ?? null,
     };
+
+    if (existingChain) {
+      newStep.chainId = existingChain.id;
+    }
 
     setSteps([...steps, newStep]);
     setSelectedStep(steps.length);
