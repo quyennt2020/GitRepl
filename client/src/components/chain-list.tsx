@@ -43,7 +43,7 @@ export default function ChainList({ chains, onEdit }: Props) {
       }
 
       const steps = await response.json();
-      console.log(`[ChainList] Received steps for chain ${expandedChain}:`, steps);
+      console.log(`[ChainList] Received steps:`, steps);
       return steps;
     },
     enabled: expandedChain !== null,
@@ -91,7 +91,7 @@ export default function ChainList({ chains, onEdit }: Props) {
             <div className="space-y-4">
               {/* Chain Header */}
               <div
-                className="flex items-start justify-between cursor-pointer"
+                className="flex items-start justify-between cursor-pointer group"
                 onClick={() => {
                   if (expandedChain === chain.id) {
                     // Reset steps state when collapsing
@@ -113,7 +113,7 @@ export default function ChainList({ chains, onEdit }: Props) {
                     <ChevronRight className="w-5 h-5 mt-1" />
                   )}
                   <div>
-                    <h3 className="font-medium">{chain.name}</h3>
+                    <h3 className="text-lg font-medium">{chain.name}</h3>
                     {chain.description && (
                       <p className="text-sm text-muted-foreground mt-1">
                         {chain.description}
@@ -122,7 +122,7 @@ export default function ChainList({ chains, onEdit }: Props) {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -154,8 +154,8 @@ export default function ChainList({ chains, onEdit }: Props) {
 
               {/* Chain Metadata */}
               <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">{chain.category}</Badge>
-                <Badge variant="outline">
+                <Badge variant="outline" className="capitalize">{chain.category}</Badge>
+                <Badge variant={chain.isActive ? "outline" : "secondary"}>
                   {chain.isActive ? "Active" : "Inactive"}
                 </Badge>
               </div>
@@ -171,20 +171,29 @@ export default function ChainList({ chains, onEdit }: Props) {
                     <div className="space-y-2">
                       {chainSteps
                         .sort((a, b) => a.order - b.order)
-                        .map((step, index) => (
+                        .map((step) => (
                           <div
                             key={step.id}
-                            className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg"
+                            className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors"
                           >
-                            <div className="min-w-[32px] h-8 flex items-center justify-center border rounded-md bg-muted">
-                              {index + 1}
+                            {/* Step Number */}
+                            <div className="min-w-[32px] h-8 flex items-center justify-center border rounded-md bg-background font-medium">
+                              {step.order}
                             </div>
-                            <div className="flex-1 min-w-0">
+
+                            {/* Step Details */}
+                            <div className="flex-1">
+                              {/* Template Name and Badges */}
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium">
                                   {step.templateName}
                                 </span>
                                 <div className="flex gap-1.5 flex-wrap">
+                                  {!step.isRequired && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Optional
+                                    </Badge>
+                                  )}
                                   {step.waitDuration > 0 && (
                                     <Badge
                                       variant="outline"
@@ -203,13 +212,10 @@ export default function ChainList({ chains, onEdit }: Props) {
                                       Needs Approval
                                     </Badge>
                                   )}
-                                  {!step.isRequired && (
-                                    <Badge variant="outline" className="text-xs">
-                                      Optional
-                                    </Badge>
-                                  )}
                                 </div>
                               </div>
+
+                              {/* Template Description */}
                               {step.templateDescription && (
                                 <p className="text-sm text-muted-foreground mt-1">
                                   {step.templateDescription}
