@@ -222,7 +222,22 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Failed to delete task template');
     }
   }
-  async createTaskChain(chain: InsertTaskChain): Promise<TaskChain> { throw new Error("Method not implemented."); }
+  async createTaskChain(chain: InsertTaskChain): Promise<TaskChain> {
+    console.log('Creating task chain:', chain);
+    try {
+      const [newChain] = await db.insert(taskChains)
+        .values({
+          ...chain,
+          createdAt: new Date(),
+          isActive: true
+        })
+        .returning();
+      return newChain;
+    } catch (error) {
+      console.error('Error creating task chain:', error);
+      throw new Error('Failed to create task chain');
+    }
+  }
   async updateTaskChain(id: number, update: Partial<TaskChain>): Promise<TaskChain> { throw new Error("Method not implemented."); }
   async deleteTaskChain(id: number): Promise<void> {
     console.log('Deleting task chain:', id);
@@ -251,7 +266,18 @@ export class DatabaseStorage implements IStorage {
         ));
     });
   }
-  async createChainStep(step: InsertChainStep): Promise<ChainStep> { throw new Error("Method not implemented."); }
+  async createChainStep(step: InsertChainStep): Promise<ChainStep> {
+    console.log('Creating chain step:', step);
+    try {
+      const [newStep] = await db.insert(chainSteps)
+        .values(step)
+        .returning();
+      return newStep;
+    } catch (error) {
+      console.error('Error creating chain step:', error);
+      throw new Error('Failed to create chain step');
+    }
+  }
   async updateChainStep(id: number, update: Partial<ChainStep>): Promise<ChainStep> { throw new Error("Method not implemented."); }
   async deleteChainStep(id: number): Promise<void> { throw new Error("Method not implemented."); }
   async getChainStep(id: number): Promise<ChainStep | undefined> { throw new Error("Method not implemented."); }
