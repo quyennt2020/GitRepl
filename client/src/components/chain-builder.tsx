@@ -38,8 +38,9 @@ interface StepData {
 
 export default function ChainBuilder({ open, onClose, existingChain }: Props) {
   const { toast } = useToast();
-  const [steps, setSteps] = useState<StepData[]>([]);
+  const [localSteps, setLocalSteps] = useState<StepData[]>([]);
   const [selectedStep, setSelectedStep] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Load templates for step selection
   const { data: templates = [] } = useQuery<TaskTemplate[]>({
@@ -52,7 +53,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     enabled: !!existingChain?.id,
     onSuccess: (data) => {
       if (data?.length && existingChain) {
-        setSteps(data.map(step => ({
+        // Initialize local steps with existing data
+        setLocalSteps(data.map(step => ({
           id: step.id,
           chainId: existingChain.id,
           templateId: step.templateId,
@@ -82,51 +84,56 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async (data: InsertTaskChain) => {
-      if (steps.length === 0) {
+      if (localSteps.length === 0) {
         throw new Error("At least one step is required");
       }
 
-      // Save chain first
-      const chainResponse = await fetch(
-        existingChain ? `/api/task-chains/${existingChain.id}` : "/api/task-chains",
-        {
-          method: existingChain ? "PATCH" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
+      setIsLoading(true);
+      try {
+        // Save chain first
+        const chainResponse = await fetch(
+          existingChain ? `/api/task-chains/${existingChain.id}` : "/api/task-chains",
+          {
+            method: existingChain ? "PATCH" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          }
+        );
+
+        if (!chainResponse.ok) {
+          throw new Error("Failed to save chain");
         }
-      );
 
-      if (!chainResponse.ok) {
-        throw new Error("Failed to save chain");
-      }
+        const chain = await chainResponse.json();
 
-      const chain = await chainResponse.json();
+        // If updating, delete existing steps
+        if (existingChain) {
+          await Promise.all(
+            existingSteps.map(step =>
+              step.id ? fetch(`/api/chain-steps/${step.id}`, { method: "DELETE" }) : Promise.resolve()
+            )
+          );
+        }
 
-      // If updating, delete existing steps
-      if (existingChain) {
+        // Create new steps with correct chain ID
         await Promise.all(
-          existingSteps.map(step =>
-            step.id ? fetch(`/api/chain-steps/${step.id}`, { method: "DELETE" }) : Promise.resolve()
+          localSteps.map((step, index) =>
+            fetch("/api/chain-steps", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...step,
+                chainId: chain.id,
+                order: index + 1,
+              }),
+            })
           )
         );
+
+        return chain;
+      } finally {
+        setIsLoading(false);
       }
-
-      // Create new steps with correct chain ID
-      await Promise.all(
-        steps.map((step, index) =>
-          fetch("/api/chain-steps", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ...step,
-              chainId: chain.id,
-              order: index + 1,
-            }),
-          })
-        )
-      );
-
-      return chain;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
@@ -158,7 +165,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     const template = templates[0];
     const newStep: StepData = {
       templateId: template.id,
-      order: steps.length + 1,
+      order: localSteps.length + 1,
       isRequired: true,
       waitDuration: 0,
       requiresApproval: template.requiresExpertise ?? false,
@@ -167,12 +174,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       templateDescription: template.description ?? null,
     };
 
-    if (existingChain) {
-      newStep.chainId = existingChain.id;
-    }
-
-    setSteps([...steps, newStep]);
-    setSelectedStep(steps.length);
+    setLocalSteps([...localSteps, newStep]);
+    setSelectedStep(localSteps.length);
   };
 
   const updateStep = (index: number, updates: Partial<StepData>) => {
@@ -183,15 +186,15 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
         updates.templateDescription = template.description ?? null;
       }
     }
-    setSteps(steps.map((step, i) => i === index ? { ...step, ...updates } : step));
+    setLocalSteps(localSteps.map((step, i) => i === index ? { ...step, ...updates } : step));
   };
 
   const removeStep = (index: number) => {
-    setSteps(steps.filter((_, i) => i !== index));
+    setLocalSteps(localSteps.filter((_, i) => i !== index));
     setSelectedStep(null);
   };
 
-  const selectedStepData = selectedStep !== null ? steps[selectedStep] : null;
+  const selectedStepData = selectedStep !== null ? localSteps[selectedStep] : null;
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
@@ -274,14 +277,14 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                 </Button>
               </div>
 
-              {steps.length === 0 ? (
+              {localSteps.length === 0 ? (
                 <div className="flex items-center gap-2 text-muted-foreground border rounded-lg p-4">
                   <AlertCircle className="w-4 h-4" />
                   <p>Add steps to create a task chain</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {steps.map((step, index) => (
+                  {localSteps.map((step, index) => (
                     <Card
                       key={index}
                       className={`${selectedStep === index ? "ring-2 ring-primary" : ""}`}
@@ -458,8 +461,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                 <Button type="button" variant="outline" onClick={onClose}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={saveMutation.isPending}>
-                  {saveMutation.isPending ? "Saving..." : "Save"}
+                <Button type="submit" disabled={isLoading || saveMutation.isPending}>
+                  {isLoading || saveMutation.isPending ? "Saving..." : "Save"}
                 </Button>
               </div>
             </div>

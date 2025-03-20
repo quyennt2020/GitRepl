@@ -30,7 +30,7 @@ export default function ChainList({ chains, onEdit }: Props) {
   const { toast } = useToast();
   const [expandedChain, setExpandedChain] = useState<number | null>(null);
 
-  // Query steps for the expanded chain only
+  // Query steps only for the expanded chain
   const { data: chainSteps = [], isLoading: stepsLoading } = useQuery<ChainStep[]>({
     queryKey: ["/api/task-chains", expandedChain, "steps"],
     queryFn: async () => {
@@ -43,7 +43,7 @@ export default function ChainList({ chains, onEdit }: Props) {
       }
 
       const steps = await response.json();
-      console.log(`[ChainList] Received steps:`, steps);
+      console.log(`[ChainList] Received steps for chain ${expandedChain}:`, steps);
       return steps;
     },
     enabled: expandedChain !== null,
