@@ -42,10 +42,13 @@ export const checklistItems = pgTable("checklist_items", {
   required: boolean("required").default(true),
 });
 
+// Add care task relationship to chain steps
 export const careTasks = pgTable("care_tasks", {
   id: serial("id").primaryKey(),
   plantId: integer("plant_id").notNull(),
-  templateId: integer("template_id").notNull(), // Reference to task template
+  templateId: integer("template_id").notNull(),
+  chainAssignmentId: integer("chain_assignment_id"), // Link to chain assignment
+  chainStepId: integer("chain_step_id"), // Link to specific chain step
   dueDate: timestamp("due_date").notNull(),
   completed: boolean("completed").notNull().default(false),
   completedAt: timestamp("completed_at"),
@@ -80,7 +83,7 @@ export const insertTaskTemplateSchema = createInsertSchema(taskTemplates)
 export const insertChecklistItemSchema = createInsertSchema(checklistItems)
   .omit({ id: true });
 
-// Update care task schema to include template and checklist progress
+// Update care task schema
 export const insertCareTaskSchema = createInsertSchema(careTasks)
   .omit({ id: true, completedAt: true })
   .extend({
@@ -94,6 +97,8 @@ export const insertCareTaskSchema = createInsertSchema(careTasks)
       invalid_type_error: "Invalid date format"
     }),
     plantId: z.coerce.number().positive(),
+    chainAssignmentId: z.coerce.number().optional(),
+    chainStepId: z.coerce.number().optional(),
   });
 
 export const insertPlantSchema = createInsertSchema(plants)

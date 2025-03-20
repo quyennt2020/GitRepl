@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChainAssignment, ChainStep, TaskChain } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,12 +6,17 @@ import { Progress } from "@/components/ui/progress";
 import { Clock, CheckCircle2, Shield, AlertCircle, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import PendingApprovals from "./pending-approvals";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   assignmentId: number;
 }
 
 export default function ChainAssignmentDetails({ assignmentId }: Props) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   // Fetch assignment details
   const { data: assignment, isLoading: isLoadingAssignment } = useQuery<ChainAssignment>({
     queryKey: ["/api/chain-assignments", assignmentId],
@@ -26,11 +31,42 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
     refetchOnMount: true,
   });
 
-  // Fetch steps with template details
-  const { data: steps = [], isLoading: isLoadingSteps } = useQuery<(ChainStep & { templateName: string; templateDescription: string | null })[]>({
-    queryKey: ["/api/task-chains", assignment?.chainId, "steps"],
+  // Fetch steps with progress
+  const { data: steps = [], isLoading: isLoadingSteps } = useQuery<(ChainStep & {
+    templateName: string;
+    templateDescription: string | null;
+    isCompleted: boolean;
+    careTaskId?: number;
+  })[]>({
+    queryKey: ["/api/task-chains", assignment?.chainId, "steps", assignmentId],
     enabled: !!assignment?.chainId,
     refetchOnMount: true,
+  });
+
+  // Mutation for completing a step
+  const completeStepMutation = useMutation({
+    mutationFn: async (stepId: number) => {
+      const response = await fetch(`/api/chain-assignments/${assignmentId}/steps/${stepId}/complete`, {
+        method: 'POST'
+      });
+      if (!response.ok) throw new Error('Failed to complete step');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/chain-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
+      toast({
+        title: "Step completed",
+        description: "The task has been marked as complete and the chain has been updated.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to complete the step. Please try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   if (isLoadingAssignment || isLoadingChain || isLoadingSteps) {
@@ -54,13 +90,11 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
     );
   }
 
-  // Calculate progress percentage
-  const currentStepIndex = steps.findIndex(s => s.id === assignment.currentStepId);
-  const progressPercentage = assignment.status === "completed" 
-    ? 100 
-    : currentStepIndex >= 0 
-      ? Math.round((currentStepIndex / steps.length) * 100)
-      : 0;
+  // Calculate progress percentage based on completed steps
+  const completedSteps = steps.filter(s => s.isCompleted).length;
+  const progressPercentage = assignment.status === "completed"
+    ? 100
+    : Math.round((completedSteps / steps.length) * 100);
 
   return (
     <div className="space-y-4">
@@ -104,15 +138,15 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
             <div className="relative space-y-4">
               {steps.map((step, index) => {
                 const isCurrentStep = step.id === assignment.currentStepId;
-                const isCompleted = assignment.status === "completed" || index < currentStepIndex;
+                const isCompleted = step.isCompleted;
                 const isPending = !isCompleted && !isCurrentStep;
 
                 return (
                   <div
                     key={step.id}
                     className={`relative flex items-start gap-4 pb-4 ${
-                      index < steps.length - 1 
-                        ? "border-l-2 border-dashed ml-[15px]" 
+                      index < steps.length - 1
+                        ? "border-l-2 border-dashed ml-[15px]"
                         : ""
                     }`}
                   >
@@ -151,6 +185,15 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
                                 )}
                                 {!step.isRequired && (
                                   <Badge variant="outline">Optional</Badge>
+                                )}
+                                {isCurrentStep && !isCompleted && !step.requiresApproval && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => completeStepMutation.mutate(step.id)}
+                                    disabled={completeStepMutation.isPending}
+                                  >
+                                    Complete Step
+                                  </Button>
                                 )}
                               </div>
                             </div>
