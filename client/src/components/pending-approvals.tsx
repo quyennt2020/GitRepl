@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChainStep, ChainAssignment } from "@shared/schema";
+import { ChainStep, ChainAssignment, TaskTemplate } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Shield, ChevronRight } from "lucide-react";
@@ -14,14 +14,22 @@ interface Props {
 export default function PendingApprovals({ assignmentId, currentStepId }: Props) {
   const [selectedStep, setSelectedStep] = useState<ChainStep | null>(null);
 
+  // Get assignment details
   const { data: assignment } = useQuery<ChainAssignment>({
     queryKey: ["/api/chain-assignments", assignmentId],
     enabled: !!assignmentId,
   });
 
+  // Get chain steps
   const { data: steps = [] } = useQuery<ChainStep[]>({
     queryKey: ["/api/task-chains", assignment?.chainId, "steps"],
     enabled: !!assignment?.chainId,
+  });
+
+  // Get template details
+  const { data: template } = useQuery<TaskTemplate>({
+    queryKey: ["/api/task-templates", steps.find(s => s.id === currentStepId)?.templateId],
+    enabled: !!steps.find(s => s.id === currentStepId)?.templateId,
   });
 
   // Get current step that needs approval
@@ -29,7 +37,7 @@ export default function PendingApprovals({ assignmentId, currentStepId }: Props)
     step.id === currentStepId && step.requiresApproval
   );
 
-  if (!currentStep) {
+  if (!currentStep || !template) {
     return null;
   }
 
@@ -41,10 +49,15 @@ export default function PendingApprovals({ assignmentId, currentStepId }: Props)
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-amber-500" />
               <div>
-                <h3 className="font-medium">Approval Required</h3>
+                <h3 className="font-medium">{template.name}</h3>
                 <p className="text-sm text-muted-foreground">
                   This step requires approval before proceeding
                 </p>
+                {template.description && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {template.description}
+                  </p>
+                )}
               </div>
             </div>
             <Button
