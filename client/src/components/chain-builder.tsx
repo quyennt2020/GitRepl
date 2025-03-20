@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { TaskChain, TaskTemplate, InsertTaskChain, insertTaskChainSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,6 +41,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
   const [localSteps, setLocalSteps] = useState<StepData[]>([]);
   const [selectedStep, setSelectedStep] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [showUnsavedChanges, setShowUnsavedChanges] = useState(false);
 
   // Load templates for step selection
   const { data: templates = [] } = useQuery<TaskTemplate[]>({
@@ -51,24 +53,26 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
   const { data: existingSteps = [] } = useQuery<StepData[]>({
     queryKey: ["/api/task-chains", existingChain?.id, "steps"],
     enabled: !!existingChain?.id,
-    onSuccess: (data) => {
-      if (data?.length && existingChain) {
-        // Initialize local steps with existing data
-        setLocalSteps(data.map(step => ({
-          id: step.id,
-          chainId: existingChain.id,
-          templateId: step.templateId,
-          order: step.order,
-          isRequired: step.isRequired ?? true,
-          waitDuration: step.waitDuration ?? 0,
-          requiresApproval: step.requiresApproval ?? false,
-          approvalRoles: step.approvalRoles ?? [],
-          templateName: step.templateName,
-          templateDescription: step.templateDescription,
-        })));
-      }
-    }
   });
+
+  // Initialize local state from existing data
+  useEffect(() => {
+    if (existingSteps.length && existingChain) {
+      setLocalSteps(existingSteps.map(step => ({
+        id: step.id,
+        chainId: existingChain.id,
+        templateId: step.templateId,
+        order: step.order,
+        isRequired: step.isRequired ?? true,
+        waitDuration: step.waitDuration ?? 0,
+        requiresApproval: step.requiresApproval ?? false,
+        approvalRoles: step.approvalRoles ?? [],
+        templateName: step.templateName,
+        templateDescription: step.templateDescription,
+      })));
+      setIsDirty(false);
+    }
+  }, [existingChain, existingSteps]);
 
   // Form setup
   const form = useForm<InsertTaskChain>({
@@ -80,6 +84,31 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       isActive: existingChain?.isActive ?? true,
     },
   });
+
+  // Watch form values for changes
+  useEffect(() => {
+    const subscription = form.watch(() => setIsDirty(true));
+    return () => subscription.unsubscribe();
+  }, [form.watch]);
+
+  // Handle dialog close with unsaved changes
+  const handleClose = () => {
+    if (isDirty) {
+      setShowUnsavedChanges(true);
+    } else {
+      cleanup();
+    }
+  };
+
+  // Cleanup function
+  const cleanup = () => {
+    setLocalSteps([]);
+    setSelectedStep(null);
+    setIsDirty(false);
+    setShowUnsavedChanges(false);
+    form.reset();
+    onClose();
+  };
 
   // Save mutation
   const saveMutation = useMutation({
@@ -140,7 +169,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       toast({
         title: `Chain ${existingChain ? "updated" : "created"} successfully`,
       });
-      onClose();
+      cleanup();
     },
     onError: (error) => {
       toast({
@@ -176,6 +205,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
 
     setLocalSteps([...localSteps, newStep]);
     setSelectedStep(localSteps.length);
+    setIsDirty(true);
   };
 
   const updateStep = (index: number, updates: Partial<StepData>) => {
@@ -187,288 +217,312 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       }
     }
     setLocalSteps(localSteps.map((step, i) => i === index ? { ...step, ...updates } : step));
+    setIsDirty(true);
   };
 
   const removeStep = (index: number) => {
     setLocalSteps(localSteps.filter((_, i) => i !== index));
     setSelectedStep(null);
+    setIsDirty(true);
   };
 
   const selectedStepData = selectedStep !== null ? localSteps[selectedStep] : null;
 
   return (
-    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {existingChain ? "Edit Task Chain" : "New Task Chain"}
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {existingChain ? "Edit Task Chain" : "New Task Chain"}
+            </DialogTitle>
+          </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit((data) => saveMutation.mutate(data))} className="space-y-6">
-            {/* Chain Info */}
-            <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Enter chain name" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit((data) => saveMutation.mutate(data))} className="space-y-6">
+              {/* Chain Info */}
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Enter chain name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        placeholder="Describe the chain's purpose"
-                        className="resize-none"
-                        rows={3}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          placeholder="Describe the chain's purpose"
+                          className="resize-none"
+                          rows={3}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="water">Water</SelectItem>
-                        <SelectItem value="fertilize">Fertilize</SelectItem>
-                        <SelectItem value="prune">Prune</SelectItem>
-                        <SelectItem value="check">Check</SelectItem>
-                        <SelectItem value="repot">Repot</SelectItem>
-                        <SelectItem value="clean">Clean</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Steps */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">Chain Steps</h3>
-                <Button type="button" variant="outline" size="sm" onClick={addStep}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Step
-                </Button>
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="water">Water</SelectItem>
+                          <SelectItem value="fertilize">Fertilize</SelectItem>
+                          <SelectItem value="prune">Prune</SelectItem>
+                          <SelectItem value="check">Check</SelectItem>
+                          <SelectItem value="repot">Repot</SelectItem>
+                          <SelectItem value="clean">Clean</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
-              {localSteps.length === 0 ? (
-                <div className="flex items-center gap-2 text-muted-foreground border rounded-lg p-4">
-                  <AlertCircle className="w-4 h-4" />
-                  <p>Add steps to create a task chain</p>
+              {/* Steps */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">Chain Steps</h3>
+                  <Button type="button" variant="outline" size="sm" onClick={addStep}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Step
+                  </Button>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {localSteps.map((step, index) => (
-                    <Card
-                      key={index}
-                      className={`${selectedStep === index ? "ring-2 ring-primary" : ""}`}
-                      onClick={() => setSelectedStep(index)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="min-w-[32px] h-8 flex items-center justify-center border rounded-md bg-muted">
-                            {index + 1}
-                          </div>
-                          <div className="flex-1 space-y-2">
-                            <Select
-                              value={String(step.templateId)}
-                              onValueChange={(value) => {
-                                const template = templates.find(
-                                  (t) => t.id === Number(value)
-                                );
-                                if (template) {
-                                  updateStep(index, {
-                                    templateId: Number(value),
-                                    requiresApproval: template.requiresExpertise,
-                                    approvalRoles: template.requiresExpertise ? ["expert"] : [],
-                                    templateName: template.name,
-                                    templateDescription: template.description ?? null,
-                                  });
-                                }
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select task" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {templates.map((t) => (
-                                  <SelectItem key={t.id} value={String(t.id)}>
-                                    {t.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
 
-                            {step.templateDescription && (
-                              <p className="text-sm text-muted-foreground">
-                                {step.templateDescription}
-                              </p>
-                            )}
-
-                            <div className="flex flex-wrap gap-2">
-                              {step.waitDuration > 0 && (
-                                <Badge variant="outline" className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  Wait {step.waitDuration}h
-                                </Badge>
-                              )}
-                              {step.requiresApproval && (
-                                <Badge variant="outline" className="flex items-center gap-1">
-                                  <Shield className="w-3 h-3" />
-                                  Needs Approval
-                                </Badge>
-                              )}
+                {localSteps.length === 0 ? (
+                  <div className="flex items-center gap-2 text-muted-foreground border rounded-lg p-4">
+                    <AlertCircle className="w-4 h-4" />
+                    <p>Add steps to create a task chain</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {localSteps.map((step, index) => (
+                      <Card
+                        key={index}
+                        className={`${selectedStep === index ? "ring-2 ring-primary" : ""}`}
+                        onClick={() => setSelectedStep(index)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="min-w-[32px] h-8 flex items-center justify-center border rounded-md bg-muted">
+                              {index + 1}
                             </div>
+                            <div className="flex-1 space-y-2">
+                              <Select
+                                value={String(step.templateId)}
+                                onValueChange={(value) => {
+                                  const template = templates.find(
+                                    (t) => t.id === Number(value)
+                                  );
+                                  if (template) {
+                                    updateStep(index, {
+                                      templateId: Number(value),
+                                      requiresApproval: template.requiresExpertise,
+                                      approvalRoles: template.requiresExpertise ? ["expert"] : [],
+                                      templateName: template.name,
+                                      templateDescription: template.description ?? null,
+                                    });
+                                  }
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select task" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {templates.map((t) => (
+                                    <SelectItem key={t.id} value={String(t.id)}>
+                                      {t.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+
+                              {step.templateDescription && (
+                                <p className="text-sm text-muted-foreground">
+                                  {step.templateDescription}
+                                </p>
+                              )}
+
+                              <div className="flex flex-wrap gap-2">
+                                {step.waitDuration > 0 && (
+                                  <Badge variant="outline" className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    Wait {step.waitDuration}h
+                                  </Badge>
+                                )}
+                                {step.requiresApproval && (
+                                  <Badge variant="outline" className="flex items-center gap-1">
+                                    <Shield className="w-3 h-3" />
+                                    Needs Approval
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeStep(index);
+                              }}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span className="sr-only">Remove step</span>
+                            </Button>
                           </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeStep(index);
-                            }}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            <span className="sr-only">Remove step</span>
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
+              {/* Step Configuration */}
+              {selectedStepData && (
+                <div className="space-y-4 border rounded-lg p-4">
+                  <div className="space-y-1">
+                    <h4 className="font-medium">Step Configuration</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Configure additional settings for this step
+                    </p>
+                  </div>
 
-            {/* Step Configuration */}
-            {selectedStepData && (
-              <div className="space-y-4 border rounded-lg p-4">
-                <div className="space-y-1">
-                  <h4 className="font-medium">Step Configuration</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Configure additional settings for this step
-                  </p>
-                </div>
+                  <Separator />
 
-                <Separator />
-
-                <div className="space-y-4">
-                  <FormItem>
-                    <FormLabel>Wait Duration (hours)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={selectedStepData.waitDuration}
-                        onChange={(e) =>
-                          updateStep(selectedStep, {
-                            waitDuration: parseInt(e.target.value) || 0,
-                          })
-                        }
-                        placeholder="Hours to wait after previous step"
-                      />
-                    </FormControl>
-                  </FormItem>
-
-                  <div className="flex flex-col gap-4">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="step-required"
-                        checked={selectedStepData.isRequired}
-                        onCheckedChange={(checked) =>
-                          updateStep(selectedStep, {
-                            isRequired: !!checked,
-                          })
-                        }
-                      />
-                      <label htmlFor="step-required" className="text-sm font-medium leading-none">
-                        Required step
-                      </label>
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="step-approval"
-                        checked={selectedStepData.requiresApproval}
-                        onCheckedChange={(checked) =>
-                          updateStep(selectedStep, {
-                            requiresApproval: !!checked,
-                            approvalRoles: checked ? ["expert"] : [],
-                          })
-                        }
-                      />
-                      <label htmlFor="step-approval" className="text-sm font-medium leading-none">
-                        Requires approval
-                      </label>
-                    </div>
-
-                    {selectedStepData.requiresApproval && (
-                      <FormItem className="space-y-1">
-                        <FormLabel>Approval Roles</FormLabel>
-                        <Select
-                          value={selectedStepData.approvalRoles[0] || "expert"}
-                          onValueChange={(value) =>
+                  <div className="space-y-4">
+                    <FormItem>
+                      <FormLabel>Wait Duration (hours)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={selectedStepData.waitDuration}
+                          onChange={(e) =>
                             updateStep(selectedStep, {
-                              approvalRoles: [value],
+                              waitDuration: parseInt(e.target.value) || 0,
                             })
                           }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select required role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="expert">Expert</SelectItem>
-                            <SelectItem value="manager">Manager</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    )}
+                          placeholder="Hours to wait after previous step"
+                        />
+                      </FormControl>
+                    </FormItem>
+
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="step-required"
+                          checked={selectedStepData.isRequired}
+                          onCheckedChange={(checked) =>
+                            updateStep(selectedStep, {
+                              isRequired: !!checked,
+                            })
+                          }
+                        />
+                        <label htmlFor="step-required" className="text-sm font-medium leading-none">
+                          Required step
+                        </label>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="step-approval"
+                          checked={selectedStepData.requiresApproval}
+                          onCheckedChange={(checked) =>
+                            updateStep(selectedStep, {
+                              requiresApproval: !!checked,
+                              approvalRoles: checked ? ["expert"] : [],
+                            })
+                          }
+                        />
+                        <label htmlFor="step-approval" className="text-sm font-medium leading-none">
+                          Requires approval
+                        </label>
+                      </div>
+
+                      {selectedStepData.requiresApproval && (
+                        <FormItem className="space-y-1">
+                          <FormLabel>Approval Roles</FormLabel>
+                          <Select
+                            value={selectedStepData.approvalRoles[0] || "expert"}
+                            onValueChange={(value) =>
+                              updateStep(selectedStep, {
+                                approvalRoles: [value],
+                              })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select required role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="expert">Expert</SelectItem>
+                              <SelectItem value="manager">Manager</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Form Actions */}
-            <div className="sticky bottom-0 -mx-6 px-6 py-4 bg-background border-t">
-              <div className="flex justify-end gap-4">
-                <Button type="button" variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isLoading || saveMutation.isPending}>
-                  {isLoading || saveMutation.isPending ? "Saving..." : "Save"}
-                </Button>
+              {/* Form Actions */}
+              <div className="sticky bottom-0 -mx-6 px-6 py-4 bg-background border-t">
+                <div className="flex justify-end gap-4">
+                  <Button type="button" variant="outline" onClick={handleClose}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isLoading || saveMutation.isPending}>
+                    {isLoading || saveMutation.isPending ? "Saving..." : "Save"}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unsaved Changes Dialog */}
+      <Dialog open={showUnsavedChanges} onOpenChange={setShowUnsavedChanges}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unsaved Changes</DialogTitle>
+            <DialogDescription>
+              You have unsaved changes. Are you sure you want to discard them?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-4">
+            <Button variant="outline" onClick={() => setShowUnsavedChanges(false)}>
+              Continue Editing
+            </Button>
+            <Button variant="destructive" onClick={cleanup}>
+              Discard Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
