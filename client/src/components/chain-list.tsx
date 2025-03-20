@@ -30,22 +30,25 @@ export default function ChainList({ chains, onEdit }: Props) {
   const { toast } = useToast();
   const [expandedChain, setExpandedChain] = useState<number | null>(null);
 
-  // Load steps for the expanded chain only
-  const { data: chainSteps = [], isLoading } = useQuery<ChainStep[]>({
+  // Query steps only for the expanded chain
+  const { data: chainSteps = [], isLoading: stepsLoading } = useQuery<ChainStep[]>({
     queryKey: ["/api/task-chains", expandedChain, "steps"],
     queryFn: async () => {
       if (!expandedChain) return [];
 
+      console.log(`Fetching steps for chain ${expandedChain}`);
       const response = await fetch(`/api/task-chains/${expandedChain}/steps`);
       if (!response.ok) {
         throw new Error("Failed to fetch chain steps");
       }
+
       const steps = await response.json();
       console.log(`Chain ${expandedChain} steps:`, steps);
       return steps;
     },
     enabled: expandedChain !== null,
-    staleTime: 0, // Don't cache the results
+    staleTime: 0, // Don't cache results
+    cacheTime: 0, // Remove from cache immediately
   });
 
   const deleteChainMutation = useMutation({
@@ -88,10 +91,14 @@ export default function ChainList({ chains, onEdit }: Props) {
               <div 
                 className="flex items-start justify-between cursor-pointer"
                 onClick={() => {
-                  // Reset steps when collapsing
+                  // Reset steps state when collapsing or changing chains
                   if (expandedChain === chain.id) {
                     setExpandedChain(null);
+                    queryClient.removeQueries({ queryKey: ["/api/task-chains", chain.id, "steps"] });
                   } else {
+                    if (expandedChain) {
+                      queryClient.removeQueries({ queryKey: ["/api/task-chains", expandedChain, "steps"] });
+                    }
                     setExpandedChain(chain.id);
                   }
                 }}
@@ -111,6 +118,7 @@ export default function ChainList({ chains, onEdit }: Props) {
                     )}
                   </div>
                 </div>
+
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -149,24 +157,23 @@ export default function ChainList({ chains, onEdit }: Props) {
                 </Badge>
               </div>
 
-              {/* Steps List - Only show steps for the expanded chain */}
+              {/* Steps List - Only show for expanded chain */}
               {expandedChain === chain.id && (
                 <div className="pt-2 border-t">
-                  {isLoading ? (
+                  {stepsLoading ? (
                     <div className="flex items-center justify-center p-4">
                       <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />
                     </div>
                   ) : chainSteps.length > 0 ? (
                     <div className="space-y-2">
                       {chainSteps
-                        .filter(step => step.chainId === chain.id) // Extra safety filter
                         .sort((a, b) => a.order - b.order)
                         .map((step, index) => (
                           <div
                             key={step.id}
                             className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg"
                           >
-                            <div className="flex items-center justify-center w-6 h-6 bg-background border rounded-md text-sm">
+                            <div className="min-w-[32px] h-8 flex items-center justify-center border rounded-md bg-muted">
                               {index + 1}
                             </div>
                             <div className="flex-1 min-w-0">
