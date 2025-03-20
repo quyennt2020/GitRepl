@@ -196,7 +196,33 @@ export class DatabaseStorage implements IStorage {
   }
   async createTaskChain(chain: InsertTaskChain): Promise<TaskChain> { throw new Error("Method not implemented."); }
   async updateTaskChain(id: number, update: Partial<TaskChain>): Promise<TaskChain> { throw new Error("Method not implemented."); }
-  async deleteTaskChain(id: number): Promise<void> { throw new Error("Method not implemented."); }
+  async deleteTaskChain(id: number): Promise<void> {
+    console.log('Deleting task chain:', id);
+
+    await db.transaction(async (tx) => {
+      // First delete all steps associated with this chain
+      await tx.delete(chainSteps)
+        .where(eq(chainSteps.chainId, id));
+
+      // Then mark the chain as inactive instead of deleting
+      // This preserves history while hiding it from the UI
+      await tx.update(taskChains)
+        .set({ isActive: false })
+        .where(eq(taskChains.id, id));
+
+      // Mark any active assignments as cancelled
+      await tx.update(chainAssignments)
+        .set({ 
+          status: "cancelled",
+          completedAt: new Date(),
+          lastUpdated: new Date()
+        })
+        .where(and(
+          eq(chainAssignments.chainId, id),
+          eq(chainAssignments.status, "active")
+        ));
+    });
+  }
   async createChainStep(step: InsertChainStep): Promise<ChainStep> { throw new Error("Method not implemented."); }
   async updateChainStep(id: number, update: Partial<ChainStep>): Promise<ChainStep> { throw new Error("Method not implemented."); }
   async deleteChainStep(id: number): Promise<void> { throw new Error("Method not implemented."); }
