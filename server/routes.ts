@@ -568,6 +568,50 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.post("/api/chain-assignments/:assignmentId/steps/:stepId/approve", async (req, res) => {
+    try {
+      const assignmentId = Number(req.params.assignmentId);
+      const stepId = Number(req.params.stepId);
+      const { approved, notes } = req.body;
+
+      if (!assignmentId || !stepId) {
+        return res.status(400).json({ message: "Invalid assignment or step ID" });
+      }
+
+      // For now hardcoding the approver ID as 1, in future this will come from auth
+      const approvedBy = 1;
+
+      if (approved) {
+        // Create approval record
+        const approval = await storage.createStepApproval({
+          assignmentId,
+          stepId,
+          approvedBy,
+          notes: notes || null,
+        });
+
+        // Update assignment status to reflect approval
+        await storage.updateChainAssignment(assignmentId, {
+          currentStepId: stepId,
+          status: "active",
+        });
+
+        res.status(201).json(approval);
+      } else {
+        // If rejected, update assignment status
+        await storage.updateChainAssignment(assignmentId, {
+          status: "cancelled",
+          completedAt: new Date(),
+        });
+
+        res.status(200).json({ message: "Step rejected" });
+      }
+    } catch (error) {
+      console.error('Error in step approval:', error);
+      res.status(500).json({ message: "Failed to process approval" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
