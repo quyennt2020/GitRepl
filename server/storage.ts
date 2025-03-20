@@ -157,42 +157,70 @@ export class DatabaseStorage implements IStorage {
   }
   async getTaskTemplates(): Promise<TaskTemplate[]> {
     console.log('Fetching all task templates');
-    return db.select()
-      .from(taskTemplates)
-      .orderBy(desc(taskTemplates.createdAt));
+    try {
+      const templates = await db.select()
+        .from(taskTemplates)
+        .orderBy(taskTemplates.id);
+
+      console.log('Retrieved templates:', templates);
+      return templates;
+    } catch (error) {
+      console.error('Error fetching task templates:', error);
+      throw new Error('Failed to fetch task templates');
+    }
   }
   async getTaskTemplate(id: number): Promise<TaskTemplate | undefined> {
     console.log('Fetching task template:', id);
-    const [template] = await db.select()
-      .from(taskTemplates)
-      .where(eq(taskTemplates.id, id));
-    return template;
+    try {
+      const [template] = await db.select()
+        .from(taskTemplates)
+        .where(eq(taskTemplates.id, id));
+      return template;
+    } catch (error) {
+      console.error('Error fetching task template:', error);
+      throw new Error('Failed to fetch task template');
+    }
   }
   async createTaskTemplate(template: InsertTaskTemplate): Promise<TaskTemplate> {
     console.log('Creating task template:', template);
-    const [newTemplate] = await db.insert(taskTemplates)
-      .values({
-        ...template,
-        createdAt: new Date(),
-        public: template.public ?? false,
-        applyToAll: template.applyToAll ?? false,
-        requiresExpertise: template.requiresExpertise ?? false,
-      })
-      .returning();
-    return newTemplate;
+    try {
+      const [newTemplate] = await db.insert(taskTemplates)
+        .values({
+          ...template,
+          public: template.public ?? false,
+          applyToAll: template.applyToAll ?? false,
+          requiresExpertise: template.requiresExpertise ?? false,
+        })
+        .returning();
+      return newTemplate;
+    } catch (error) {
+      console.error('Error creating task template:', error);
+      throw new Error('Failed to create task template');
+    }
   }
   async updateTaskTemplate(id: number, update: Partial<TaskTemplate>): Promise<TaskTemplate> {
     console.log('Updating task template:', id, update);
-    const [template] = await db.update(taskTemplates)
-      .set(update)
-      .where(eq(taskTemplates.id, id))
-      .returning();
-    if (!template) throw new Error("Task template not found");
-    return template;
+    try {
+      const [template] = await db.update(taskTemplates)
+        .set(update)
+        .where(eq(taskTemplates.id, id))
+        .returning();
+      if (!template) throw new Error("Task template not found");
+      return template;
+    } catch (error) {
+      console.error('Error updating task template:', error);
+      throw new Error('Failed to update task template');
+    }
   }
   async deleteTaskTemplate(id: number): Promise<void> {
     console.log('Deleting task template:', id);
-    await db.delete(taskTemplates).where(eq(taskTemplates.id, id));
+    try {
+      await db.delete(taskTemplates)
+        .where(eq(taskTemplates.id, id));
+    } catch (error) {
+      console.error('Error deleting task template:', error);
+      throw new Error('Failed to delete task template');
+    }
   }
   async createTaskChain(chain: InsertTaskChain): Promise<TaskChain> { throw new Error("Method not implemented."); }
   async updateTaskChain(id: number, update: Partial<TaskChain>): Promise<TaskChain> { throw new Error("Method not implemented."); }
