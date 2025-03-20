@@ -322,8 +322,80 @@ class DatabaseStorage implements IStorage {
   }
 
   async createStepApproval(approval: InsertStepApproval): Promise<StepApproval> {
-    const [newApproval] = await db.insert(stepApprovals).values(approval).returning();
-    return newApproval;
+    console.log(`[Storage] Creating step approval:`, approval);
+
+    return await db.transaction(async (tx) => {
+      // Create the approval record
+      const [newApproval] = await tx.insert(stepApprovals)
+        .values(approval)
+        .returning();
+
+      if (approval.approved) {
+        // Get the assignment and current step
+        const [assignment] = await tx.select()
+          .from(chainAssignments)
+          .where(eq(chainAssignments.id, approval.assignmentId));
+
+        if (!assignment) throw new Error("Chain assignment not found");
+
+        // Get all steps for the chain
+        const steps = await this.getChainSteps(assignment.chainId);
+        const currentStepIndex = steps.findIndex(s => s.id === assignment.currentStepId);
+
+        if (currentStepIndex === -1) throw new Error("Current step not found in chain");
+
+        const nextStep = steps[currentStepIndex + 1];
+
+        // If there's a next step, update assignment and create new task
+        if (nextStep) {
+          // Update assignment to point to next step
+          await tx.update(chainAssignments)
+            .set({ currentStepId: nextStep.id })
+            .where(eq(chainAssignments.id, approval.assignmentId));
+
+          // Create task for next step
+          await tx.insert(careTasks).values({
+            plantId: assignment.plantId,
+            templateId: nextStep.templateId,
+            dueDate: new Date().toISOString(),
+            completed: false,
+            notes: `Part of chain: ${assignment.chainId}, step: ${nextStep.order}${nextStep.requiresApproval ? ' (Needs Approval)' : ''}`,
+            checklistProgress: {},
+          });
+
+          console.log(`[Storage] Created task for next step ${nextStep.id}`);
+        } else {
+          // If no next step, mark chain as completed
+          await tx.update(chainAssignments)
+            .set({
+              status: "completed",
+              completedAt: new Date().toISOString(),
+              currentStepId: null
+            })
+            .where(eq(chainAssignments.id, approval.assignmentId));
+
+          console.log(`[Storage] Chain completed, no more steps`);
+        }
+      } else {
+        //If rejected, find the current step to reset its task.
+        const [currentStep] = await tx.select().from(chainSteps).where(eq(chainSteps.id, assignment.currentStepId));
+        if (!currentStep) throw new Error("Current step not found");
+        // If rejected, reset the task completion
+        await tx.update(careTasks)
+          .set({ 
+            completed: false,
+            completedAt: null
+          })
+          .where(and(
+            eq(careTasks.plantId, assignment.plantId),
+            eq(careTasks.templateId, currentStep.templateId)
+          ));
+
+        console.log(`[Storage] Step rejected, reset task completion`);
+      }
+
+      return newApproval;
+    });
   }
 
   async deleteStepApproval(id: number): Promise<void> {
