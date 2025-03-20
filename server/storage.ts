@@ -47,6 +47,7 @@ export interface IStorage {
   getHealthRecord(id: number): Promise<HealthRecord | undefined>;
   createHealthRecord(record: InsertHealthRecord): Promise<HealthRecord>;
   updateHealthRecord(id: number, update: Partial<HealthRecord>): Promise<HealthRecord>;
+  createTaskForChainStep(assignmentId: number, stepId: number): Promise<void>;
 }
 
 class DatabaseStorage implements IStorage {
@@ -233,13 +234,82 @@ class DatabaseStorage implements IStorage {
   }
 
   async createChainAssignment(assignment: InsertChainAssignment): Promise<ChainAssignment> {
-    const [newAssignment] = await db.insert(chainAssignments).values(assignment).returning();
-    return newAssignment;
+    console.log(`[Storage] Creating chain assignment:`, assignment);
+
+    // Start a transaction
+    return await db.transaction(async (tx) => {
+      // Create the assignment
+      const [newAssignment] = await tx.insert(chainAssignments)
+        .values(assignment)
+        .returning();
+
+      // Get the first step of the chain
+      const steps = await this.getChainSteps(assignment.chainId);
+      if (steps.length > 0) {
+        const firstStep = steps[0];
+
+        // Update the assignment with the first step
+        const [updatedAssignment] = await tx.update(chainAssignments)
+          .set({ currentStepId: firstStep.id })
+          .where(eq(chainAssignments.id, newAssignment.id))
+          .returning();
+
+        // Create the first task
+        await tx.insert(careTasks).values({
+          plantId: assignment.plantId,
+          templateId: firstStep.templateId,
+          dueDate: new Date().toISOString(),
+          completed: false,
+          notes: `Part of chain: ${assignment.chainId}, step: ${firstStep.order}`,
+          checklistProgress: {},
+        });
+
+        console.log(`[Storage] Created first task for chain ${assignment.chainId}`);
+        return updatedAssignment;
+      }
+
+      return newAssignment;
+    });
   }
 
   async updateChainAssignment(id: number, update: Partial<ChainAssignment>): Promise<ChainAssignment> {
-    const [assignment] = await db.update(chainAssignments).set(update).where(eq(chainAssignments.id, id)).returning();
+    console.log(`[Storage] Updating chain assignment ${id}:`, update);
+
+    const [assignment] = await db.update(chainAssignments)
+      .set(update)
+      .where(eq(chainAssignments.id, id))
+      .returning();
+
     if (!assignment) throw new Error("Chain assignment not found");
+
+    // If a step was completed and approved, automatically progress to the next step
+    if (update.currentStepId) {
+      const steps = await this.getChainSteps(assignment.chainId);
+      const currentStepIndex = steps.findIndex(s => s.id === update.currentStepId);
+      const nextStep = steps[currentStepIndex + 1];
+
+      // If there's a next step, update the assignment to point to it
+      if (nextStep) {
+        console.log(`[Storage] Progressing to next step: ${nextStep.id}`);
+        assignment.currentStepId = nextStep.id;
+        await db.update(chainAssignments)
+          .set({ currentStepId: nextStep.id })
+          .where(eq(chainAssignments.id, id));
+      } else {
+        // If no next step, mark the chain as completed
+        console.log(`[Storage] Chain completed, no more steps`);
+        assignment.status = "completed";
+        assignment.completedAt = new Date().toISOString();
+        await db.update(chainAssignments)
+          .set({
+            status: "completed",
+            completedAt: new Date().toISOString(),
+            currentStepId: null
+          })
+          .where(eq(chainAssignments.id, id));
+      }
+    }
+
     return assignment;
   }
 
@@ -278,6 +348,31 @@ class DatabaseStorage implements IStorage {
     const [record] = await db.update(healthRecords).set(update).where(eq(healthRecords.id, id)).returning();
     if (!record) throw new Error("Health record not found");
     return record;
+  }
+
+  async createTaskForChainStep(assignmentId: number, stepId: number): Promise<void> {
+    const [assignment] = await db.select()
+      .from(chainAssignments)
+      .where(eq(chainAssignments.id, assignmentId));
+
+    if (!assignment) throw new Error("Chain assignment not found");
+
+    const [step] = await db.select()
+      .from(chainSteps)
+      .where(eq(chainSteps.id, stepId));
+
+    if (!step) throw new Error("Chain step not found");
+
+    await db.insert(careTasks).values({
+      plantId: assignment.plantId,
+      templateId: step.templateId,
+      dueDate: new Date().toISOString(),
+      completed: false,
+      notes: `Part of chain: ${assignment.chainId}, step: ${step.order}`,
+      checklistProgress: {},
+    });
+
+    console.log(`[Storage] Created task for chain ${assignment.chainId} step ${step.order}`);
   }
 }
 
