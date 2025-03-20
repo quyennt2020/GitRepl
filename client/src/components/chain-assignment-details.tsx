@@ -12,25 +12,33 @@ interface Props {
 }
 
 export default function ChainAssignmentDetails({ assignmentId }: Props) {
-  const { data: assignment } = useQuery<ChainAssignment>({
+  const { data: assignment, isLoading: isLoadingAssignment } = useQuery<ChainAssignment>({
     queryKey: ["/api/chain-assignments", assignmentId],
     enabled: !!assignmentId,
   });
 
-  const { data: chain } = useQuery<TaskChain>({
+  const { data: chain, isLoading: isLoadingChain } = useQuery<TaskChain>({
     queryKey: ["/api/task-chains", assignment?.chainId],
     enabled: !!assignment?.chainId,
   });
 
-  const { data: steps = [] } = useQuery<ChainStep[]>({
+  const { data: steps = [], isLoading: isLoadingSteps } = useQuery<ChainStep[]>({
     queryKey: ["/api/task-chains", assignment?.chainId, "steps"],
     enabled: !!assignment?.chainId,
   });
 
-  if (!assignment || !chain) {
+  if (isLoadingAssignment || isLoadingChain || isLoadingSteps) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!assignment || !chain || !steps.length) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        No chain details available
       </div>
     );
   }
@@ -139,7 +147,7 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
                                 {step.templateDescription}
                               </p>
                             )}
-                            {step.waitDuration > 0 && (
+                            {step.waitDuration && step.waitDuration > 0 && (
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <Clock className="w-4 h-4" />
                                 Wait {step.waitDuration}h after previous step

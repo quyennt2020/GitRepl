@@ -201,6 +201,7 @@ class DatabaseStorage implements IStorage {
       order: chainSteps.order,
       isRequired: chainSteps.isRequired,
       waitDuration: chainSteps.waitDuration,
+      condition: chainSteps.condition,
       requiresApproval: chainSteps.requiresApproval,
       approvalRoles: chainSteps.approvalRoles,
       templateName: taskTemplates.name,
