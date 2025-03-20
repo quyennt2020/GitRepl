@@ -74,7 +74,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     }
   }, [existingChain, existingSteps]);
 
-  // Form setup
+  // Form setup with proper initialization from database
   const form = useForm<InsertTaskChain>({
     resolver: zodResolver(insertTaskChainSchema),
     defaultValues: {
@@ -84,6 +84,19 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       isActive: existingChain?.isActive ?? true,
     },
   });
+
+  // Reset form when existingChain changes
+  useEffect(() => {
+    if (existingChain) {
+      form.reset({
+        name: existingChain.name,
+        description: existingChain.description ?? "",
+        category: existingChain.category as "water" | "fertilize" | "prune" | "check" | "repot" | "clean",
+        isActive: existingChain.isActive,
+      });
+      setIsDirty(false);
+    }
+  }, [existingChain, form]);
 
   // Watch form values for changes
   useEffect(() => {
