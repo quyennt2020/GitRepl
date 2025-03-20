@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Sprout, Shield, ListOrdered } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StepApprovalDialog from "./step-approval-dialog";
+import ChainAssignmentDetails from "./chain-assignment-details";
 import { format } from "date-fns";
 
 export default function ChainAssignmentsList() {
@@ -164,44 +165,59 @@ export default function ChainAssignmentsList() {
         />
       )}
 
-      <div className="space-y-2">
-        <h2 className="text-lg font-medium">All Assignments ({assignmentsWithDetails.length})</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {assignmentsWithDetails.map((assignment) => (
-            <Card
-              key={assignment.id}
-              className="cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => setSelectedAssignment(assignment.id)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Sprout className="w-4 h-4 text-green-500" />
-                      <span className="font-medium">{assignment.plantName}</span>
+      {selectedAssignment ? (
+        // Show detailed chain progress view when an assignment is selected
+        <>
+          <Button
+            variant="ghost"
+            onClick={() => setSelectedAssignment(null)}
+            className="mb-4"
+          >
+            ← Back to All Assignments
+          </Button>
+          <ChainAssignmentDetails assignmentId={selectedAssignment} />
+        </>
+      ) : (
+        // Show the list of all assignments
+        <div className="space-y-2">
+          <h2 className="text-lg font-medium">All Assignments ({assignmentsWithDetails.length})</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {assignmentsWithDetails.map((assignment) => (
+              <Card
+                key={assignment.id}
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => setSelectedAssignment(assignment.id)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Sprout className="w-4 h-4 text-green-500" />
+                        <span className="font-medium">{assignment.plantName}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Clock className="w-4 h-4" />
+                        Started {format(new Date(assignment.startedAt || new Date()), "PP")}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Clock className="w-4 h-4" />
-                      Started {format(new Date(assignment.startedAt || new Date()), "PP")}
-                    </div>
+                    <Badge
+                      variant={
+                        assignment.status === "completed"
+                          ? "default"
+                          : assignment.status === "cancelled"
+                          ? "destructive"
+                          : "outline"
+                      }
+                    >
+                      {assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1)}
+                    </Badge>
                   </div>
-                  <Badge
-                    variant={
-                      assignment.status === "completed"
-                        ? "default"
-                        : assignment.status === "cancelled"
-                        ? "destructive"
-                        : "outline"
-                    }
-                  >
-                    {assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1)}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
