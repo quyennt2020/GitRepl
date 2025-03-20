@@ -367,7 +367,6 @@ export class DatabaseStorage implements IStorage {
   }
 
 
-
   async getTaskChains(): Promise<TaskChain[]> {
     return db.select()
       .from(taskChains)
@@ -424,63 +423,45 @@ export class DatabaseStorage implements IStorage {
   async getChainAssignment(id: number): Promise<ChainAssignment | undefined> {
     console.log('Fetching chain assignment:', id);
 
-    return await db.transaction(async (tx) => {
-      // Get the assignment
-      const [assignment] = await tx.select()
-        .from(chainAssignments)
-        .where(eq(chainAssignments.id, id));
+    const [assignment] = await db.select()
+      .from(chainAssignments)
+      .where(eq(chainAssignments.id, id));
 
-      if (!assignment) {
-        console.log('Assignment not found:', id);
-        return undefined;
-      }
+    if (!assignment) {
+      console.log('Assignment not found:', id);
+      return undefined;
+    }
 
-      // Get all steps for this chain with their completion status
-      const stepsWithStatus = await tx.select({
-        id: chainSteps.id,
-        order: chainSteps.order,
-        completed: careTasks.completed,
-        completedAt: careTasks.completedAt
+    // Get chain to verify it exists
+    const chain = await this.getTaskChain(assignment.chainId);
+    if (!chain) {
+      console.log('Associated chain not found:', assignment.chainId);
+      return undefined;
+    }
+
+    // Get completed steps and calculate progress
+    const steps = await this.getChainSteps(assignment.chainId);
+    const completedTasks = await db.select()
+      .from(careTasks)
+      .where(and(
+        eq(careTasks.chainAssignmentId, id),
+        eq(careTasks.completed, true)
+      ));
+
+    const completedSteps = completedTasks.map(task => String(task.chainStepId));
+    const progressPercentage = Math.round((completedSteps.length / steps.length) * 100);
+
+    // Update and return assignment
+    const [updatedAssignment] = await db.update(chainAssignments)
+      .set({
+        completedSteps,
+        progressPercentage,
+        lastUpdated: new Date()
       })
-      .from(chainSteps)
-      .leftJoin(
-        careTasks,
-        and(
-          eq(careTasks.chainStepId, chainSteps.id),
-          eq(careTasks.chainAssignmentId, id)
-        )
-      )
-      .where(eq(chainSteps.chainId, assignment.chainId))
-      .orderBy(chainSteps.order);
+      .where(eq(chainAssignments.id, id))
+      .returning();
 
-      // Calculate current progress
-      const completedSteps = stepsWithStatus
-        .filter(step => step.completed)
-        .map(step => String(step.id));
-
-      const progressPercentage = Math.round(
-        (completedSteps.length / stepsWithStatus.length) * 100
-      );
-
-      // Find current step
-      let currentStepId = assignment.currentStepId;
-      if (!currentStepId && stepsWithStatus.length > 0) {
-        currentStepId = stepsWithStatus[0].id;
-      }
-
-      // Update assignment with current progress
-      const [updatedAssignment] = await tx.update(chainAssignments)
-        .set({
-          progressPercentage,
-          completedSteps,
-          currentStepId,
-          lastUpdated: new Date()
-        })
-        .where(eq(chainAssignments.id, id))
-        .returning();
-
-      return updatedAssignment;
-    });
+    return updatedAssignment;
   }
 
   async getTaskChain(id: number): Promise<TaskChain | undefined> {
@@ -490,26 +471,36 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
-    // Get chain with templates info
+    // Get chain with steps count
     const [chain] = await db.select({
       id: taskChains.id,
       name: taskChains.name,
       description: taskChains.description,
       category: taskChains.category,
       createdAt: taskChains.createdAt,
-      isActive: taskChains.isActive,
-      stepCount: sql`count(${chainSteps.id})::int`,
+      isActive: taskChains.isActive
     })
       .from(taskChains)
-      .leftJoin(chainSteps, eq(chainSteps.chainId, taskChains.id))
-      .where(and(
-        eq(taskChains.id, id),
-        eq(taskChains.isActive, true)
-      ))
-      .groupBy(taskChains.id);
+      .where(eq(taskChains.id, id));
 
-    console.log('Retrieved chain:', chain);
-    return chain;
+    if (!chain) {
+      console.log('Chain not found:', id);
+      return undefined;
+    }
+
+    // Get steps count
+    const [stepsCount] = await db.select({
+      count: sql<number>`count(*)::int`
+    })
+      .from(chainSteps)
+      .where(eq(chainSteps.chainId, id));
+
+    console.log('Retrieved chain:', chain, 'with steps count:', stepsCount.count);
+
+    return {
+      ...chain,
+      stepCount: stepsCount.count
+    };
   }
 
   async getChainSteps(chainId: number): Promise<(ChainStep & { templateName: string; templateDescription: string | null })[]> {
