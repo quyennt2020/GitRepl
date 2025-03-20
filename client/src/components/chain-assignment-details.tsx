@@ -108,6 +108,17 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
     ? 100
     : Math.round((completedSteps / steps.length) * 100);
 
+  // Safe date formatting helper
+  const formatDate = (date: string | null | undefined) => {
+    if (!date) return "";
+    try {
+      return format(new Date(date), "PPP");
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return "";
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -130,11 +141,11 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
             <p className="text-sm text-muted-foreground">{chain.description}</p>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="w-4 h-4" />
-              Started {format(new Date(assignment.startedAt), "PPP")}
+              Started {formatDate(assignment.startedAt)}
               {assignment.completedAt && (
                 <>
                   <span className="mx-1">•</span>
-                  Completed {format(new Date(assignment.completedAt), "PPP")}
+                  Completed {formatDate(assignment.completedAt)}
                 </>
               )}
             </div>
@@ -261,7 +272,7 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
                             {isCompleted && step.careTaskId && (
                               <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
                                 <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                <span>Completed {step.completedAt ? format(new Date(step.completedAt), "PPp") : ""}</span>
+                                <span>Completed {formatDate(step.completedAt)}</span>
                               </div>
                             )}
                           </div>
