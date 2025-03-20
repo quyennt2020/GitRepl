@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { TaskChain } from "@shared/schema";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Trash2, Clock, Shield } from "lucide-react";
+import { ChevronDown, ChevronRight, Edit2, Trash2, Clock, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 
 interface Props {
@@ -15,7 +15,6 @@ interface Props {
 
 interface ChainStep {
   id: number;
-  chainId: number;
   templateId: number;
   order: number;
   isRequired: boolean;
@@ -23,7 +22,7 @@ interface ChainStep {
   requiresApproval: boolean;
   approvalRoles: string[];
   templateName: string;
-  templateDescription: string;
+  templateDescription: string | null;
 }
 
 export default function ChainList({ chains, onEdit }: Props) {
@@ -32,7 +31,7 @@ export default function ChainList({ chains, onEdit }: Props) {
 
   const { data: steps = [], isLoading } = useQuery<ChainStep[]>({
     queryKey: ["/api/task-chains", expandedChain, "steps"],
-    enabled: !!expandedChain,
+    enabled: expandedChain !== null,
   });
 
   const deleteChainMutation = useMutation({
@@ -46,9 +45,7 @@ export default function ChainList({ chains, onEdit }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-chains"] });
-      toast({
-        title: "Chain deleted successfully",
-      });
+      toast({ title: "Chain deleted successfully" });
     },
     onError: (error) => {
       toast({
@@ -70,22 +67,28 @@ export default function ChainList({ chains, onEdit }: Props) {
   return (
     <div className="space-y-4">
       {chains.map((chain) => (
-        <Card
-          key={chain.id}
-          className={`${
-            expandedChain === chain.id ? "ring-2 ring-primary" : "hover:bg-muted/50"
-          }`}
-          onClick={() => setExpandedChain(expandedChain === chain.id ? null : chain.id)}
-        >
+        <Card key={chain.id}>
           <CardContent className="p-4">
             <div className="space-y-4">
               {/* Chain Header */}
-              <div className="flex justify-between items-start">
-                <div className="space-y-1">
-                  <h3 className="font-medium">{chain.name}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {chain.description}
-                  </p>
+              <div 
+                className="flex items-start justify-between cursor-pointer"
+                onClick={() => setExpandedChain(expandedChain === chain.id ? null : chain.id)}
+              >
+                <div className="flex items-start gap-2">
+                  {expandedChain === chain.id ? (
+                    <ChevronDown className="w-5 h-5 mt-1" />
+                  ) : (
+                    <ChevronRight className="w-5 h-5 mt-1" />
+                  )}
+                  <div>
+                    <h3 className="font-medium">{chain.name}</h3>
+                    {chain.description && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {chain.description}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -143,7 +146,7 @@ export default function ChainList({ chains, onEdit }: Props) {
                               {index + 1}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium">
                                   {step.templateName}
                                 </span>

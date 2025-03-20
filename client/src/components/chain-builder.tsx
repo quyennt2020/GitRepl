@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -31,8 +31,8 @@ interface StepData {
   waitDuration: number;
   requiresApproval: boolean;
   approvalRoles: string[];
-  templateName?: string;
-  templateDescription?: string;
+  templateName: string;
+  templateDescription: string | null;
 }
 
 export default function ChainBuilder({ open, onClose, existingChain }: Props) {
@@ -40,23 +40,18 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
   const [steps, setSteps] = useState<StepData[]>([]);
   const [selectedStep, setSelectedStep] = useState<number | null>(null);
 
-  // Load templates for step selection
-  const templatesQuery = useQuery<TaskTemplate[]>({
+  // Load templates and existing steps
+  const { data: templates = [] } = useQuery<TaskTemplate[]>({
     queryKey: ["/api/task-templates"],
   });
 
-  // Load existing chain steps
-  const stepsQuery = useQuery({
+  const { data: existingSteps = [] } = useQuery<StepData[]>({
     queryKey: ["/api/task-chains", existingChain?.id, "steps"],
     enabled: !!existingChain?.id,
-  });
-
-  // Initialize steps from existing chain
-  useEffect(() => {
-    if (existingChain && stepsQuery.data?.length) {
-      const sortedSteps = [...stepsQuery.data]
-        .sort((a, b) => a.order - b.order)
-        .map(step => ({
+    onSuccess: (data) => {
+      if (data?.length && existingChain) {
+        // Initialize steps when editing existing chain
+        setSteps(data.map(step => ({
           id: step.id,
           templateId: step.templateId,
           order: step.order,
@@ -66,37 +61,30 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
           approvalRoles: step.approvalRoles ?? [],
           templateName: step.templateName,
           templateDescription: step.templateDescription,
-        }));
-      setSteps(sortedSteps);
+        })));
+      }
     }
-  }, [existingChain, stepsQuery.data]);
+  });
 
-  // Reset state when dialog closes
-  useEffect(() => {
-    if (!open) {
-      setSteps([]);
-      setSelectedStep(null);
-    }
-  }, [open]);
-
-  // Form setup
+  // Form setup with proper types
   const form = useForm<InsertTaskChain>({
     resolver: zodResolver(insertTaskChainSchema),
-    defaultValues: existingChain ? {
-      name: existingChain.name,
-      description: existingChain.description ?? "",
-      category: existingChain.category,
-      isActive: existingChain.isActive ?? true,
-    } : {
-      name: "",
-      description: "",
-      category: "water",
-      isActive: true,
+    defaultValues: {
+      name: existingChain?.name ?? "",
+      description: existingChain?.description ?? "",
+      category: existingChain?.category ?? "water",
+      isActive: existingChain?.isActive ?? true,
     },
   });
 
+  // Save mutation
   const saveMutation = useMutation({
     mutationFn: async (data: InsertTaskChain) => {
+      if (steps.length === 0) {
+        throw new Error("At least one step is required");
+      }
+
+      // Save chain
       const chainResponse = await fetch(
         existingChain ? `/api/task-chains/${existingChain.id}` : "/api/task-chains",
         {
@@ -112,12 +100,12 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
 
       const chain = await chainResponse.json();
 
-      // If updating, delete old steps
+      // Delete existing steps if updating
       if (existingChain) {
         await Promise.all(
-          stepsQuery.data?.map(step =>
+          existingSteps.map(step =>
             fetch(`/api/chain-steps/${step.id}`, { method: "DELETE" })
-          ) || []
+          )
         );
       }
 
@@ -154,12 +142,12 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     },
   });
 
+  // Step management
   const addStep = () => {
-    const templates = templatesQuery.data;
-    if (!templates?.length) {
+    if (!templates.length) {
       toast({
         title: "Cannot add step",
-        description: "No task templates available. Please create a task template first.",
+        description: "No task templates available",
         variant: "destructive",
       });
       return;
@@ -174,7 +162,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       requiresApproval: template.requiresExpertise ?? false,
       approvalRoles: template.requiresExpertise ? ["expert"] : [],
       templateName: template.name,
-      templateDescription: template.description,
+      templateDescription: template.description ?? null,
     };
 
     setSteps([...steps, newStep]);
@@ -182,14 +170,14 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
   };
 
   const updateStep = (index: number, updates: Partial<StepData>) => {
-    if (updates.templateId && templatesQuery.data) {
-      const template = templatesQuery.data.find(t => t.id === updates.templateId);
+    if (updates.templateId !== undefined && templates) {
+      const template = templates.find(t => t.id === updates.templateId);
       if (template) {
         updates.templateName = template.name;
-        updates.templateDescription = template.description;
+        updates.templateDescription = template.description ?? null;
       }
     }
-    setSteps(steps.map((step, i) => (i === index ? { ...step, ...updates } : step)));
+    setSteps(steps.map((step, i) => i === index ? { ...step, ...updates } : step));
   };
 
   const removeStep = (index: number) => {
@@ -197,32 +185,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     setSelectedStep(null);
   };
 
-  const onSubmit = (data: InsertTaskChain) => {
-    if (steps.length === 0) {
-      toast({
-        title: "Please add at least one step",
-        description: "A task chain must contain at least one step",
-        variant: "destructive",
-      });
-      return;
-    }
-    saveMutation.mutate(data);
-  };
-
-  // Loading state
-  if (templatesQuery.isLoading || stepsQuery.isLoading) {
-    return (
-      <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent>
-          <div className="flex items-center justify-center p-8">
-            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  const selectedStepData = selectedStep !== null && steps[selectedStep] ? steps[selectedStep] : null;
+  const selectedStepData = selectedStep !== null ? steps[selectedStep] : null;
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
@@ -234,15 +197,15 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Basic Info */}
+          <form onSubmit={form.handleSubmit((data) => saveMutation.mutate(data))} className="space-y-6">
+            {/* Chain Info */}
             <div className="space-y-4">
               <FormField
                 control={form.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Chain name</FormLabel>
+                    <FormLabel>Name</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="Enter chain name" />
                     </FormControl>
@@ -258,7 +221,12 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                   <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Textarea {...field} placeholder="Describe the chain's purpose" className="resize-none" rows={3} />
+                      <Textarea
+                        {...field}
+                        placeholder="Describe the chain's purpose"
+                        className="resize-none"
+                        rows={3}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -310,9 +278,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                   {steps.map((step, index) => (
                     <Card
                       key={index}
-                      className={`${
-                        selectedStep === index ? "ring-2 ring-primary" : ""
-                      }`}
+                      className={`${selectedStep === index ? "ring-2 ring-primary" : ""}`}
                       onClick={() => setSelectedStep(index)}
                     >
                       <CardContent className="p-4">
@@ -324,7 +290,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                             <Select
                               value={String(step.templateId)}
                               onValueChange={(value) => {
-                                const template = templatesQuery.data?.find(
+                                const template = templates.find(
                                   (t) => t.id === Number(value)
                                 );
                                 if (template) {
@@ -333,7 +299,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                                     requiresApproval: template.requiresExpertise,
                                     approvalRoles: template.requiresExpertise ? ["expert"] : [],
                                     templateName: template.name,
-                                    templateDescription: template.description,
+                                    templateDescription: template.description ?? null,
                                   });
                                 }
                               }}
@@ -342,7 +308,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                                 <SelectValue placeholder="Select task" />
                               </SelectTrigger>
                               <SelectContent>
-                                {templatesQuery.data?.map((t) => (
+                                {templates.map((t) => (
                                   <SelectItem key={t.id} value={String(t.id)}>
                                     {t.name}
                                   </SelectItem>
@@ -427,9 +393,9 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                       <Checkbox
                         id="step-required"
                         checked={selectedStepData.isRequired}
-                        onCheckedChange={(checked: boolean) =>
+                        onCheckedChange={(checked) =>
                           updateStep(selectedStep, {
-                            isRequired: checked,
+                            isRequired: !!checked,
                           })
                         }
                       />
@@ -442,9 +408,9 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                       <Checkbox
                         id="step-approval"
                         checked={selectedStepData.requiresApproval}
-                        onCheckedChange={(checked: boolean) =>
+                        onCheckedChange={(checked) =>
                           updateStep(selectedStep, {
-                            requiresApproval: checked,
+                            requiresApproval: !!checked,
                             approvalRoles: checked ? ["expert"] : [],
                           })
                         }
