@@ -16,18 +16,21 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
   const { data: assignment, isLoading: isLoadingAssignment } = useQuery<ChainAssignment>({
     queryKey: ["/api/chain-assignments", assignmentId],
     enabled: !!assignmentId,
+    refetchOnMount: true,
   });
 
   // Fetch chain details
   const { data: chain, isLoading: isLoadingChain } = useQuery<TaskChain>({
     queryKey: ["/api/task-chains", assignment?.chainId],
     enabled: !!assignment?.chainId,
+    refetchOnMount: true,
   });
 
   // Fetch steps with template details
   const { data: steps = [], isLoading: isLoadingSteps } = useQuery<(ChainStep & { templateName: string; templateDescription: string | null })[]>({
     queryKey: ["/api/task-chains", assignment?.chainId, "steps"],
     enabled: !!assignment?.chainId,
+    refetchOnMount: true,
   });
 
   if (isLoadingAssignment || isLoadingChain || isLoadingSteps) {
@@ -41,7 +44,12 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
   if (!assignment || !chain || !steps.length) {
     return (
       <div className="p-8 text-center text-muted-foreground">
-        No chain details available
+        <div className="space-y-2">
+          <p>No chain details available</p>
+          <p className="text-sm">Assignment ID: {assignmentId}</p>
+          <p className="text-sm">Chain ID: {assignment?.chainId}</p>
+          <p className="text-sm">Steps count: {steps.length}</p>
+        </div>
       </div>
     );
   }

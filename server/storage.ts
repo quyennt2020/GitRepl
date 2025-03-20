@@ -116,17 +116,36 @@ export class DatabaseStorage implements IStorage {
       query = query.where(eq(chainAssignments.plantId, plantId));
     }
 
-    return query.orderBy(desc(chainAssignments.startedAt));
+    const assignments = await query.orderBy(desc(chainAssignments.startedAt));
+    console.log('Retrieved assignments:', assignments);
+    return assignments;
   }
 
   async getChainAssignment(id: number): Promise<ChainAssignment | undefined> {
+    console.log('Fetching chain assignment:', id);
     const [assignment] = await db.select()
       .from(chainAssignments)
       .where(eq(chainAssignments.id, id));
+
+    console.log('Retrieved assignment:', assignment);
     return assignment;
   }
 
+  async getTaskChain(id: number): Promise<TaskChain | undefined> {
+    console.log('Fetching task chain:', id);
+    const [chain] = await db.select()
+      .from(taskChains)
+      .where(and(
+        eq(taskChains.id, id),
+        eq(taskChains.isActive, true)
+      ));
+
+    console.log('Retrieved chain:', chain);
+    return chain;
+  }
+
   async getChainSteps(chainId: number): Promise<(ChainStep & { templateName: string; templateDescription: string | null })[]> {
+    console.log('Fetching steps for chain:', chainId);
     const steps = await db.select({
       id: chainSteps.id,
       chainId: chainSteps.chainId,
@@ -140,26 +159,18 @@ export class DatabaseStorage implements IStorage {
       templateName: taskTemplates.name,
       templateDescription: taskTemplates.description,
     })
-      .from(chainSteps)
-      .leftJoin(taskTemplates, eq(chainSteps.templateId, taskTemplates.id))
-      .where(eq(chainSteps.chainId, chainId))
-      .orderBy(chainSteps.order);
+    .from(chainSteps)
+    .leftJoin(taskTemplates, eq(chainSteps.templateId, taskTemplates.id))
+    .where(eq(chainSteps.chainId, chainId))
+    .orderBy(chainSteps.order);
+
+    console.log('Retrieved steps:', steps);
 
     return steps.map(step => ({
       ...step,
       templateName: step.templateName ?? 'Unknown Task',
       templateDescription: step.templateDescription ?? null
     }));
-  }
-
-  async getTaskChain(id: number): Promise<TaskChain | undefined> {
-    const [chain] = await db.select()
-      .from(taskChains)
-      .where(and(
-        eq(taskChains.id, id),
-        eq(taskChains.isActive, true)
-      ));
-    return chain;
   }
 }
 
