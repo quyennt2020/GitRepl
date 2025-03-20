@@ -20,7 +20,7 @@ export default function StepApprovalDialog({ open, onClose, step, assignmentId }
   const [notes, setNotes] = useState("");
 
   // Get template information for the step
-  const { data: template } = useQuery<TaskTemplate>({
+  const { data: template, isLoading: isLoadingTemplate } = useQuery<TaskTemplate>({
     queryKey: ["/api/task-templates", step.templateId],
     enabled: !!step.templateId,
   });
@@ -34,7 +34,8 @@ export default function StepApprovalDialog({ open, onClose, step, assignmentId }
       });
 
       if (!response.ok) {
-        throw new Error("Failed to submit approval decision");
+        const error = await response.json();
+        throw new Error(error.message || "Failed to submit approval decision");
       }
 
       return response.json();
@@ -43,10 +44,12 @@ export default function StepApprovalDialog({ open, onClose, step, assignmentId }
       queryClient.invalidateQueries({ queryKey: ["/api/chain-assignments"] });
       toast({
         title: "Approval decision submitted",
+        description: "The task chain has been updated.",
       });
       onClose();
     },
     onError: (error) => {
+      console.error("Approval error:", error);
       toast({
         title: "Error submitting approval",
         description: error instanceof Error ? error.message : "An error occurred",
@@ -56,6 +59,14 @@ export default function StepApprovalDialog({ open, onClose, step, assignmentId }
   });
 
   const handleSubmit = (approved: boolean) => {
+    if (!notes.trim() && !approved) {
+      toast({
+        title: "Notes required",
+        description: "Please provide a reason for rejecting the step",
+        variant: "destructive",
+      });
+      return;
+    }
     approveMutation.mutate({ approved, notes });
   };
 
@@ -75,12 +86,16 @@ export default function StepApprovalDialog({ open, onClose, step, assignmentId }
         <div className="space-y-4">
           <div className="space-y-2">
             <h3 className="font-medium">Step Details</h3>
-            <div className="text-sm text-muted-foreground">
-              <p>{template?.name}</p>
-              {template?.description && (
-                <p className="mt-1">{template.description}</p>
-              )}
-            </div>
+            {isLoadingTemplate ? (
+              <div className="text-sm text-muted-foreground">Loading template details...</div>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                <p>{template?.name}</p>
+                {template?.description && (
+                  <p className="mt-1">{template.description}</p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -90,6 +105,7 @@ export default function StepApprovalDialog({ open, onClose, step, assignmentId }
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Add any notes about your decision..."
               rows={4}
+              disabled={approveMutation.isPending}
             />
           </div>
 
@@ -101,7 +117,7 @@ export default function StepApprovalDialog({ open, onClose, step, assignmentId }
               className="flex items-center gap-2"
             >
               <XCircle className="w-4 h-4" />
-              Reject
+              {approveMutation.isPending ? "Rejecting..." : "Reject"}
             </Button>
             <Button
               onClick={() => handleSubmit(true)}
@@ -109,7 +125,7 @@ export default function StepApprovalDialog({ open, onClose, step, assignmentId }
               className="flex items-center gap-2"
             >
               <CheckCircle2 className="w-4 h-4" />
-              Approve
+              {approveMutation.isPending ? "Approving..." : "Approve"}
             </Button>
           </div>
         </div>

@@ -80,7 +80,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
     defaultValues: {
       name: existingChain?.name ?? "",
       description: existingChain?.description ?? "",
-      category: existingChain?.category ?? "water",
+      category: (existingChain?.category ?? "water") as "water" | "fertilize" | "prune" | "check" | "repot" | "clean",
       isActive: existingChain?.isActive ?? true,
     },
   });
@@ -351,7 +351,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                                   if (template) {
                                     updateStep(index, {
                                       templateId: Number(value),
-                                      requiresApproval: template.requiresExpertise,
+                                      requiresApproval: template.requiresExpertise ?? false,
                                       approvalRoles: template.requiresExpertise ? ["expert"] : [],
                                       templateName: template.name,
                                       templateDescription: template.description ?? null,
@@ -432,10 +432,10 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                         <Input
                           type="number"
                           min="0"
-                          value={selectedStepData.waitDuration}
+                          value={selectedStepData.waitDuration ?? 0}
                           onChange={(e) =>
                             updateStep(selectedStep, {
-                              waitDuration: parseInt(e.target.value) || 0,
+                              waitDuration: Math.max(0, parseInt(e.target.value) || 0),
                             })
                           }
                           placeholder="Hours to wait after previous step"
