@@ -331,12 +331,28 @@ export class DatabaseStorage implements IStorage {
 
   async getTaskChain(id: number): Promise<TaskChain | undefined> {
     console.log('Fetching task chain:', id);
-    const [chain] = await db.select()
-      .from(taskChains)
-      .where(and(
-        eq(taskChains.id, id),
-        eq(taskChains.isActive, true)
-      ));
+    if (!id) {
+      console.log('Invalid chain ID:', id);
+      return undefined;
+    }
+
+    // Get chain with templates info
+    const [chain] = await db.select({
+      id: taskChains.id,
+      name: taskChains.name,
+      description: taskChains.description,
+      category: taskChains.category,
+      createdAt: taskChains.createdAt,
+      isActive: taskChains.isActive,
+      stepCount: sql`count(${chainSteps.id})::int`,
+    })
+    .from(taskChains)
+    .leftJoin(chainSteps, eq(chainSteps.chainId, taskChains.id))
+    .where(and(
+      eq(taskChains.id, id),
+      eq(taskChains.isActive, true)
+    ))
+    .groupBy(taskChains.id);
 
     console.log('Retrieved chain:', chain);
     return chain;

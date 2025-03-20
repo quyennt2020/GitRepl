@@ -3,7 +3,7 @@ import { ChainAssignment, ChainStep, TaskChain } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Clock, CheckCircle2, Shield, AlertCircle, ChevronRight } from "lucide-react";
+import { Clock, CheckCircle2, Shield, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import PendingApprovals from "./pending-approvals";
 import { Button } from "@/components/ui/button";
@@ -95,25 +95,13 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
           <p>Chain not found</p>
           <p className="text-sm">Assignment ID: {assignmentId}</p>
           <p className="text-sm">Chain ID: {assignment.chainId}</p>
+          <p className="text-sm">Status: {assignment.status}</p>
         </div>
       </div>
     );
   }
 
-  if (!steps.length) {
-    return (
-      <div className="p-8 text-center text-muted-foreground">
-        <div className="space-y-2">
-          <p>No steps found for this chain</p>
-          <p className="text-sm">Assignment ID: {assignmentId}</p>
-          <p className="text-sm">Chain ID: {assignment.chainId}</p>
-          <p className="text-sm">Chain name: {chain.name}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Calculate progress percentage based on completed steps
+  // Calculate progress percentage
   const completedSteps = steps.filter(s => s.isCompleted).length;
   const progressPercentage = assignment.status === "completed"
     ? 100
@@ -141,7 +129,13 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
             <p className="text-sm text-muted-foreground">{chain.description}</p>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="w-4 h-4" />
-              Started {format(new Date(assignment.startedAt || new Date()), "PPP")}
+              Started {format(new Date(assignment.startedAt), "PPP")}
+              {assignment.completedAt && (
+                <>
+                  <span className="mx-1">•</span>
+                  Completed {format(new Date(assignment.completedAt), "PPP")}
+                </>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -161,7 +155,7 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
             <div className="relative space-y-4">
               {steps.map((step, index) => {
                 const isCurrentStep = step.id === assignment.currentStepId;
-                const isCompleted = step.isCompleted;
+                const isCompleted = step.isCompleted || assignment.status === "completed";
                 const isPending = !isCompleted && !isCurrentStep;
 
                 return (
@@ -186,7 +180,7 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
                       {isCompleted ? (
                         <CheckCircle2 className="w-4 h-4 text-green-500" />
                       ) : isCurrentStep ? (
-                        <ChevronRight className="w-4 h-4 text-primary" />
+                        <AlertCircle className="w-4 h-4 text-primary" />
                       ) : (
                         <AlertCircle className="w-4 h-4 text-muted-foreground" />
                       )}
