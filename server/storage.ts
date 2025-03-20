@@ -12,7 +12,77 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // ... [Other methods remain unchanged]
+  async getPlants(): Promise<Plant[]> {
+    return db.select().from(plants);
+  }
+
+  async getPlant(id: number): Promise<Plant | undefined> {
+    const [plant] = await db.select().from(plants).where(eq(plants.id, id));
+    return plant;
+  }
+
+  async createPlant(plant: InsertPlant): Promise<Plant> {
+    const [newPlant] = await db.insert(plants).values(plant).returning();
+    return newPlant;
+  }
+
+  async updatePlant(id: number, update: Partial<Plant>): Promise<Plant> {
+    const [plant] = await db
+      .update(plants)
+      .set(update)
+      .where(eq(plants.id, id))
+      .returning();
+    if (!plant) throw new Error("Plant not found");
+    return plant;
+  }
+
+  async deletePlant(id: number): Promise<void> {
+    await db.delete(plants).where(eq(plants.id, id));
+  }
+
+  async getCareTasks(plantId?: number): Promise<CareTask[]> {
+    let query = db.select().from(careTasks);
+    if (plantId) {
+      query = query.where(eq(careTasks.plantId, plantId));
+    }
+    return query;
+  }
+
+  async getCareTask(id: number): Promise<CareTask | undefined> {
+    const [task] = await db.select().from(careTasks).where(eq(careTasks.id, id));
+    return task;
+  }
+
+  async createCareTask(task: InsertCareTask): Promise<CareTask> {
+    const [newTask] = await db.insert(careTasks).values(task).returning();
+    return newTask;
+  }
+
+  async updateCareTask(id: number, update: Partial<CareTask>): Promise<CareTask> {
+    const [task] = await db
+      .update(careTasks)
+      .set(update)
+      .where(eq(careTasks.id, id))
+      .returning();
+    if (!task) throw new Error("Care task not found");
+    return task;
+  }
+
+  async deleteCareTask(id: number): Promise<void> {
+    await db.delete(careTasks).where(eq(careTasks.id, id));
+  }
+
+  async getTaskTemplates(): Promise<TaskTemplate[]> {
+    return db.select().from(taskTemplates);
+  }
+
+  async getTaskTemplate(id: number): Promise<TaskTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(taskTemplates)
+      .where(eq(taskTemplates.id, id));
+    return template;
+  }
 
   async getChainSteps(chainId: number): Promise<ChainStep[]> {
     console.log(`[Storage] Fetching steps for chain ${chainId}`);
