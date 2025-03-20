@@ -1,15 +1,16 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChainAssignment, Plant, TaskTemplate, ChainStep } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Sprout, Shield, ListOrdered } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
-import ChainAssignmentDetails from "./chain-assignment-details";
+import StepApprovalDialog from "./step-approval-dialog";
 import { format } from "date-fns";
 
 export default function ChainAssignmentsList() {
   const [selectedAssignment, setSelectedAssignment] = useState<number | null>(null);
+  const [selectedStep, setSelectedStep] = useState<ChainStep | null>(null);
 
   // Fetch assignments with explicit staleTime and refetch settings
   const { data: assignments = [], isLoading: isLoadingAssignments } = useQuery<ChainAssignment[]>({
@@ -80,6 +81,7 @@ export default function ChainAssignmentsList() {
       currentStepTemplate: template,
       stepNumber,
       totalSteps: steps.length,
+      currentStep,
     };
   });
 
@@ -130,7 +132,12 @@ export default function ChainAssignmentsList() {
                       </div>
                     </div>
                     <Button
-                      onClick={() => setSelectedAssignment(assignment.id)}
+                      onClick={() => {
+                        if (assignment.currentStep) {
+                          setSelectedStep(assignment.currentStep);
+                          setSelectedAssignment(assignment.id);
+                        }
+                      }}
                       variant="secondary"
                       size="sm"
                       className="font-medium"
@@ -145,8 +152,14 @@ export default function ChainAssignmentsList() {
         </div>
       )}
 
-      {selectedAssignment && (
-        <ChainAssignmentDetails
+      {selectedStep && selectedAssignment && (
+        <StepApprovalDialog
+          open={!!selectedStep}
+          onClose={() => {
+            setSelectedStep(null);
+            setSelectedAssignment(null);
+          }}
+          step={selectedStep}
           assignmentId={selectedAssignment}
         />
       )}
