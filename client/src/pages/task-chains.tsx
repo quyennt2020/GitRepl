@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import ChainBuilder from "@/components/chain-builder";
 import ChainList from "@/components/chain-list";
-import ChainAssignmentsList from "@/components/chain-assignments-list";
 import { useToast } from "@/hooks/use-toast";
 
 export default function TaskChainsPage() {
@@ -32,7 +31,7 @@ export default function TaskChainsPage() {
     return (
       <div className="p-4">
         <div className="bg-destructive/10 text-destructive p-4 rounded-lg">
-          Failed to load task chains. Please try again later.
+          Failed to load task chain templates. Please try again later.
         </div>
       </div>
     );
@@ -41,7 +40,7 @@ export default function TaskChainsPage() {
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <h1 className="text-2xl md:text-3xl font-bold">Task Chains</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Task Chain Templates</h1>
         <Button 
           onClick={() => {
             setEditingChain(undefined);
@@ -50,12 +49,9 @@ export default function TaskChainsPage() {
           className="w-full sm:w-auto"
         >
           <Plus className="w-4 h-4 mr-2" />
-          New Chain
+          New Template
         </Button>
       </div>
-
-      {/* Add Chain Assignments List here */}
-      <ChainAssignmentsList />
 
       <ChainList
         chains={chains}
