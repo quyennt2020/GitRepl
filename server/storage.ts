@@ -255,7 +255,7 @@ export class DatabaseStorage implements IStorage {
 
       // Mark any active assignments as cancelled
       await tx.update(chainAssignments)
-        .set({ 
+        .set({
           status: "cancelled",
           completedAt: new Date(),
           lastUpdated: new Date()
@@ -540,6 +540,7 @@ export class DatabaseStorage implements IStorage {
     templateDescription: string | null;
     isCompleted: boolean;
     careTaskId?: number;
+    completedAt?: string;
   })[]> {
     console.log('Fetching steps with progress for chain:', chainId, 'assignment:', assignmentId);
 
@@ -558,6 +559,7 @@ export class DatabaseStorage implements IStorage {
       templateDescription: taskTemplates.description,
       careTaskId: careTasks.id,
       completed: careTasks.completed,
+      completedAt: careTasks.completedAt
     })
       .from(chainSteps)
       .leftJoin(taskTemplates, eq(chainSteps.templateId, taskTemplates.id))
@@ -573,12 +575,20 @@ export class DatabaseStorage implements IStorage {
 
     console.log('Retrieved steps with progress:', stepsWithProgress);
 
+    // Get completed steps from assignment
+    const [assignment] = await db.select()
+      .from(chainAssignments)
+      .where(eq(chainAssignments.id, assignmentId));
+
+    const completedStepIds = assignment?.completedSteps || [];
+
     return stepsWithProgress.map(step => ({
       ...step,
       templateName: step.templateName ?? 'Unknown Task',
       templateDescription: step.templateDescription ?? null,
-      isCompleted: !!step.completed,
-      careTaskId: step.careTaskId
+      isCompleted: step.completed || completedStepIds.includes(String(step.id)),
+      careTaskId: step.careTaskId,
+      completedAt: step.completedAt
     }));
   }
 
