@@ -5,7 +5,7 @@ import { Plant, InsertPlant, CareTask, InsertCareTask, HealthRecord, InsertHealt
   plants, careTasks, healthRecords, taskTemplates, checklistItems,
   taskChains, chainSteps, chainAssignments, stepApprovals } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Plant related methods
@@ -274,7 +274,7 @@ export class DatabaseStorage implements IStorage {
   async getChainAssignment(id: number): Promise<ChainAssignment | undefined> {
     console.log('Fetching chain assignment:', id);
 
-    // Get the assignment with a transaction to ensure data consistency
+    // Get the assignment with task completion data in a single query
     return await db.transaction(async (tx) => {
       const [assignment] = await tx.select()
         .from(chainAssignments)
@@ -285,42 +285,47 @@ export class DatabaseStorage implements IStorage {
         return undefined;
       }
 
-      console.log('Retrieved assignment:', assignment);
+      // Count completed tasks and total steps
+      const completedTasksCount = await tx
+        .select({ count: sql`count(*)::int` })
+        .from(careTasks)
+        .where(and(
+          eq(careTasks.chainAssignmentId, id),
+          eq(careTasks.completed, true)
+        ));
 
-      // If progress is not calculated, calculate it
-      if (assignment.progressPercentage === 0 && assignment.status === "active") {
-        // Get all steps for this chain
-        const steps = await tx.select()
-          .from(chainSteps)
-          .where(eq(chainSteps.chainId, assignment.chainId))
-          .orderBy(chainSteps.order);
+      const totalStepsCount = await tx
+        .select({ count: sql`count(*)::int` })
+        .from(chainSteps)
+        .where(eq(chainSteps.chainId, assignment.chainId));
 
-        // Get completed care tasks
-        const completedTasks = await tx.select()
-          .from(careTasks)
-          .where(and(
-            eq(careTasks.chainAssignmentId, assignment.id),
-            eq(careTasks.completed, true)
-          ));
+      // Calculate progress percentage
+      const progressPercentage = Math.round(
+        (completedTasksCount[0].count / totalStepsCount[0].count) * 100
+      );
 
-        // Calculate progress
-        const completedSteps = completedTasks.map(task => String(task.chainStepId));
-        const progressPercentage = Math.round((completedSteps.length / steps.length) * 100);
+      // Get completed step IDs
+      const completedTasks = await tx
+        .select({ stepId: careTasks.chainStepId })
+        .from(careTasks)
+        .where(and(
+          eq(careTasks.chainAssignmentId, id),
+          eq(careTasks.completed, true)
+        ));
 
-        // Update assignment
-        const [updatedAssignment] = await tx.update(chainAssignments)
-          .set({
-            completedSteps,
-            progressPercentage,
-            lastUpdated: new Date()
-          })
-          .where(eq(chainAssignments.id, assignment.id))
-          .returning();
+      const completedSteps = completedTasks.map(task => String(task.stepId));
 
-        return updatedAssignment;
-      }
+      // Update assignment with current progress
+      const [updatedAssignment] = await tx.update(chainAssignments)
+        .set({
+          progressPercentage,
+          completedSteps,
+          lastUpdated: new Date()
+        })
+        .where(eq(chainAssignments.id, id))
+        .returning();
 
-      return assignment;
+      return updatedAssignment;
     });
   }
 
@@ -372,15 +377,10 @@ export class DatabaseStorage implements IStorage {
     isCompleted: boolean;
     careTaskId?: number;
   })[]> {
-    // Get the assignment first to check completed steps
-    const [assignment] = await db.select()
-      .from(chainAssignments)
-      .where(eq(chainAssignments.id, assignmentId));
+    console.log('Fetching steps with progress for chain:', chainId, 'assignment:', assignmentId);
 
-    if (!assignment) throw new Error("Chain assignment not found");
-
-    // Get steps with template info
-    const steps = await db.select({
+    // Get all steps with template info and care task status in a single query
+    const stepsWithProgress = await db.select({
       id: chainSteps.id,
       chainId: chainSteps.chainId,
       templateId: chainSteps.templateId,
@@ -392,33 +392,30 @@ export class DatabaseStorage implements IStorage {
       approvalRoles: chainSteps.approvalRoles,
       templateName: taskTemplates.name,
       templateDescription: taskTemplates.description,
+      careTaskId: careTasks.id,
+      completed: careTasks.completed,
     })
       .from(chainSteps)
       .leftJoin(taskTemplates, eq(chainSteps.templateId, taskTemplates.id))
+      .leftJoin(
+        careTasks,
+        and(
+          eq(careTasks.chainStepId, chainSteps.id),
+          eq(careTasks.chainAssignmentId, assignmentId)
+        )
+      )
       .where(eq(chainSteps.chainId, chainId))
       .orderBy(chainSteps.order);
 
-    // Get completed care tasks for this assignment
-    const tasks = await db.select()
-      .from(careTasks)
-      .where(and(
-        eq(careTasks.chainAssignmentId, assignmentId),
-        eq(careTasks.completed, true)
-      ));
+    console.log('Retrieved steps with progress:', stepsWithProgress);
 
-    // Combine data with string comparison for step IDs
-    return steps.map(step => {
-      const relatedTask = tasks.find(t => t.chainStepId === step.id);
-      const isCompleted = (assignment.completedSteps || []).includes(String(step.id));
-
-      return {
-        ...step,
-        templateName: step.templateName ?? 'Unknown Task',
-        templateDescription: step.templateDescription ?? null,
-        isCompleted,
-        careTaskId: relatedTask?.id
-      };
-    });
+    return stepsWithProgress.map(step => ({
+      ...step,
+      templateName: step.templateName ?? 'Unknown Task',
+      templateDescription: step.templateDescription ?? null,
+      isCompleted: !!step.completed,
+      careTaskId: step.careTaskId
+    }));
   }
 
   async completeChainStep(assignmentId: number, stepId: number): Promise<void> {
