@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChainAssignment, ChainStep, TaskChain, TaskTemplate } from "@shared/schema";
+import { ChainAssignment, ChainStep, TaskChain } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -27,31 +27,15 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
     enabled: !!assignment?.chainId,
   });
 
-  // Get template information for each step
-  const { data: templates = [] } = useQuery<TaskTemplate[]>({
-    queryKey: ["/api/task-templates"],
-    enabled: !!steps.length,
-  });
-
-  // Combine step data with template information
-  const stepsWithTemplates = steps.map(step => {
-    const template = templates.find(t => t.id === step.templateId);
-    return {
-      ...step,
-      templateName: template?.name ?? "Unknown Task",
-      templateDescription: template?.description ?? null,
-    };
-  });
-
   if (!assignment || !chain) {
     return null;
   }
 
   // Calculate progress percentage
-  const currentStepIndex = stepsWithTemplates.findIndex(s => s.id === assignment.currentStepId);
+  const currentStepIndex = steps.findIndex(s => s.id === assignment.currentStepId);
   const progressPercentage = assignment.status === "completed" 
     ? 100 
-    : Math.round((currentStepIndex / stepsWithTemplates.length) * 100);
+    : Math.round((currentStepIndex / steps.length) * 100);
 
   return (
     <div className="space-y-4">
@@ -93,17 +77,17 @@ export default function ChainAssignmentDetails({ assignmentId }: Props) {
 
             {/* Steps Timeline */}
             <div className="relative space-y-4">
-              {stepsWithTemplates.map((step, index) => {
+              {steps.map((step, index) => {
                 const isCurrentStep = step.id === assignment.currentStepId;
                 const isCompleted = assignment.status === "completed" || 
-                  index < (stepsWithTemplates.findIndex(s => s.id === assignment.currentStepId) + 1);
+                  index < steps.findIndex(s => s.id === assignment.currentStepId);
                 const isPending = !isCompleted && !isCurrentStep;
 
                 return (
                   <div
                     key={step.id}
                     className={`relative flex items-start gap-4 pb-4 ${
-                      index < stepsWithTemplates.length - 1 
+                      index < steps.length - 1 
                         ? "border-l-2 border-dashed ml-[15px]" 
                         : ""
                     }`}
