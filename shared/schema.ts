@@ -204,7 +204,7 @@ export const insertStepApprovalSchema = createInsertSchema(stepApprovals)
   .omit({ id: true, approvedAt: true });
 
 // Add type exports for the new tables
-export type TaskChain = typeof taskChains.$inferSelect;
+export type TaskChain = typeof taskChains.$inferSelect & { stepCount?: number };
 export type InsertTaskChain = z.infer<typeof insertTaskChainSchema>;
 export type ChainStep = typeof chainSteps.$inferSelect;
 export type InsertChainStep = z.infer<typeof insertChainStepSchema>;

@@ -5,7 +5,7 @@ import { Plant, InsertPlant, CareTask, InsertCareTask, HealthRecord, InsertHealt
   plants, careTasks, healthRecords, taskTemplates, checklistItems,
   taskChains, chainSteps, chainAssignments, stepApprovals } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Plant related methods
@@ -72,10 +72,10 @@ export interface IStorage {
 
   // Enhanced chain-related methods
   getChainStepsWithProgress(chainId: number, assignmentId: number): Promise<(ChainStep & {
-    templateName: string;
+    templateName: string | null;
     templateDescription: string | null;
     isCompleted: boolean;
-    careTaskId?: number;
+    careTaskId?: number | null;
   })[]>;
 
   completeChainStep(assignmentId: number, stepId: number): Promise<void>;
@@ -110,7 +110,7 @@ export class DatabaseStorage implements IStorage {
   }
   async getCareTasks(plantId?: number): Promise<CareTask[]> {
     console.log('Fetching tasks for plantId:', plantId);
-    let query = db.select().from(careTasks);
+    let query: any = db.select().from(careTasks);
 
     if (plantId) {
       query = query.where(eq(careTasks.plantId, plantId));
@@ -145,8 +145,15 @@ export class DatabaseStorage implements IStorage {
     return newTask;
   }
   async updateCareTask(id: number, update: Partial<CareTask>): Promise<CareTask> {
+    const updatedData: Partial<CareTask> = { ...update };
+    if (update.completedAt) {
+      updatedData.completedAt = new Date(update.completedAt);
+    } else if (update.completedAt === null) {
+      updatedData.completedAt = null;
+    }
+
     const [task] = await db.update(careTasks)
-      .set(update)
+      .set(updatedData)
       .where(eq(careTasks.id, id))
       .returning();
     if (!task) throw new Error("Care task not found");
@@ -238,19 +245,29 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Failed to create task chain');
     }
   }
-  async updateTaskChain(id: number, update: Partial<TaskChain>): Promise<TaskChain> { throw new Error("Method not implemented."); }
+  async updateTaskChain(id: number, update: Partial<TaskChain>): Promise<TaskChain> {
+    const [taskChain] = await db.update(taskChains)
+      .set(update)
+      .where(eq(taskChains.id, id))
+      .returning();
+    if (!taskChain) throw new Error("Task chain not found");
+    return taskChain;
+  }
   async deleteTaskChain(id: number): Promise<void> {
     console.log('Deleting task chain:', id);
 
     await db.transaction(async (tx) => {
       // First delete all steps associated with this chain
+      const steps = await tx.select({ id: chainSteps.id }).from(chainSteps).where(eq(chainSteps.chainId, id));
+      const stepIds = steps.map(step => step.id);
+
+      await tx.delete(careTasks)
+        .where(inArray(careTasks.chainStepId, stepIds));
+
       await tx.delete(chainSteps)
         .where(eq(chainSteps.chainId, id));
 
-      // Then mark the chain as inactive instead of deleting
-      // This preserves history while hiding it from the UI
-      await tx.update(taskChains)
-        .set({ isActive: false })
+      await tx.delete(taskChains)
         .where(eq(taskChains.id, id));
 
       // Mark any active assignments as cancelled
@@ -264,6 +281,9 @@ export class DatabaseStorage implements IStorage {
           eq(chainAssignments.chainId, id),
           eq(chainAssignments.status, "active")
         ));
+
+      await tx.delete(chainAssignments)
+        .where(eq(chainAssignments.chainId, id));
     });
   }
   async createChainStep(step: InsertChainStep): Promise<ChainStep> {
@@ -278,9 +298,24 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Failed to create chain step');
     }
   }
-  async updateChainStep(id: number, update: Partial<ChainStep>): Promise<ChainStep> { throw new Error("Method not implemented."); }
-  async deleteChainStep(id: number): Promise<void> { throw new Error("Method not implemented."); }
-  async getChainStep(id: number): Promise<ChainStep | undefined> { throw new Error("Method not implemented."); }
+  async updateChainStep(id: number, update: Partial<ChainStep>): Promise<ChainStep> {
+    const [chainStep] = await db.update(chainSteps)
+      .set(update)
+      .where(eq(chainSteps.id, id))
+      .returning();
+    if (!chainStep) throw new Error("Chain step not found");
+    return chainStep;
+  }
+  async deleteChainStep(id: number): Promise<void> {
+    console.log('Deleting chain step:', id);
+    await db.delete(chainSteps).where(eq(chainSteps.id, id));
+  }
+  async getChainStep(id: number): Promise<ChainStep | undefined> {
+    const [chainStep] = await db.select()
+      .from(chainSteps)
+      .where(eq(chainSteps.id, id));
+    return chainStep;
+  }
   async createChainAssignment(assignment: InsertChainAssignment): Promise<ChainAssignment> {
     console.log(`[Storage] Creating chain assignment:`, assignment);
 
@@ -327,184 +362,35 @@ export class DatabaseStorage implements IStorage {
       return newAssignment;
     });
   }
-  async updateChainAssignment(id: number, update: Partial<ChainAssignment>): Promise<ChainAssignment> { throw new Error("Method not implemented."); }
-  async deleteChainAssignment(id: number): Promise<void> { throw new Error("Method not implemented."); }
-  async getStepApprovals(assignmentId: number): Promise<StepApproval[]> { throw new Error("Method not implemented."); }
-  async createStepApproval(approval: InsertStepApproval): Promise<StepApproval> { throw new Error("Method not implemented."); }
-  async deleteStepApproval(id: number): Promise<void> { throw new Error("Method not implemented."); }
-  async getHealthRecords(plantId: number): Promise<HealthRecord[]> { throw new Error("Method not implemented."); }
-  async getHealthRecord(id: number): Promise<HealthRecord | undefined> { throw new Error("Method not implemented."); }
-  async createHealthRecord(record: InsertHealthRecord): Promise<HealthRecord> { throw new Error("Method not implemented."); }
-  async updateHealthRecord(id: number, update: Partial<HealthRecord>): Promise<HealthRecord> { throw new Error("Method not implemented."); }
-  async createTaskForChainStep(assignmentId: number, stepId: number): Promise<void> { throw new Error("Method not implemented."); }
-
-
-  async getChecklistItems(templateId: number): Promise<ChecklistItem[]> {
-    return db.select()
-      .from(checklistItems)
-      .where(eq(checklistItems.templateId, templateId))
-      .orderBy(checklistItems.order);
-  }
-
-  async createChecklistItem(item: InsertChecklistItem): Promise<ChecklistItem> {
-    const [newItem] = await db.insert(checklistItems)
-      .values(item)
-      .returning();
-    return newItem;
-  }
-
-  async updateChecklistItem(id: number, update: Partial<ChecklistItem>): Promise<ChecklistItem> {
-    const [updatedItem] = await db.update(checklistItems)
+  async updateChainAssignment(id: number, update: Partial<ChainAssignment>): Promise<ChainAssignment> {
+    const [chainAssignment] = await db.update(chainAssignments)
       .set(update)
-      .where(eq(checklistItems.id, id))
-      .returning();
-    if (!updatedItem) throw new Error("Checklist item not found");
-    return updatedItem;
-  }
-
-  async deleteChecklistItem(id: number): Promise<void> {
-    await db.delete(checklistItems).where(eq(checklistItems.id, id));
-  }
-
-
-  async getTaskChains(): Promise<TaskChain[]> {
-    return db.select()
-      .from(taskChains)
-      .where(eq(taskChains.isActive, true))
-      .orderBy(desc(taskChains.createdAt));
-  }
-
-  async getChainAssignments(plantId?: number): Promise<ChainAssignment[]> {
-    let query = db.select()
-      .from(chainAssignments)
-      .orderBy(desc(chainAssignments.startedAt));
-
-    if (plantId) {
-      query = query.where(eq(chainAssignments.plantId, plantId));
-    }
-
-    const assignments = await query;
-    console.log('Retrieved assignments:', assignments);
-
-    // For each assignment, calculate progress if not set
-    return Promise.all(assignments.map(async (assignment) => {
-      if (assignment.progressPercentage === 0 && assignment.status === "active") {
-        // Get all steps for this chain
-        const steps = await this.getChainSteps(assignment.chainId);
-
-        // Get completed care tasks
-        const completedTasks = await db.select()
-          .from(careTasks)
-          .where(and(
-            eq(careTasks.chainAssignmentId, assignment.id),
-            eq(careTasks.completed, true)
-          ));
-
-        // Calculate progress
-        const completedSteps = completedTasks.map(task => String(task.chainStepId));
-        const progressPercentage = Math.round((completedSteps.length / steps.length) * 100);
-
-        // Update assignment in database
-        const [updatedAssignment] = await db.update(chainAssignments)
-          .set({
-            completedSteps,
-            progressPercentage,
-            lastUpdated: new Date()
-          })
-          .where(eq(chainAssignments.id, assignment.id))
-          .returning();
-
-        return updatedAssignment;
-      }
-      return assignment;
-    }));
-  }
-
-  async getChainAssignment(id: number): Promise<ChainAssignment | undefined> {
-    console.log('Fetching chain assignment:', id);
-
-    const [assignment] = await db.select()
-      .from(chainAssignments)
-      .where(eq(chainAssignments.id, id));
-
-    if (!assignment) {
-      console.log('Assignment not found:', id);
-      return undefined;
-    }
-
-    // Get chain to verify it exists
-    const chain = await this.getTaskChain(assignment.chainId);
-    if (!chain) {
-      console.log('Associated chain not found:', assignment.chainId);
-      return undefined;
-    }
-
-    // Get completed steps and calculate progress
-    const steps = await this.getChainSteps(assignment.chainId);
-    const completedTasks = await db.select()
-      .from(careTasks)
-      .where(and(
-        eq(careTasks.chainAssignmentId, id),
-        eq(careTasks.completed, true)
-      ));
-
-    const completedSteps = completedTasks.map(task => String(task.chainStepId));
-    const progressPercentage = Math.round((completedSteps.length / steps.length) * 100);
-
-    // Update and return assignment
-    const [updatedAssignment] = await db.update(chainAssignments)
-      .set({
-        completedSteps,
-        progressPercentage,
-        lastUpdated: new Date()
-      })
       .where(eq(chainAssignments.id, id))
       .returning();
-
-    return updatedAssignment;
+    if (!chainAssignment) throw new Error("Chain assignment not found");
+    return chainAssignment;
   }
-
-  async getTaskChain(id: number): Promise<TaskChain | undefined> {
-    console.log('Fetching task chain:', id);
-    if (!id) {
-      console.log('Invalid chain ID:', id);
-      return undefined;
-    }
-
-    // Get chain with steps count
-    const [chain] = await db.select({
-      id: taskChains.id,
-      name: taskChains.name,
-      description: taskChains.description,
-      category: taskChains.category,
-      createdAt: taskChains.createdAt,
-      isActive: taskChains.isActive
-    })
-      .from(taskChains)
-      .where(eq(taskChains.id, id));
-
-    if (!chain) {
-      console.log('Chain not found:', id);
-      return undefined;
-    }
-
-    // Get steps count
-    const [stepsCount] = await db.select({
-      count: sql<number>`count(*)::int`
-    })
-      .from(chainSteps)
-      .where(eq(chainSteps.chainId, id));
-
-    console.log('Retrieved chain:', chain, 'with steps count:', stepsCount.count);
-
-    return {
-      ...chain,
-      stepCount: stepsCount.count
-    };
+  async deleteChainAssignment(id: number): Promise<void> {
+    console.log('Deleting chain assignment:', id);
+    await db.delete(chainAssignments).where(eq(chainAssignments.id, id));
   }
-
+  async getStepApprovals(assignmentId: number): Promise<StepApproval[]> {
+    return db.select().from(stepApprovals).where(eq(stepApprovals.assignmentId, assignmentId));
+  }
+  async createStepApproval(approval: InsertStepApproval): Promise<StepApproval> {
+    const [newApproval] = await db.insert(stepApprovals)
+      .values(approval)
+      .returning();
+    return newApproval;
+  }
+  async deleteStepApproval(id: number): Promise<void> {
+    console.log('Deleting step approval:', id);
+    await db.delete(stepApprovals).where(eq(stepApprovals.id, id));
+  }
+  
   async getChainSteps(chainId: number): Promise<(ChainStep & { templateName: string; templateDescription: string | null })[]> {
     console.log('Fetching steps for chain:', chainId);
+    
     const steps = await db.select({
       id: chainSteps.id,
       chainId: chainSteps.chainId,
@@ -533,15 +419,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getChainStepsWithProgress(chainId: number, assignmentId: number): Promise<(ChainStep & {
-    templateName: string;
+    templateName: string | null;
     templateDescription: string | null;
     isCompleted: boolean;
-    careTaskId?: number;
-    completedAt?: string;
+    careTaskId?: number | null;
   })[]> {
+
     console.log('Fetching steps with progress for chain:', chainId, 'assignment:', assignmentId);
 
-    // Get all steps with template info and care task status in a single query
     const stepsWithProgress = await db.select({
       id: chainSteps.id,
       chainId: chainSteps.chainId,
@@ -556,7 +441,6 @@ export class DatabaseStorage implements IStorage {
       templateDescription: taskTemplates.description,
       careTaskId: careTasks.id,
       completed: careTasks.completed,
-      completedAt: careTasks.completedAt
     })
       .from(chainSteps)
       .leftJoin(taskTemplates, eq(chainSteps.templateId, taskTemplates.id))
@@ -579,14 +463,15 @@ export class DatabaseStorage implements IStorage {
 
     const completedStepIds = assignment?.completedSteps || [];
 
-    return stepsWithProgress.map(step => ({
-      ...step,
-      templateName: step.templateName ?? 'Unknown Task',
-      templateDescription: step.templateDescription ?? null,
-      isCompleted: step.completed || completedStepIds.includes(String(step.id)),
-      careTaskId: step.careTaskId,
-      completedAt: step.completedAt?.toISOString() ?? undefined
-    }));
+    return stepsWithProgress.map(step => {
+      return {
+        ...step,
+        templateName: step.templateName ?? null,
+        templateDescription: step.templateDescription ?? null,
+        isCompleted: step.completed || completedStepIds.includes(String(step.id)),
+        careTaskId: step.careTaskId ?? null,
+      };
+    });
   }
 
   async completeChainStep(assignmentId: number, stepId: number): Promise<void> {
@@ -670,6 +555,71 @@ export class DatabaseStorage implements IStorage {
           .where(eq(chainAssignments.id, assignmentId));
       }
     });
+  }
+
+   async getTaskChains(): Promise<TaskChain[]> {
+    return db.select().from(taskChains);
+  }
+  async getTaskChain(id: number): Promise<TaskChain | undefined> {
+    const [taskChain] = await db.select()
+      .from(taskChains)
+      .where(eq(taskChains.id, id));
+    return taskChain;
+  }
+   async getChainAssignments(plantId?: number): Promise<ChainAssignment[]> {
+    let query: any = db.select().from(chainAssignments);
+
+    if (plantId) {
+      query = query.where(eq(chainAssignments.plantId, plantId));
+    }
+
+    return query;
+  }
+  async getChainAssignment(id: number): Promise<ChainAssignment | undefined> {
+    const [chainAssignment] = await db.select()
+      .from(chainAssignments)
+      .where(eq(chainAssignments.id, id));
+    return chainAssignment;
+  }
+
+  async getHealthRecords(plantId: number): Promise<HealthRecord[]> {
+    return db.select().from(healthRecords).where(eq(healthRecords.plantId, plantId));
+  }
+
+  async getHealthRecord(id: number): Promise<HealthRecord | undefined> {
+    const [healthRecord] = await db.select().from(healthRecords).where(eq(healthRecords.id, id));
+    return healthRecord;
+  }
+
+  async createHealthRecord(record: InsertHealthRecord): Promise<HealthRecord> {
+    const [newRecord] = await db.insert(healthRecords).values(record).returning();
+    return newRecord;
+  }
+
+  async updateHealthRecord(id: number, update: Partial<HealthRecord>): Promise<HealthRecord> {
+    const [healthRecord] = await db.update(healthRecords).set(update).where(eq(healthRecords.id, id)).returning();
+    if (!healthRecord) throw new Error("Health record not found");
+    return healthRecord;
+  }
+
+  async getChecklistItems(templateId: number): Promise<ChecklistItem[]> {
+    return db.select().from(checklistItems).where(eq(checklistItems.templateId, templateId));
+  }
+  async createChecklistItem(item: InsertChecklistItem): Promise<ChecklistItem> {
+    const [newItem] = await db.insert(checklistItems).values(item).returning();
+    return newItem;
+  }
+  async updateChecklistItem(id: number, update: Partial<ChecklistItem>): Promise<ChecklistItem> {
+    const [checklistItem] = await db.update(checklistItems).set(update).where(eq(checklistItems.id, id)).returning();
+    if (!checklistItem) throw new Error("Checklist item not found");
+    return checklistItem;
+  }
+  async deleteChecklistItem(id: number): Promise<void> {
+    await db.delete(checklistItems).where(eq(checklistItems.id, id));
+  }
+
+  async createTaskForChainStep(assignmentId: number, stepId: number): Promise<void> {
+    console.log(`Creating task for chain step: assignmentId=${assignmentId}, stepId=${stepId}`);
   }
 }
 
