@@ -187,6 +187,19 @@ export class DatabaseStorage implements IStorage {
     
     if (chainStep) {
       if (chainStep.requiresApproval) {
+        console.log(`Step ${chainStep.id} requires approval. Creating step approval...`);
+        try {
+          // Create step approval record
+          await this.createStepApproval({
+            assignmentId: existingTask.chainAssignmentId,
+            stepId: existingTask.chainStepId,
+            approvedBy: 1, // TODO: Get the actual user ID
+            notes: `Approval required for task ${id}`,
+          });
+          console.log(`Successfully created step approval for task ${id}`);
+        } catch (approvalError) {
+          console.error(`Error creating step approval for task ${id}:`, approvalError);
+        }
         console.log(`Step ${chainStep.id} requires approval. Task marked as completed but chain will not advance until approved.`);
         // We don't advance the chain - it will wait for approval
       } else {
@@ -400,6 +413,7 @@ export class DatabaseStorage implements IStorage {
         });
 
         console.log(`[Storage] Created first task for chain ${assignment.chainId}`);
+        console.log(`[Storage] Created first task for chain ${assignment.chainId}`);
         return updatedAssignment;
       }
 
@@ -447,6 +461,7 @@ export class DatabaseStorage implements IStorage {
       approvalRoles: chainSteps.approvalRoles,
       templateName: taskTemplates.name,
       templateDescription: taskTemplates.description,
+      isCompleted: sql<boolean>`false`, // Add isCompleted property
     })
       .from(chainSteps)
       .leftJoin(taskTemplates, eq(chainSteps.templateId, taskTemplates.id))
@@ -485,6 +500,7 @@ export class DatabaseStorage implements IStorage {
       templateDescription: taskTemplates.description,
       careTaskId: careTasks.id,
       completed: careTasks.completed,
+      isCompleted: sql<boolean>`false`, // Add isCompleted property
     })
       .from(chainSteps)
       .leftJoin(taskTemplates, eq(chainSteps.templateId, taskTemplates.id))
@@ -548,7 +564,10 @@ export class DatabaseStorage implements IStorage {
         ));
 
       // Get completed steps array and add current step
-      const completedSteps = [...(assignment.completedSteps || []), String(stepId)];
+      let completedSteps = assignment.completedSteps || [];
+      if (!completedSteps.includes(String(stepId))) {
+        completedSteps = [...completedSteps, String(stepId)];
+      }
       const progressPercentage = Math.round((completedSteps.length / steps.length) * 100);
 
       // Create next step's task if available

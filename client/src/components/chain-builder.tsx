@@ -19,8 +19,8 @@ import { Plus, Trash2, AlertCircle, Clock, Shield } from "lucide-react";
 
 interface Props {
   open: boolean;
-  onClose: () => void;
-  existingChain?: TaskChain;
+  onClose: () => void,
+  existingChain?: TaskChain,
 }
 
 interface StepData {
@@ -40,12 +40,13 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
   const { toast } = useToast();
   const [localSteps, setLocalSteps] = useState<StepData[]>([]);
   const [selectedStep, setSelectedStep] = useState<number | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [showUnsavedChanges, setShowUnsavedChanges] = useState(false);
 
   // Load templates for step selection
-  const { data: templates = [] } = useQuery<TaskTemplate[]>({
+  const { data: templates = [], isLoading: isLoadingTemplates, isError: isErrorTemplates } = useQuery<TaskTemplate[]>({
     queryKey: ["/api/task-templates"],
   });
 
@@ -95,7 +96,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
 
         // Delete existing steps
         if (existingChain) {
-          const deleteStepsResponse = await fetch(`/api/task-chains/${existingChain.id}/steps`, {
+          const deleteStepsResponse = await fetch(`/api/task-chains/${existingChain?.id}/steps`, {
             method: "DELETE",
           });
 
@@ -174,11 +175,14 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
         waitDuration: step.waitDuration ?? 0,
         requiresApproval: step.requiresApproval ?? false,
         approvalRoles: step.approvalRoles ?? [],
-        templateName: step.templateName,
-        templateDescription: step.templateDescription,
+        templateName: template.name,
+        templateDescription: template.description ?? null,
       }));
       console.log("[ChainBuilder] mappedSteps:", mappedSteps);
       setLocalSteps(mappedSteps);
+      setIsDirty(false);
+    } else {
+      setLocalSteps([]);
       setIsDirty(false);
     }
   }, [existingChain, existingSteps]);
@@ -189,8 +193,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       form.reset({
         name: existingChain.name,
         description: existingChain.description ?? "",
-        category: existingChain.category as "water" | "fertilize" | "prune" | "check" | "repot" | "clean",
-        isActive: existingChain.isActive,
+        category: (existingChain.category ?? "water") as "water" | "fertilize" | "prune" | "check" | "repot" | "clean",
+        isActive: existingChain.isActive ?? true,
       });
       setIsDirty(false);
     }
@@ -233,9 +237,20 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
       return;
     }
 
-    const template = templates[0];
+    const templateId = selectedTemplateId || templates[0].id;
+    const template = templates.find(t => t.id === templateId);
+
+    if (!template) {
+      toast({
+        title: "Cannot add step",
+        description: "Selected task template not found",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const newStep: StepData = {
-      templateId: template.id,
+      templateId: templateId,
       order: localSteps.length + 1,
       isRequired: true,
       waitDuration: 0,
@@ -353,6 +368,18 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                   </Button>
                 </div>
 
+                {isLoadingTemplates && (
+                  <div className="flex items-center gap-2 text-muted-foreground border rounded-lg p-4">
+                    <Clock className="w-4 h-4 animate-spin" />
+                    <p>Loading task templates...</p>
+                  </div>
+                )}
+                {isErrorTemplates && (
+                  <div className="flex items-center gap-2 text-muted-foreground border rounded-lg p-4">
+                    <AlertCircle className="w-4 h-4 text-destructive" />
+                    <p>Error loading task templates. Please try again later.</p>
+                  </div>
+                )}
                 {localSteps.length === 0 ? (
                   <div className="flex items-center gap-2 text-muted-foreground border rounded-lg p-4">
                     <AlertCircle className="w-4 h-4" />
@@ -363,7 +390,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                     {localSteps.map((step, index) => (
                       <Card
                         key={index}
-                        className={`${selectedStep === index ? "ring-2 ring-primary" : ""}`}
+                        className={`\${selectedStep === index ? "ring-2 ring-primary" : ""}`}
                         onClick={() => setSelectedStep(index)}
                       >
                         <CardContent className="p-4">
@@ -375,6 +402,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                               <Select
                                 value={String(step.templateId)}
                                 onValueChange={(value) => {
+                                  setSelectedTemplateId(Number(value));
                                   const template = templates.find(
                                     (t) => t.id === Number(value)
                                   );
@@ -545,8 +573,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                   <Button type="button" variant="outline" onClick={handleClose}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isLoading || saveMutation.isPending}>
-                    {isLoading || saveMutation.isPending ? "Saving..." : "Save"}
+                  <Button type="submit" variant="outline" disabled={isLoadingTemplates || saveMutation.isPending}>
+                    {isLoadingTemplates || saveMutation.isPending ? "Saving..." : "Save"}
                   </Button>
                 </div>
               </div>

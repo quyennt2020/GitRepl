@@ -154,6 +154,7 @@ export const chainSteps = pgTable("chain_steps", {
   condition: jsonb("condition"), // Conditions for step to be active
   requiresApproval: boolean("requires_approval").default(false),
   approvalRoles: text("approval_roles").array(), // Roles that can approve this step
+  isCompleted: boolean("is_completed").default(false), // Add isCompleted field
 });
 
 // Modified chainAssignments table definition

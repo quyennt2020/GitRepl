@@ -436,20 +436,26 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Chain Steps routes
-  app.get("/api/task-chains/:chainId/steps", async (req, res) => {
+  app.get("/api/task-chains/:chainId/steps/:assignmentId", async (req, res) => {
     try {
       const chainId = Number(req.params.chainId);
+      const assignmentId = Number(req.params.assignmentId);
+
       if (isNaN(chainId)) {
         return res.status(400).json({ message: "Invalid chain ID" });
       }
 
-      console.log('Fetching steps for chain:', chainId);
-      const steps = await storage.getChainSteps(chainId);
-      console.log('Retrieved steps:', steps);
+      if (isNaN(assignmentId)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+
+      console.log('Fetching steps with progress for chain:', chainId, 'assignment:', assignmentId);
+      const steps = await storage.getChainStepsWithProgress(chainId, assignmentId);
+      console.log('Retrieved steps with progress:', steps);
       res.json(steps);
     } catch (error) {
-      console.error('Error fetching chain steps:', error);
-      res.status(500).json({ message: "Failed to fetch chain steps" });
+      console.error('Error fetching chain steps with progress:', error);
+      res.status(500).json({ message: "Failed to fetch chain steps with progress" });
     }
   });
 
@@ -633,6 +639,27 @@ app.get("/api/chain-assignments/:id", async (req, res) => {
     });
   }
 });
+
+  app.post("/api/chain-assignments/:assignmentId/steps/:stepId/complete", async (req, res) => {
+    try {
+      const assignmentId = Number(req.params.assignmentId);
+      const stepId = Number(req.params.stepId);
+
+      if (isNaN(assignmentId)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+
+      if (isNaN(stepId)) {
+        return res.status(400).json({ message: "Invalid step ID" });
+      }
+
+      await storage.completeChainStep(assignmentId, stepId);
+      res.status(200).json({ message: "Step completed successfully" });
+    } catch (error) {
+      console.error('Error completing chain step:', error);
+      res.status(500).json({ message: "Failed to complete chain step" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
