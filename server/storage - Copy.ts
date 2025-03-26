@@ -145,64 +145,20 @@ export class DatabaseStorage implements IStorage {
     return newTask;
   }
   async updateCareTask(id: number, update: Partial<CareTask>): Promise<CareTask> {
-  console.log(`Updating care task: ${id} with:`, update);
-  
-  // Format the date values if present
-  const updatedData: Partial<CareTask> = { ...update };
-  if (update.completedAt) {
-    updatedData.completedAt = new Date(update.completedAt);
-  } else if (update.completedAt === null) {
-    updatedData.completedAt = null;
-  }
-
-  // First, get the current task to check if it's part of a chain
-  const [existingTask] = await db.select()
-    .from(careTasks)
-    .where(eq(careTasks.id, id));
-  
-  if (!existingTask) {
-    console.error(`Task ${id} not found`);
-    throw new Error("Care task not found");
-  }
-  
-  // Update the task
-  console.log(`Updating task ${id} in database...`);
-  const [task] = await db.update(careTasks)
-    .set(updatedData)
-    .where(eq(careTasks.id, id))
-    .returning();
-  
-  // Now check if we need to update chain progress
-  if (update.completed === true && 
-      existingTask.chainAssignmentId && 
-      existingTask.chainStepId && 
-      !existingTask.completed) {
-    
-    console.log(`Task ${id} is part of chain - checking approval requirements...`);
-    
-    // Get the chain step to check if it requires approval
-    const [chainStep] = await db.select()
-      .from(chainSteps)
-      .where(eq(chainSteps.id, existingTask.chainStepId));
-    
-    if (chainStep) {
-      if (chainStep.requiresApproval) {
-        console.log(`Step ${chainStep.id} requires approval. Task marked as completed but chain will not advance until approved.`);
-        // We don't advance the chain - it will wait for approval
-      } else {
-        // No approval required, complete the chain step
-        try {
-          await this.completeChainStep(existingTask.chainAssignmentId, existingTask.chainStepId);
-          console.log(`Successfully advanced chain for task ${id}`);
-        } catch (error) {
-          console.error(`Error advancing chain for task ${id}:`, error);
-        }
-      }
+    const updatedData: Partial<CareTask> = { ...update };
+    if (update.completedAt) {
+      updatedData.completedAt = new Date(update.completedAt);
+    } else if (update.completedAt === null) {
+      updatedData.completedAt = null;
     }
+
+    const [task] = await db.update(careTasks)
+      .set(updatedData)
+      .where(eq(careTasks.id, id))
+      .returning();
+    if (!task) throw new Error("Care task not found");
+    return task;
   }
-  
-  return task;
-}
   async deleteCareTask(id: number): Promise<void> {
     await db.delete(careTasks).where(eq(careTasks.id, id));
   }
@@ -620,20 +576,11 @@ export class DatabaseStorage implements IStorage {
     return query;
   }
   async getChainAssignment(id: number): Promise<ChainAssignment | undefined> {
-  console.log(`🔍 STORAGE: Looking up chain assignment ${id}`);
-  
-  // First try without any filtering - for debugging
-  const allAssignments = await db.select().from(chainAssignments);
-  console.log(`Total assignments in DB: ${allAssignments.length}`);
-  
-  const [chainAssignment] = await db.select()
-    .from(chainAssignments)
-    .where(eq(chainAssignments.id, id));
-    
-  console.log(`Result for assignment ${id}:`, chainAssignment);
-  
-  return chainAssignment;
-}
+    const [chainAssignment] = await db.select()
+      .from(chainAssignments)
+      .where(eq(chainAssignments.id, id));
+    return chainAssignment;
+  }
 
   async getHealthRecords(plantId: number): Promise<HealthRecord[]> {
     return db.select().from(healthRecords).where(eq(healthRecords.plantId, plantId));

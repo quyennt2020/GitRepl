@@ -499,6 +499,26 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+// Add this endpoint for getting a single chain assignment
+// Find this endpoint or add it if it doesn't exist
+app.get("/api/chain-assignments/:id", async (req, res) => {
+  console.log(`🔍 GET chain assignment ${req.params.id}`);
+  try {
+    const id = Number(req.params.id);
+    const assignment = await storage.getChainAssignment(id);
+    
+    console.log('Assignment found:', assignment);
+    
+    if (!assignment) {
+      return res.status(404).json({ message: "Chain assignment not found" });
+    }
+    
+    res.json(assignment);
+  } catch (error) {
+    console.error('Error fetching chain assignment:', error);
+    res.status(500).json({ message: "Failed to fetch chain assignment" });
+  }
+});
   app.post("/api/chain-assignments", async (req, res) => {
     try {
       const result = insertChainAssignmentSchema.safeParse(req.body);
@@ -568,57 +588,51 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.post("/api/chain-assignments/:assignmentId/steps/:stepId/approve", async (req, res) => {
-    try {
-      const assignmentId = Number(req.params.assignmentId);
-      const stepId = Number(req.params.stepId);
-      const { approved, notes, approvedBy } = req.body;
+ app.post("/api/chain-assignments/:assignmentId/steps/:stepId/approve", async (req, res) => {
+  try {
+    const assignmentId = Number(req.params.assignmentId);
+    const stepId = Number(req.params.stepId);
+    const { approved, notes, approvedBy } = req.body;
 
-      console.log('Approval request received:', {
-        assignmentId,
-        stepId,
-        approved,
-        notes,
-        approvedBy
-      });
+    console.log('Approval request received:', {
+      assignmentId,
+      stepId,
+      approved,
+      notes,
+      approvedBy
+    });
 
-      if (!assignmentId || !stepId) {
-        return res.status(400).json({ message: "Invalid assignment or step ID" });
-      }
-
-      // Get the assignment
-      const assignment = await storage.getChainAssignment(assignmentId);
-      if (!assignment) {
-        console.log('Assignment not found:', assignmentId);
-        return res.status(404).json({ message: "Assignment not found" });
-      }
-
-      // Get the step
-      const step = await storage.getChainStep(stepId);
-      if (!step) {
-        console.log('Step not found:', stepId);
-        return res.status(404).json({ message: "Step not found" });
-      }
-
-      console.log('Found assignment and step:', { assignment, step });
-
-      // Create step approval
-      const approval = await storage.createStepApproval({
-        assignmentId,
-        stepId,
-        approvedBy,
-        notes: notes || null,
-      });
-
-      res.status(201).json(approval);
-    } catch (error) {
-      console.error('Error in step approval:', error);
-      res.status(500).json({ 
-        message: "Failed to process approval",
-        details: error instanceof Error ? error.message : "Unknown error"
-      });
+    if (!assignmentId || !stepId) {
+      return res.status(400).json({ message: "Invalid assignment or step ID" });
     }
-  });
+
+    // Create step approval record
+    const approval = await storage.createStepApproval({
+      assignmentId,
+      stepId,
+      approvedBy,
+      notes: notes || null,
+    });
+
+    // If approved, complete the chain step to advance the chain
+    if (approved) {
+      console.log(`Step ${stepId} approved - advancing chain...`);
+      await storage.completeChainStep(assignmentId, stepId);
+      console.log(`Chain advanced successfully`);
+    }
+
+    res.status(201).json({
+      approval,
+      chainAdvanced: approved
+    });
+  } catch (error) {
+    console.error('Error in step approval:', error);
+    res.status(500).json({ 
+      message: "Failed to process approval",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
 
   const httpServer = createServer(app);
   return httpServer;

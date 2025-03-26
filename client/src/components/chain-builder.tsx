@@ -93,10 +93,25 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
         const chain = await chainResponse.json();
         console.log('Chain saved:', chain);
 
-        // Create new steps with correct chain ID
-        const stepPromises = localSteps.map((step, index) =>
-          fetch("/api/chain-steps", {
-            method: "POST",
+        // Delete existing steps
+        if (existingChain) {
+          const deleteStepsResponse = await fetch(`/api/task-chains/${existingChain.id}/steps`, {
+            method: "DELETE",
+          });
+
+          if (!deleteStepsResponse.ok) {
+            const error = await deleteStepsResponse.text();
+            throw new Error(`Failed to delete existing steps: ${error}`);
+          }
+        }
+
+        // Update or create steps with correct chain ID
+        const stepPromises = localSteps.map((step, index) => {
+          const url = step.id ? `/api/chain-steps/${step.id}` : "/api/chain-steps";
+          const method = step.id ? "PATCH" : "POST";
+
+          return fetch(url, {
+            method: method,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               ...step,
@@ -109,8 +124,8 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
               throw new Error(`Failed to save step ${index + 1}: ${error}`);
             }
             return response.json();
-          })
-        );
+          });
+        });
 
         await Promise.all(stepPromises);
         console.log('All steps saved successfully');
@@ -147,8 +162,10 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
 
   // Initialize local state from existing data
   useEffect(() => {
+    console.log("[ChainBuilder] existingChain:", existingChain);
+    console.log("[ChainBuilder] existingSteps:", existingSteps);
     if (existingSteps.length && existingChain) {
-      setLocalSteps(existingSteps.map(step => ({
+      const mappedSteps = existingSteps.map(step => ({
         id: step.id,
         chainId: existingChain.id,
         templateId: step.templateId,
@@ -159,7 +176,9 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
         approvalRoles: step.approvalRoles ?? [],
         templateName: step.templateName,
         templateDescription: step.templateDescription,
-      })));
+      }));
+      console.log("[ChainBuilder] mappedSteps:", mappedSteps);
+      setLocalSteps(mappedSteps);
       setIsDirty(false);
     }
   }, [existingChain, existingSteps]);
@@ -291,6 +310,7 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                           placeholder="Describe the chain's purpose"
                           className="resize-none"
                           rows={3}
+                          value={field.value ?? ""}
                         />
                       </FormControl>
                       <FormMessage />
@@ -443,11 +463,13 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                           type="number"
                           min="0"
                           value={selectedStepData.waitDuration ?? 0}
-                          onChange={(e) =>
-                            updateStep(selectedStep, {
-                              waitDuration: Math.max(0, parseInt(e.target.value) || 0),
-                            })
-                          }
+                          onChange={(e) => {
+                            if (selectedStep !== null) {
+                              updateStep(selectedStep, {
+                                waitDuration: Math.max(0, parseInt(e.target.value) || 0),
+                              });
+                            }
+                          }}
                           placeholder="Hours to wait after previous step"
                         />
                       </FormControl>
@@ -458,11 +480,13 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                         <Checkbox
                           id="step-required"
                           checked={selectedStepData.isRequired}
-                          onCheckedChange={(checked) =>
-                            updateStep(selectedStep, {
-                              isRequired: !!checked,
-                            })
-                          }
+                          onCheckedChange={(checked) => {
+                            if (selectedStep !== null) {
+                              updateStep(selectedStep, {
+                                isRequired: !!checked,
+                              });
+                            }
+                          }}
                         />
                         <label htmlFor="step-required" className="text-sm font-medium leading-none">
                           Required step
@@ -473,12 +497,14 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                         <Checkbox
                           id="step-approval"
                           checked={selectedStepData.requiresApproval}
-                          onCheckedChange={(checked) =>
-                            updateStep(selectedStep, {
-                              requiresApproval: !!checked,
-                              approvalRoles: checked ? ["expert"] : [],
-                            })
-                          }
+                          onCheckedChange={(checked) => {
+                            if (selectedStep !== null) {
+                              updateStep(selectedStep, {
+                                requiresApproval: !!checked,
+                                approvalRoles: checked ? ["expert"] : [],
+                              });
+                            }
+                          }}
                         />
                         <label htmlFor="step-approval" className="text-sm font-medium leading-none">
                           Requires approval
@@ -490,11 +516,13 @@ export default function ChainBuilder({ open, onClose, existingChain }: Props) {
                           <FormLabel>Approval Roles</FormLabel>
                           <Select
                             value={selectedStepData.approvalRoles[0] || "expert"}
-                            onValueChange={(value) =>
-                              updateStep(selectedStep, {
-                                approvalRoles: [value],
-                              })
-                            }
+                            onValueChange={(value) => {
+                              if (selectedStep !== null) {
+                                updateStep(selectedStep, {
+                                  approvalRoles: [value],
+                                });
+                              }
+                            }}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select required role" />
